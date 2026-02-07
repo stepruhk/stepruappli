@@ -567,43 +567,39 @@ const App: React.FC = () => {
                         </div>
                         );
                       })}
-                    </div>
-
-                    <div className="mt-12">
-                      <h2 className="text-3xl font-black text-slate-900 mb-6">Accueil rapide</h2>
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-                          <h3 className="text-2xl font-black text-slate-900 mb-2 flex items-center gap-3">
-                            <i className="fas fa-podcast text-emerald-600"></i>
-                            Balado
-                          </h3>
-                          <p className="text-slate-600 text-lg mb-5">
-                            Accède rapidement au balado Spotify depuis la page d'accueil.
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => setMenuSection('BALADO')}
-                            className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-white font-bold hover:bg-emerald-700 transition-colors"
-                          >
-                            Ouvrir Balado
-                          </button>
+                      <div
+                        onClick={() => setMenuSection('BALADO')}
+                        className="relative bg-white rounded-3xl p-8 md:p-10 cursor-pointer border border-slate-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all group overflow-hidden"
+                      >
+                        <div className="absolute -top-8 -right-8 w-36 h-36 rounded-full bg-emerald-50"></div>
+                        <div className="relative w-16 h-16 rounded-2xl bg-emerald-600 text-white flex items-center justify-center mb-8">
+                          <i className="fas fa-podcast text-2xl"></i>
                         </div>
+                        <h3 className="relative text-2xl md:text-3xl font-black text-slate-900 mb-3 leading-tight">Balado</h3>
+                        <p className="relative text-xl md:text-2xl text-slate-600 leading-relaxed">
+                          Ouvre le balado Spotify depuis l'accueil des cours.
+                        </p>
+                        <div className="relative mt-8 flex items-center text-emerald-600 font-extrabold text-xl md:text-2xl">
+                          <span>Accéder</span>
+                          <i className="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
+                        </div>
+                      </div>
 
-                        <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-                          <h3 className="text-2xl font-black text-slate-900 mb-2 flex items-center gap-3">
-                            <i className="fas fa-robot text-indigo-600"></i>
-                            Assistant IA
-                          </h3>
-                          <p className="text-slate-600 text-lg mb-5">
-                            Lance l'assistant pédagogique directement depuis la page d'accueil.
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => setMenuSection('ASSISTANT')}
-                            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-white font-bold hover:bg-indigo-700 transition-colors"
-                          >
-                            Ouvrir Assistant IA
-                          </button>
+                      <div
+                        onClick={() => setMenuSection('ASSISTANT')}
+                        className="relative bg-white rounded-3xl p-8 md:p-10 cursor-pointer border border-slate-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all group overflow-hidden"
+                      >
+                        <div className="absolute -top-8 -right-8 w-36 h-36 rounded-full bg-indigo-50"></div>
+                        <div className="relative w-16 h-16 rounded-2xl bg-indigo-600 text-white flex items-center justify-center mb-8">
+                          <i className="fas fa-robot text-2xl"></i>
+                        </div>
+                        <h3 className="relative text-2xl md:text-3xl font-black text-slate-900 mb-3 leading-tight">Assistant IA</h3>
+                        <p className="relative text-xl md:text-2xl text-slate-600 leading-relaxed">
+                          Lance l'assistant pédagogique depuis l'accueil des cours.
+                        </p>
+                        <div className="relative mt-8 flex items-center text-indigo-600 font-extrabold text-xl md:text-2xl">
+                          <span>Accéder</span>
+                          <i className="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
                         </div>
                       </div>
                     </div>
