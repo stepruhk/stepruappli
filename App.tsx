@@ -287,13 +287,35 @@ const App: React.FC = () => {
     }
   };
 
-  const fileToDataUrl = (file: File) =>
-    new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result || ''));
-      reader.onerror = () => reject(new Error('Lecture du fichier impossible.'));
-      reader.readAsDataURL(file);
-    });
+  const fileToDataUrl = async (file: File) => {
+    // Primary path: FileReader data URL.
+    try {
+      const result = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('Lecture du fichier impossible.'));
+        reader.readAsDataURL(file);
+      });
+      if (result) return result;
+    } catch (_error) {
+      // Continue with a fallback for browsers that fail on readAsDataURL.
+    }
+
+    // Fallback path: arrayBuffer -> base64 data URL.
+    try {
+      const buffer = await file.arrayBuffer();
+      let binary = '';
+      const bytes = new Uint8Array(buffer);
+      const chunkSize = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+      }
+      const mime = file.type || 'application/pdf';
+      return `data:${mime};base64,${btoa(binary)}`;
+    } catch (_error) {
+      throw new Error('Lecture du fichier impossible.');
+    }
+  };
 
   const addPdfContent = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();

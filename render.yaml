@@ -17,3 +17,7 @@ services:
         sync: false
       - key: PROF_PASSWORD
         sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false

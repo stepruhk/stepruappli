@@ -14,6 +14,8 @@ const port = Number(process.env.PORT || 8787);
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const APP_PASSWORD = (process.env.APP_PASSWORD || "").trim();
 const PROF_PASSWORD = (process.env.PROF_PASSWORD || "").trim();
+const SUPABASE_URL = (process.env.SUPABASE_URL || "").trim().replace(/\/+$/, "");
+const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 const SESSION_TTL_MS = Number(process.env.SESSION_TTL_MS || 12 * 60 * 60 * 1000);
 const OPENAI_BASE_URL = "https://api.openai.com/v1";
 const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 60_000);
@@ -31,6 +33,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const storageFilePath = process.env.STORAGE_FILE || path.resolve(__dirname, "../data/app-data.json");
 let storeCache = null;
+const hasSupabaseStorage = Boolean(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY);
 
 app.use(express.json({ limit: MAX_JSON_BODY_LIMIT }));
 app.set("trust proxy", true);
@@ -256,6 +259,41 @@ async function saveStore() {
   await fs.writeFile(storageFilePath, JSON.stringify(storeCache, null, 2), "utf8");
 }
 
+async function supabaseRequest(pathname, init = {}, { allowNotFound = false } = {}) {
+  if (!hasSupabaseStorage) {
+    throw new ApiError(500, "STORAGE_NOT_CONFIGURED", "Supabase storage is not configured.");
+  }
+
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/${pathname}`, {
+    ...init,
+    headers: {
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      "Content-Type": "application/json",
+      ...(init.headers || {}),
+    },
+  });
+
+  if (allowNotFound && response.status === 404) return null;
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new ApiError(502, "STORAGE_ERROR", "Storage backend request failed.", {
+      status: response.status,
+      body: text || null,
+      path: pathname,
+    });
+  }
+
+  const text = await response.text().catch(() => "");
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
 setInterval(() => {
   const now = Date.now();
 
@@ -408,6 +446,24 @@ app.get("/api/notes", async (req, res) => {
     if (!courseId) {
       throw new ApiError(400, "INVALID_INPUT", "Query parameter \"courseId\" is required.");
     }
+    if (hasSupabaseStorage) {
+      const rows = await supabaseRequest(
+        `notes?course_id=eq.${encodeURIComponent(courseId)}&select=id,course_id,title,content,link,created_at&order=created_at.desc`,
+        { method: "GET" },
+      );
+      const notes = Array.isArray(rows)
+        ? rows.map((row) => ({
+            id: row.id,
+            courseId: row.course_id,
+            title: row.title,
+            content: row.content || "",
+            link: row.link || undefined,
+            createdAt: row.created_at,
+          }))
+        : [];
+      res.json({ notes });
+      return;
+    }
 
     const store = await ensureStoreLoaded();
     const notes = store.notes
@@ -434,7 +490,6 @@ app.post("/api/notes", async (req, res) => {
       throw new ApiError(400, "INVALID_INPUT", "Field \"link\" must be a valid http(s) URL.");
     }
 
-    const store = await ensureStoreLoaded();
     const note = {
       id: crypto.randomUUID(),
       courseId,
@@ -443,6 +498,37 @@ app.post("/api/notes", async (req, res) => {
       link: link || undefined,
       createdAt: new Date().toISOString(),
     };
+    if (hasSupabaseStorage) {
+      const rows = await supabaseRequest("notes", {
+        method: "POST",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify({
+          id: note.id,
+          course_id: note.courseId,
+          title: note.title,
+          content: note.content,
+          link: note.link || null,
+          created_at: note.createdAt,
+        }),
+      });
+      const created = Array.isArray(rows) ? rows[0] : null;
+      if (!created) {
+        throw new ApiError(502, "STORAGE_ERROR", "Unable to persist note.");
+      }
+      res.status(201).json({
+        note: {
+          id: created.id,
+          courseId: created.course_id,
+          title: created.title,
+          content: created.content || "",
+          link: created.link || undefined,
+          createdAt: created.created_at,
+        },
+      });
+      return;
+    }
+
+    const store = await ensureStoreLoaded();
     store.notes.unshift(note);
     await saveStore();
 
@@ -458,6 +544,14 @@ app.delete("/api/notes/:id", async (req, res) => {
     const id = String(req.params.id || "").trim();
     if (!id) {
       throw new ApiError(400, "INVALID_INPUT", "Missing note id.");
+    }
+
+    if (hasSupabaseStorage) {
+      await supabaseRequest(`notes?id=eq.${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      res.json({ ok: true });
+      return;
     }
 
     const store = await ensureStoreLoaded();
@@ -478,6 +572,24 @@ app.get("/api/resources", async (req, res) => {
     const courseId = String(req.query.courseId || "").trim();
     if (!courseId) {
       throw new ApiError(400, "INVALID_INPUT", "Query parameter \"courseId\" is required.");
+    }
+    if (hasSupabaseStorage) {
+      const rows = await supabaseRequest(
+        `resources?course_id=eq.${encodeURIComponent(courseId)}&select=id,course_id,type,title,url,created_at&order=created_at.desc`,
+        { method: "GET" },
+      );
+      const resources = Array.isArray(rows)
+        ? rows.map((row) => ({
+            id: row.id,
+            courseId: row.course_id,
+            type: row.type,
+            title: row.title,
+            url: row.url,
+            createdAt: row.created_at,
+          }))
+        : [];
+      res.json({ resources });
+      return;
     }
 
     const store = await ensureStoreLoaded();
@@ -510,7 +622,6 @@ app.post("/api/resources", async (req, res) => {
       throw new ApiError(400, "INVALID_INPUT", "Field \"url\" must be a PDF data URL for PDF resources.");
     }
 
-    const store = await ensureStoreLoaded();
     const resource = {
       id: crypto.randomUUID(),
       courseId,
@@ -519,6 +630,37 @@ app.post("/api/resources", async (req, res) => {
       url,
       createdAt: new Date().toISOString(),
     };
+    if (hasSupabaseStorage) {
+      const rows = await supabaseRequest("resources", {
+        method: "POST",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify({
+          id: resource.id,
+          course_id: resource.courseId,
+          type: resource.type,
+          title: resource.title,
+          url: resource.url,
+          created_at: resource.createdAt,
+        }),
+      });
+      const created = Array.isArray(rows) ? rows[0] : null;
+      if (!created) {
+        throw new ApiError(502, "STORAGE_ERROR", "Unable to persist resource.");
+      }
+      res.status(201).json({
+        resource: {
+          id: created.id,
+          courseId: created.course_id,
+          type: created.type,
+          title: created.title,
+          url: created.url,
+          createdAt: created.created_at,
+        },
+      });
+      return;
+    }
+
+    const store = await ensureStoreLoaded();
     store.resources.unshift(resource);
     await saveStore();
 
@@ -534,6 +676,14 @@ app.delete("/api/resources/:id", async (req, res) => {
     const id = String(req.params.id || "").trim();
     if (!id) {
       throw new ApiError(400, "INVALID_INPUT", "Missing resource id.");
+    }
+
+    if (hasSupabaseStorage) {
+      await supabaseRequest(`resources?id=eq.${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      res.json({ ok: true });
+      return;
     }
 
     const store = await ensureStoreLoaded();
