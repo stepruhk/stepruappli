@@ -21,8 +21,9 @@ const RATE_LIMIT_MAX_REQUESTS = Number(process.env.RATE_LIMIT_MAX_REQUESTS || 30
 const MAX_CONTENT_LENGTH = Number(process.env.MAX_CONTENT_LENGTH || 12_000);
 const MAX_PODCAST_TEXT_LENGTH = Number(process.env.MAX_PODCAST_TEXT_LENGTH || 8_000);
 const MAX_PASSWORD_LENGTH = Number(process.env.MAX_PASSWORD_LENGTH || 256);
-const MAX_URL_LENGTH = Number(process.env.MAX_URL_LENGTH || 20_000);
+const MAX_URL_LENGTH = Number(process.env.MAX_URL_LENGTH || 30_000_000);
 const MAX_TITLE_LENGTH = Number(process.env.MAX_TITLE_LENGTH || 180);
+const MAX_JSON_BODY_LIMIT = String(process.env.MAX_JSON_BODY_LIMIT || "35mb");
 
 const rateBuckets = new Map();
 const authSessions = new Map();
@@ -31,7 +32,7 @@ const __dirname = path.dirname(__filename);
 const storageFilePath = process.env.STORAGE_FILE || path.resolve(__dirname, "../data/app-data.json");
 let storeCache = null;
 
-app.use(express.json({ limit: "20mb" }));
+app.use(express.json({ limit: MAX_JSON_BODY_LIMIT }));
 app.set("trust proxy", true);
 
 class ApiError extends Error {
@@ -680,6 +681,10 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.use((error, _req, res, _next) => {
+  if (error?.type === "entity.too.large") {
+    sendError(res, new ApiError(413, "PAYLOAD_TOO_LARGE", "Le document est trop volumineux pour etre publie."));
+    return;
+  }
   if (error?.type === "entity.parse.failed") {
     sendError(res, new ApiError(400, "INVALID_JSON", "Malformed JSON payload."));
     return;

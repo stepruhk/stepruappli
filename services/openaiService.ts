@@ -2,8 +2,6 @@ import { Flashcard } from "../types.ts";
 
 const AUTH_TOKEN_KEY = "eduboost_auth_token";
 const AUTH_ROLE_KEY = "eduboost_auth_role";
-const NOTES_KEY = "eduboost_evernote_notes";
-const RESOURCES_KEY = "eduboost_content_items";
 
 export type UserRole = "student" | "professor";
 export type EvernoteNote = {
@@ -187,12 +185,8 @@ export const generatePodcastAudio = async (text: string): Promise<string> => {
 };
 
 export async function listEvernoteNotes(courseId: string): Promise<EvernoteNote[]> {
-  try {
-    const response = await getJson<{ notes?: EvernoteNote[] }>(`/api/notes?courseId=${encodeURIComponent(courseId)}`);
-    return response.notes || [];
-  } catch {
-    return readLocal<EvernoteNote>(NOTES_KEY).filter((note) => note.courseId === courseId);
-  }
+  const response = await getJson<{ notes?: EvernoteNote[] }>(`/api/notes?courseId=${encodeURIComponent(courseId)}`);
+  return response.notes || [];
 }
 
 export async function createEvernoteNote(payload: {
@@ -201,42 +195,18 @@ export async function createEvernoteNote(payload: {
   content?: string;
   link?: string;
 }): Promise<EvernoteNote> {
-  try {
-    const response = await postJson<{ note?: EvernoteNote }>("/api/notes", payload);
-    if (!response.note) throw new Error("Impossible de créer la note.");
-    return response.note;
-  } catch {
-    const notes = readLocal<EvernoteNote>(NOTES_KEY);
-    const note: EvernoteNote = {
-      id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      courseId: payload.courseId,
-      title: payload.title,
-      content: payload.content || "",
-      link: payload.link,
-      createdAt: new Date().toISOString(),
-    };
-    notes.unshift(note);
-    writeLocal(NOTES_KEY, notes);
-    return note;
-  }
+  const response = await postJson<{ note?: EvernoteNote }>("/api/notes", payload);
+  if (!response.note) throw new Error("Impossible de créer la note.");
+  return response.note;
 }
 
 export async function removeEvernoteNote(id: string): Promise<void> {
-  try {
-    await deleteJson<{ ok: boolean }>(`/api/notes/${encodeURIComponent(id)}`);
-  } catch {
-    const notes = readLocal<EvernoteNote>(NOTES_KEY).filter((note) => note.id !== id);
-    writeLocal(NOTES_KEY, notes);
-  }
+  await deleteJson<{ ok: boolean }>(`/api/notes/${encodeURIComponent(id)}`);
 }
 
 export async function listCourseContent(courseId: string): Promise<LearningContentItem[]> {
-  try {
-    const response = await getJson<{ resources?: LearningContentItem[] }>(`/api/resources?courseId=${encodeURIComponent(courseId)}`);
-    return response.resources || [];
-  } catch {
-    return readLocal<LearningContentItem>(RESOURCES_KEY).filter((item) => item.courseId === courseId);
-  }
+  const response = await getJson<{ resources?: LearningContentItem[] }>(`/api/resources?courseId=${encodeURIComponent(courseId)}`);
+  return response.resources || [];
 }
 
 export async function createCourseContent(payload: {
@@ -245,31 +215,11 @@ export async function createCourseContent(payload: {
   title: string;
   url: string;
 }): Promise<LearningContentItem> {
-  try {
-    const response = await postJson<{ resource?: LearningContentItem }>("/api/resources", payload);
-    if (!response.resource) throw new Error("Impossible de créer le contenu.");
-    return response.resource;
-  } catch {
-    const items = readLocal<LearningContentItem>(RESOURCES_KEY);
-    const resource: LearningContentItem = {
-      id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      courseId: payload.courseId,
-      type: payload.type,
-      title: payload.title,
-      url: payload.url,
-      createdAt: new Date().toISOString(),
-    };
-    items.unshift(resource);
-    writeLocal(RESOURCES_KEY, items);
-    return resource;
-  }
+  const response = await postJson<{ resource?: LearningContentItem }>("/api/resources", payload);
+  if (!response.resource) throw new Error("Impossible de créer le contenu.");
+  return response.resource;
 }
 
 export async function removeCourseContent(id: string): Promise<void> {
-  try {
-    await deleteJson<{ ok: boolean }>(`/api/resources/${encodeURIComponent(id)}`);
-  } catch {
-    const items = readLocal<LearningContentItem>(RESOURCES_KEY).filter((item) => item.id !== id);
-    writeLocal(RESOURCES_KEY, items);
-  }
+  await deleteJson<{ ok: boolean }>(`/api/resources/${encodeURIComponent(id)}`);
 }

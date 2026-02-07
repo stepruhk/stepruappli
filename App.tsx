@@ -99,7 +99,30 @@ const App: React.FC = () => {
     if (message.includes('UNAUTHORIZED') || message.includes('INVALID_CREDENTIALS')) {
       setIsAuthenticated(false);
       setAuthError('Session expirée ou mot de passe incorrect.');
+      return;
     }
+    if (message.includes('FORBIDDEN') || message.includes('Action réservée au professeur')) {
+      setAuthError('Connexion professeur requise pour publier du contenu.');
+    }
+  };
+
+  const getErrorMessage = (error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes('FORBIDDEN') || message.includes('Action réservée au professeur')) {
+      return 'Connexion professeur requise pour publier du contenu.';
+    }
+    if (
+      message.includes('PAYLOAD_TOO_LARGE') ||
+      message.includes('INPUT_TOO_LARGE') ||
+      message.includes('too large') ||
+      message.includes('trop volumineux')
+    ) {
+      return 'Le document est trop volumineux. Essaie un PDF plus léger.';
+    }
+    if (message.includes('UNAUTHORIZED') || message.includes('INVALID_CREDENTIALS')) {
+      return 'Session expirée. Reconnecte-toi puis réessaie.';
+    }
+    return message || 'Erreur inconnue.';
   };
 
   const handleLogin = async (event: React.FormEvent) => {
@@ -222,7 +245,8 @@ const App: React.FC = () => {
       setNoteLink('');
     } catch (error) {
       console.error(error);
-      alert("Impossible d'ajouter la note.");
+      handleAuthError(error);
+      alert(`Impossible d'ajouter la note. ${getErrorMessage(error)}`);
     }
   };
 
@@ -258,7 +282,8 @@ const App: React.FC = () => {
       setContentUrl('');
     } catch (error) {
       console.error(error);
-      alert("Impossible d'ajouter le lien.");
+      handleAuthError(error);
+      alert(`Impossible d'ajouter le lien. ${getErrorMessage(error)}`);
     }
   };
 
@@ -293,6 +318,8 @@ const App: React.FC = () => {
       if (fileInput) fileInput.value = '';
     } catch (error) {
       console.error(error);
+      handleAuthError(error);
+      alert(`Impossible d'ajouter le PDF. ${getErrorMessage(error)}`);
     } finally {
       setUploadingPdf(false);
     }
