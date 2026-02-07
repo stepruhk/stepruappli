@@ -7,7 +7,6 @@ import {
   createCourseContent,
   createEvernoteNote,
   generateFlashcards,
-  generatePodcastAudio,
   listCourseContent,
   listEvernoteNotes,
   loginWithPassword,
@@ -20,7 +19,6 @@ import {
   type UserRole,
 } from './services/openaiService.ts';
 import FlashcardDeck from './components/FlashcardDeck.tsx';
-import PodcastPlayer from './components/PodcastPlayer.tsx';
 
 type MenuSection = 'ACCUEIL' | 'CONTENU' | 'NOTES' | 'MEMO' | 'BALADO' | 'ASSISTANT';
 
@@ -158,24 +156,6 @@ const App: React.FC = () => {
       setSessionData(prev => ({
         ...prev,
         [topic.id]: { topicId: topic.id, summary, flashcards }
-      }));
-    } catch (error) {
-      handleAuthError(error);
-    } finally {
-      setLoading(null);
-    }
-  };
-
-  const generateAudio = async (topicId: string) => {
-    const data = sessionData[topicId];
-    if (!data || !data.summary || data.podcastAudio) return;
-
-    setLoading("Génération du podcast audio...");
-    try {
-      const audio = await generatePodcastAudio(data.summary);
-      setSessionData(prev => ({
-        ...prev,
-        [topicId]: { ...prev[topicId], podcastAudio: audio }
       }));
     } catch (error) {
       handleAuthError(error);
@@ -632,24 +612,6 @@ const App: React.FC = () => {
                       </div>
 
                       <div className="w-full lg:w-80 space-y-6">
-                        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                          <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
-                            <i className="fas fa-microphone-alt text-indigo-600 mr-2"></i>
-                            Podcast Étudiant
-                          </h3>
-                          {currentSession?.podcastAudio ? (
-                            <PodcastPlayer base64Audio={currentSession.podcastAudio} />
-                          ) : (
-                            <button 
-                              onClick={() => generateAudio(selectedTopic.id)}
-                              className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors flex items-center justify-center"
-                            >
-                              <i className="fas fa-magic mr-2"></i>
-                              Générer l'audio (AI)
-                            </button>
-                          )}
-                        </div>
-
                         <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
                           <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
                             <i className="fas fa-bolt text-yellow-500 mr-2"></i>
