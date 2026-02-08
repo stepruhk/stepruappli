@@ -236,12 +236,20 @@ const App: React.FC = () => {
       bubble: 'bg-emerald-50',
     },
     {
-      icon: 'bg-pink-600 text-white',
-      bubble: 'bg-pink-50',
+      icon: 'bg-rose-600 text-white',
+      bubble: 'bg-rose-50',
     },
     {
       icon: 'bg-amber-600 text-white',
       bubble: 'bg-amber-50',
+    },
+    {
+      icon: 'bg-sky-600 text-white',
+      bubble: 'bg-sky-50',
+    },
+    {
+      icon: 'bg-violet-600 text-white',
+      bubble: 'bg-violet-50',
     },
   ];
   const mainMenuItems = [
