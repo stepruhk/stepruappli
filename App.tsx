@@ -429,6 +429,16 @@ const App: React.FC = () => {
     }
   };
 
+  const navigateToMenuSection = (section: MenuSection) => {
+    if (section === 'ACCUEIL') {
+      setMenuSection('ACCUEIL');
+      setView(AppView.DASHBOARD);
+      setSelectedTopic(null);
+      return;
+    }
+    setMenuSection(section);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
       <main className="max-w-[1500px] mx-auto px-6 py-8 md:py-12">
@@ -523,6 +533,34 @@ const App: React.FC = () => {
               </div>
             )}
 
+            <div className="md:hidden mb-5 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+              <div className="flex gap-2 overflow-x-auto pb-2">
+                {mainMenuItems.map((item) => (
+                  <button
+                    key={`mobile-${item.label}`}
+                    type="button"
+                    onClick={() => navigateToMenuSection(item.key)}
+                    className={`shrink-0 inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-bold border transition-colors ${
+                      menuSection === item.key
+                        ? 'bg-indigo-600 text-white border-indigo-600'
+                        : 'bg-white text-slate-700 border-slate-300'
+                    }`}
+                  >
+                    <i className={`fas ${item.icon} text-xs`}></i>
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => navigateToMenuSection('ACCUEIL')}
+                className="mt-2 w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-3 py-2 text-sm font-bold text-slate-700"
+              >
+                <i className="fas fa-right-left text-xs"></i>
+                Changer de cours
+              </button>
+            </div>
+
             <div className="lg:flex lg:items-start lg:gap-8">
               <aside className="hidden lg:block lg:w-64 xl:w-72 shrink-0">
                 <div
@@ -540,41 +578,7 @@ const App: React.FC = () => {
                       <button
                         key={item.label}
                         type="button"
-                        onClick={() => {
-                          if (item.key === 'ACCUEIL') {
-                            setMenuSection('ACCUEIL');
-                            setView(AppView.DASHBOARD);
-                            return;
-                          }
-                          if (item.key === 'NOTES') {
-                            setMenuSection('NOTES');
-                            return;
-                          }
-                          if (item.key === 'CONTENU') {
-                            setMenuSection('CONTENU');
-                            return;
-                          }
-                          if (item.key === 'BALADO') {
-                            setMenuSection('BALADO');
-                            return;
-                          }
-                          if (item.key === 'BLOG') {
-                            setMenuSection('BLOG');
-                            return;
-                          }
-                          if (item.key === 'MEMO') {
-                            setMenuSection('MEMO');
-                            return;
-                          }
-                          if (item.key === 'ASSISTANT') {
-                            setMenuSection('ASSISTANT');
-                            return;
-                          }
-                          if (item.key === 'CONTACT') {
-                            setMenuSection('CONTACT');
-                            return;
-                          }
-                        }}
+                        onClick={() => navigateToMenuSection(item.key)}
                         className={`w-full flex items-center gap-3 px-4 py-4 rounded-2xl text-left font-extrabold text-xl transition-colors ${
                           item.key && menuSection === item.key
                             ? 'bg-indigo-600 text-white'
