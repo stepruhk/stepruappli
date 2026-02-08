@@ -30,7 +30,7 @@ type PodcastEpisode = {
 };
 
 const App: React.FC = () => {
-  const visibleTopics = INITIAL_TOPICS.filter((topic) => topic.id !== '4');
+  const visibleTopics = INITIAL_TOPICS;
   const [view, setView] = useState<AppView>(AppView.DASHBOARD);
   const [menuSection, setMenuSection] = useState<MenuSection>('ACCUEIL');
   const [resourceCourseId, setResourceCourseId] = useState<string>(visibleTopics[0]?.id || '');
@@ -193,6 +193,13 @@ const App: React.FC = () => {
     setView(AppView.TOPIC_DETAIL);
 
     if (sessionData[topic.id]) return;
+    if (!topic.content.trim()) {
+      setSessionData((prev) => ({
+        ...prev,
+        [topic.id]: { topicId: topic.id, summary: '', flashcards: [] },
+      }));
+      return;
+    }
 
     setLoading("Préparation de votre matériel d'étude...");
     try {
@@ -409,6 +416,13 @@ const App: React.FC = () => {
     const topic = visibleTopics.find((item) => item.id === courseId);
     if (!topic) return;
     if (sessionData[courseId]?.flashcards?.length) return;
+    if (!topic.content.trim()) {
+      setSessionData((prev) => ({
+        ...prev,
+        [courseId]: { topicId: courseId, summary: '', flashcards: [] },
+      }));
+      return;
+    }
 
     setLoading("Préparation de vos cartes mémo...");
     try {
@@ -651,41 +665,6 @@ const App: React.FC = () => {
                         </div>
                         );
                       })}
-                      <div
-                        onClick={() => setMenuSection('BALADO')}
-                        className="relative bg-white rounded-3xl p-8 md:p-10 cursor-pointer border border-slate-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all group overflow-hidden"
-                      >
-                        <div className="absolute -top-8 -right-8 w-36 h-36 rounded-full bg-emerald-50"></div>
-                        <div className="relative w-16 h-16 rounded-2xl bg-emerald-600 text-white flex items-center justify-center mb-8">
-                          <i className="fas fa-podcast text-2xl"></i>
-                        </div>
-                        <h3 className="relative text-2xl md:text-3xl font-black text-slate-900 mb-3 leading-tight">Balado</h3>
-                        <p className="relative text-xl md:text-2xl text-slate-600 leading-relaxed">
-                          Ouvre le balado Spotify depuis l'accueil des cours.
-                        </p>
-                        <div className="relative mt-8 flex items-center text-emerald-600 font-extrabold text-xl md:text-2xl">
-                          <span>Accéder</span>
-                          <i className="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
-                        </div>
-                      </div>
-
-                      <div
-                        onClick={() => setMenuSection('ASSISTANT')}
-                        className="relative bg-white rounded-3xl p-8 md:p-10 cursor-pointer border border-slate-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all group overflow-hidden"
-                      >
-                        <div className="absolute -top-8 -right-8 w-36 h-36 rounded-full bg-indigo-50"></div>
-                        <div className="relative w-16 h-16 rounded-2xl bg-indigo-600 text-white flex items-center justify-center mb-8">
-                          <i className="fas fa-robot text-2xl"></i>
-                        </div>
-                        <h3 className="relative text-2xl md:text-3xl font-black text-slate-900 mb-3 leading-tight">Assistant IA</h3>
-                        <p className="relative text-xl md:text-2xl text-slate-600 leading-relaxed">
-                          Lance l'assistant pédagogique depuis l'accueil des cours.
-                        </p>
-                        <div className="relative mt-8 flex items-center text-indigo-600 font-extrabold text-xl md:text-2xl">
-                          <span>Accéder</span>
-                          <i className="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
-                        </div>
-                      </div>
                     </div>
                   </div>
                 )}
@@ -710,10 +689,14 @@ const App: React.FC = () => {
                           </div>
                           <h1 className="text-4xl font-black text-slate-900 mb-6 leading-tight">{selectedTopic.title}</h1>
                           
-                          {currentSession?.summary ? (
+                          {selectedTopic.content.trim() && currentSession?.summary ? (
                             <div className="prose prose-slate max-w-none mb-10">
                               <h2 className="text-xl font-bold text-slate-800 mb-4 border-l-4 border-indigo-600 pl-4">Résumé IA</h2>
                               <div className="text-slate-600 leading-relaxed space-y-4" dangerouslySetInnerHTML={{ __html: currentSession.summary.replace(/\n/g, '<br/>') }} />
+                            </div>
+                          ) : !selectedTopic.content.trim() ? (
+                            <div className="h-40 flex items-center justify-center bg-slate-50 rounded-xl text-slate-500">
+                              Contenu à venir pour ce cours.
                             </div>
                           ) : (
                             <div className="h-64 flex items-center justify-center bg-slate-50 rounded-xl animate-pulse text-slate-400">

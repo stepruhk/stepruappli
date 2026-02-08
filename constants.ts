@@ -34,22 +34,26 @@ export const INITIAL_TOPICS: Topic[] = [
   },
   {
     id: '4',
-    title: 'Ingénierie de la crédibilité ®',
-    description: 'Méthodologies avancées pour bâtir et protéger la crédibilité corporative et la réputation.',
+    title: 'Gérer la réputation',
+    description: 'Contenu à venir.',
     category: 'Communication',
     icon: 'fa-book-open',
-    content: `Ce cours traite de la crédibilité institutionnelle: gouvernance du discours, alignement preuves-promesses, transparence et gestion des signaux faibles.
-    Vous apprendrez à concevoir des protocoles de validation de messages, à anticiper les risques réputationnels et à préparer des réponses publiques robustes.
-    Le module inclut une méthodologie d'audit réputationnel et des tableaux de bord de confiance.`
+    content: ''
   },
   {
     id: '5',
-    title: 'Relations de presse',
-    description: "Techniques fondamentales pour établir et maintenir des relations durables avec les médias d'information.",
+    title: 'Ingénierie de la crédibilité Ⓡ',
+    description: 'Contenu à venir.',
     category: 'Communication',
     icon: 'fa-book-open',
-    content: `Ce cours présente les fondamentaux des relations de presse: identification des médias cibles, construction d'un fichier journalistes et préparation d'angles éditoriaux pertinents.
-    Vous pratiquerez la rédaction de communiqués et dossiers de presse, la prise de contact professionnelle et la préparation d'interviews.
-    Le module inclut le suivi des retombées, la mesure de visibilité et l'adaptation des messages selon les canaux média.`
+    content: ''
+  },
+  {
+    id: '6',
+    title: 'Mesure et évaluation en RP',
+    description: 'Contenu à venir.',
+    category: 'Communication',
+    icon: 'fa-book-open',
+    content: ''
   }
 ];
