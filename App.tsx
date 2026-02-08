@@ -1044,8 +1044,8 @@ const App: React.FC = () => {
                 {menuSection === 'BALADO' && (
                   <div className="space-y-8">
                     <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-                      <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">Balado</h1>
-                      <p className="text-slate-600 text-lg">Tous les épisodes du balado sont disponibles ici automatiquement.</p>
+                      <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">Comprendre les RP le temps d'un café.</h1>
+                      <p className="text-slate-600 text-lg">Tous les épisodes du balado sont disponibles ici et dans Spotify.</p>
                     </div>
 
                     {podcastLoading && (
