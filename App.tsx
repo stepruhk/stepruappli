@@ -47,7 +47,7 @@ const App: React.FC = () => {
   const [contentItems, setContentItems] = useState<LearningContentItem[]>([]);
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const landingImageUrl =
-    'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1800&q=80';
+    'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=1800&q=80';
   const spotifyShowUrl = 'https://open.spotify.com/show/4C0DeBIvVZjRbM6MUOylOT?si=VZGKDnooR52E7qbZZ2aweA';
   const spotifyEmbedUrl = 'https://open.spotify.com/embed/show/4C0DeBIvVZjRbM6MUOylOT?utm_source=generator';
   const assistantUrl = 'https://chatgpt.com/g/g-ZltU00p7B-stepru-the-comms-professor';
