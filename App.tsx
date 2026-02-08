@@ -1119,8 +1119,8 @@ const App: React.FC = () => {
                 {menuSection === 'BLOG' && (
                   <div className="space-y-8">
                     <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-                      <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">Blog</h1>
-                      <p className="text-slate-600 text-lg">Consulte les articles du blog Stepru directement dans l'application.</p>
+                      <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">Blog du prof</h1>
+                      <p className="text-slate-600 text-lg">Tous les articles du prof sont disponibles ici.</p>
                     </div>
 
                     <div className="bg-white rounded-3xl border border-slate-200 p-4 md:p-6 shadow-sm">
@@ -1219,17 +1219,17 @@ const App: React.FC = () => {
                 {menuSection === 'ASSISTANT' && (
                   <div className="space-y-8">
                     <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-                      <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">Assistant IA</h1>
+                      <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">Stépru le prof de comm.</h1>
                       <p className="text-slate-600 text-lg">
-                        Accès direct à votre agent pédagogique: <strong>Stepru The Comms Professor</strong>.
+                        Accès direct à notre agent conversationnel.
                       </p>
                     </div>
 
                     <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
                       <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-6">
-                        <h2 className="text-2xl font-black text-slate-900 mb-3">Disponible pour les étudiant(e)s</h2>
+                        <h2 className="text-2xl font-black text-slate-900 mb-3">Disponible gratuitement pour les étudiant(e)s</h2>
                         <p className="text-slate-700 text-lg">
-                          Cliquez sur le bouton ci-dessous pour ouvrir l'assistant dans un nouvel onglet et poser vos questions de cours.
+                          Cliquez sur la bouton ci-dessous pour un ouvrir l'assistant chatGPT gratuitement et posez vos questions reliées au cours, à la communication et aux relations publiques.
                         </p>
                       </div>
 
