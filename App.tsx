@@ -54,7 +54,7 @@ const App: React.FC = () => {
   const [landingImageIndex, setLandingImageIndex] = useState(0);
   const landingImageUrl = landingImageCandidates[Math.min(landingImageIndex, landingImageCandidates.length - 1)];
   const spotifyShowUrl = 'https://open.spotify.com/show/4C0DeBIvVZjRbM6MUOylOT?si=VZGKDnooR52E7qbZZ2aweA';
-  const spotifyEmbedUrl = 'https://open.spotify.com/embed/show/4C0DeBIvVZjRbM6MUOylOT?utm_source=generator';
+  const spotifyEmbedUrl = 'https://open.spotify.com/embed-podcast/show/4C0DeBIvVZjRbM6MUOylOT?utm_source=generator';
   const blogUrl = 'https://stepru.wordpress.com';
   const assistantUrl = 'https://chatgpt.com/g/g-ZltU00p7B-stepru-the-comms-professor';
   const contactUrl = 'https://credibilityinstitute.com/contact';
@@ -1007,7 +1007,7 @@ const App: React.FC = () => {
                         title="Balado Spotify"
                         src={spotifyEmbedUrl}
                         width="100%"
-                        height="652"
+                        height="980"
                         allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
                         loading="lazy"
                         className="rounded-2xl"
