@@ -490,6 +490,10 @@ const App: React.FC = () => {
                             setMenuSection('ASSISTANT');
                             return;
                           }
+                          if (item.key === 'CONTACT') {
+                            setMenuSection('CONTACT');
+                            return;
+                          }
                         }}
                         className={`w-full flex items-center gap-3 px-4 py-4 rounded-2xl text-left font-extrabold text-xl transition-colors ${
                           item.key && menuSection === item.key
