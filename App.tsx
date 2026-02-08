@@ -117,7 +117,10 @@ const App: React.FC = () => {
       setPodcastLoading(true);
       setPodcastError(null);
       try {
-        const response = await fetch('/api/podcast-episodes');
+        const token = localStorage.getItem('eduboost_auth_token');
+        const response = await fetch('/api/podcast-episodes', {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
         const data = await response.json();
         if (!response.ok) {
           const details = data?.error?.details ? ` (${JSON.stringify(data.error.details)})` : '';
