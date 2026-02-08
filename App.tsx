@@ -499,7 +499,7 @@ const App: React.FC = () => {
                       rel="noopener noreferrer"
                       className="inline-flex items-center rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100"
                     >
-                      Contact pour le mot de passe
+                      Vous n'avez pas le mot de passe ?
                     </a>
                   </div>
 
