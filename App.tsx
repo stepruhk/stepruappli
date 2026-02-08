@@ -1256,7 +1256,7 @@ const App: React.FC = () => {
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
                         <h2 className="text-2xl font-black text-slate-900 mb-3 flex items-center gap-2">
                           <i className="fas fa-envelope text-indigo-600"></i>
@@ -1277,6 +1277,24 @@ const App: React.FC = () => {
 
                       <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
                         <h2 className="text-2xl font-black text-slate-900 mb-3 flex items-center gap-2">
+                          <i className="fas fa-video text-orange-600"></i>
+                          Prendre un rendez-vous
+                        </h2>
+                        <p className="text-slate-600 mb-6">
+                          Réserve une plage horaire directement via le calendrier Zoom.
+                        </p>
+                        <a
+                          href={zoomSchedulerUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 rounded-xl bg-orange-500 px-5 py-3 text-white font-bold hover:bg-orange-600 transition-colors"
+                        >
+                          Ouvrir le calendrier Zoom
+                        </a>
+                      </div>
+
+                      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm lg:col-span-2">
+                        <h2 className="text-2xl font-black text-slate-900 mb-3 flex items-center gap-2">
                           <i className="fas fa-robot text-emerald-600"></i>
                           Assistant IA
                         </h2>
@@ -1290,24 +1308,6 @@ const App: React.FC = () => {
                           className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-white font-bold hover:bg-emerald-700 transition-colors"
                         >
                           Ouvrir l'Assistant IA
-                        </a>
-                      </div>
-
-                      <div className="bg-white rounded-3xl border border-orange-200 p-8 shadow-sm">
-                        <h2 className="text-2xl font-black text-slate-900 mb-3 flex items-center gap-2">
-                          <i className="fas fa-video text-orange-600"></i>
-                          Prendre un rendez-vous Zoom
-                        </h2>
-                        <p className="text-slate-600 mb-6">
-                          Réserve une plage horaire directement via le calendrier Zoom.
-                        </p>
-                        <a
-                          href={zoomSchedulerUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-2 rounded-xl bg-orange-500 px-5 py-3 text-white font-bold hover:bg-orange-600 transition-colors"
-                        >
-                          Ouvrir le calendrier Zoom
                         </a>
                       </div>
                     </div>
