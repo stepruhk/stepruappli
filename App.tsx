@@ -492,6 +492,16 @@ const App: React.FC = () => {
                       required
                     />
                   </label>
+                  <div className="mt-1">
+                    <a
+                      href="https://credibilityinstitute.com/contact"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+                    >
+                      Contact pour le mot de passe
+                    </a>
+                  </div>
 
                   {authError && (
                     <p className="text-sm text-red-600 font-medium">{authError}</p>
