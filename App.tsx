@@ -1150,7 +1150,11 @@ const App: React.FC = () => {
                   <div className="space-y-8">
                     <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
                       <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">Cartes mémo</h1>
-                      <p className="text-slate-600 text-lg">Génère et révise les flashcards par cours.</p>
+                      <p className="text-slate-600 text-lg">
+                        {canEditResources
+                          ? 'Génère et révise les flashcards par cours.'
+                          : 'Flashcards générées par le professeur pour ce cours.'}
+                      </p>
                       <div className="mt-5 max-w-md">
                         <label className="block">
                           <span className="text-sm font-semibold text-slate-700">Cours lié</span>
