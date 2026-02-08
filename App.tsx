@@ -20,7 +20,7 @@ import {
 } from './services/openaiService.ts';
 import FlashcardDeck from './components/FlashcardDeck.tsx';
 
-type MenuSection = 'ACCUEIL' | 'CONTENU' | 'NOTES' | 'MEMO' | 'BALADO' | 'ASSISTANT';
+type MenuSection = 'ACCUEIL' | 'CONTENU' | 'NOTES' | 'MEMO' | 'BALADO' | 'ASSISTANT' | 'CONTACT';
 
 const App: React.FC = () => {
   const visibleTopics = INITIAL_TOPICS.filter((topic) => topic.id !== '4');
@@ -49,6 +49,7 @@ const App: React.FC = () => {
   const spotifyShowUrl = 'https://open.spotify.com/show/4C0DeBIvVZjRbM6MUOylOT?si=VZGKDnooR52E7qbZZ2aweA';
   const spotifyEmbedUrl = 'https://open.spotify.com/embed/show/4C0DeBIvVZjRbM6MUOylOT?utm_source=generator';
   const assistantUrl = 'https://chatgpt.com/g/g-ZltU00p7B-stepru-the-comms-professor';
+  const contactEmail = 'contact@eduboost.app';
 
   useEffect(() => {
     const initAuth = async () => {
@@ -196,6 +197,7 @@ const App: React.FC = () => {
     { label: 'Cartes mémo', icon: 'fa-bolt', key: 'MEMO' as const },
     { label: 'Balado', icon: 'fa-podcast', key: 'BALADO' as const },
     { label: 'Assistant IA', icon: 'fa-robot', key: 'ASSISTANT' as const },
+    { label: 'Contact', icon: 'fa-envelope', key: 'CONTACT' as const },
   ];
   const canEditResources = userRole === 'professor';
 
@@ -1073,6 +1075,53 @@ const App: React.FC = () => {
                         <i className="fas fa-robot"></i>
                         Ouvrir l'Assistant IA
                       </a>
+                    </div>
+                  </div>
+                )}
+
+                {menuSection === 'CONTACT' && (
+                  <div className="space-y-8">
+                    <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                      <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">Contact</h1>
+                      <p className="text-slate-600 text-lg">
+                        Besoin d'aide? Écris-nous et nous te répondrons rapidement.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                        <h2 className="text-2xl font-black text-slate-900 mb-3 flex items-center gap-2">
+                          <i className="fas fa-envelope text-indigo-600"></i>
+                          Courriel
+                        </h2>
+                        <p className="text-slate-600 mb-6">
+                          Pour toute question pédagogique ou technique.
+                        </p>
+                        <a
+                          href={`mailto:${contactEmail}?subject=Question%20EduBoost`}
+                          className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-white font-bold hover:bg-indigo-700 transition-colors"
+                        >
+                          Écrire à {contactEmail}
+                        </a>
+                      </div>
+
+                      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                        <h2 className="text-2xl font-black text-slate-900 mb-3 flex items-center gap-2">
+                          <i className="fas fa-robot text-emerald-600"></i>
+                          Assistant IA
+                        </h2>
+                        <p className="text-slate-600 mb-6">
+                          Pour des questions de cours immédiates, utilise l'assistant.
+                        </p>
+                        <a
+                          href={assistantUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-white font-bold hover:bg-emerald-700 transition-colors"
+                        >
+                          Ouvrir l'Assistant IA
+                        </a>
+                      </div>
                     </div>
                   </div>
                 )}
