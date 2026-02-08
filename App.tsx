@@ -46,6 +46,8 @@ const App: React.FC = () => {
   const [pdfTitle, setPdfTitle] = useState('');
   const [contentItems, setContentItems] = useState<LearningContentItem[]>([]);
   const [uploadingPdf, setUploadingPdf] = useState(false);
+  const landingImageUrl =
+    'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1800&q=80';
   const spotifyShowUrl = 'https://open.spotify.com/show/4C0DeBIvVZjRbM6MUOylOT?si=VZGKDnooR52E7qbZZ2aweA';
   const spotifyEmbedUrl = 'https://open.spotify.com/embed/show/4C0DeBIvVZjRbM6MUOylOT?utm_source=generator';
   const assistantUrl = 'https://chatgpt.com/g/g-ZltU00p7B-stepru-the-comms-professor';
@@ -389,50 +391,71 @@ const App: React.FC = () => {
         )}
 
         {authChecked && !isAuthenticated && (
-          <div className="min-h-[75vh] flex items-center justify-center">
-            <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl shadow-sm p-8">
-              <h1 className="text-3xl font-black text-slate-900 mb-2">Accès protégé</h1>
-              <p className="text-slate-600 mb-6">Entrez le mot de passe pour accéder à l'application.</p>
+          <div className="relative min-h-[82vh] overflow-hidden rounded-[32px]">
+            <img
+              src={landingImageUrl}
+              alt="Étudiants en communication"
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+            <div className="absolute inset-0 bg-slate-950/55"></div>
 
-              <form onSubmit={handleLogin} className="space-y-4">
-                <label className="block">
-                  <span className="text-sm font-semibold text-slate-700">Mot de passe</span>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="Votre mot de passe"
-                    required
-                  />
-                </label>
+            <div className="relative z-10 min-h-[82vh] grid lg:grid-cols-[1.2fr_420px] items-center gap-8 p-6 md:p-10">
+              <div className="text-white max-w-2xl">
+                <p className="inline-flex items-center rounded-full border border-white/30 bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.2em]">
+                  EduBoost
+                </p>
+                <h1 className="mt-5 text-4xl md:text-6xl font-black leading-tight">
+                  L’espace d’apprentissage des étudiant(e)s en communication
+                </h1>
+                <p className="mt-5 text-lg md:text-2xl text-slate-100/90">
+                  Cours, contenu, notes, balado et assistant IA dans une seule plateforme.
+                </p>
+              </div>
 
-                {authError && (
-                  <p className="text-sm text-red-600 font-medium">{authError}</p>
-                )}
+              <div className="w-full bg-white/95 backdrop-blur rounded-3xl shadow-2xl p-8 border border-white/70">
+                <h2 className="text-3xl font-black text-slate-900 mb-2">Accès protégé</h2>
+                <p className="text-slate-600 mb-6">Entrez le mot de passe pour accéder à l'application.</p>
 
-                <button
-                  type="submit"
-                  className="w-full py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition-colors"
-                >
-                  Se connecter ({loginRole === 'professor' ? 'Professeur' : 'Étudiant'})
-                </button>
-              </form>
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setLoginRole('student')}
-                  className={`rounded-xl px-3 py-2 text-sm font-semibold border ${loginRole === 'student' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-300'}`}
-                >
-                  Étudiant
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLoginRole('professor')}
-                  className={`rounded-xl px-3 py-2 text-sm font-semibold border ${loginRole === 'professor' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-300'}`}
-                >
-                  Professeur
-                </button>
+                <form onSubmit={handleLogin} className="space-y-4">
+                  <label className="block">
+                    <span className="text-sm font-semibold text-slate-700">Mot de passe</span>
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      placeholder="Votre mot de passe"
+                      required
+                    />
+                  </label>
+
+                  {authError && (
+                    <p className="text-sm text-red-600 font-medium">{authError}</p>
+                  )}
+
+                  <button
+                    type="submit"
+                    className="w-full py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition-colors"
+                  >
+                    Se connecter ({loginRole === 'professor' ? 'Professeur' : 'Étudiant'})
+                  </button>
+                </form>
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setLoginRole('student')}
+                    className={`rounded-xl px-3 py-2 text-sm font-semibold border ${loginRole === 'student' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-300'}`}
+                  >
+                    Étudiant
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLoginRole('professor')}
+                    className={`rounded-xl px-3 py-2 text-sm font-semibold border ${loginRole === 'professor' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-300'}`}
+                  >
+                    Professeur
+                  </button>
+                </div>
               </div>
             </div>
           </div>
