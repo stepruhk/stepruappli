@@ -20,7 +20,7 @@ import {
 } from './services/openaiService.ts';
 import FlashcardDeck from './components/FlashcardDeck.tsx';
 
-type MenuSection = 'ACCUEIL' | 'CONTENU' | 'NOTES' | 'MEMO' | 'BALADO' | 'ASSISTANT' | 'CONTACT';
+type MenuSection = 'ACCUEIL' | 'CONTENU' | 'NOTES' | 'MEMO' | 'BALADO' | 'BLOG' | 'ASSISTANT' | 'CONTACT';
 
 const App: React.FC = () => {
   const visibleTopics = INITIAL_TOPICS.filter((topic) => topic.id !== '4');
@@ -55,6 +55,7 @@ const App: React.FC = () => {
   const landingImageUrl = landingImageCandidates[Math.min(landingImageIndex, landingImageCandidates.length - 1)];
   const spotifyShowUrl = 'https://open.spotify.com/show/4C0DeBIvVZjRbM6MUOylOT?si=VZGKDnooR52E7qbZZ2aweA';
   const spotifyEmbedUrl = 'https://open.spotify.com/embed/show/4C0DeBIvVZjRbM6MUOylOT?utm_source=generator';
+  const blogUrl = 'https://stepru.wordpress.com';
   const assistantUrl = 'https://chatgpt.com/g/g-ZltU00p7B-stepru-the-comms-professor';
   const contactUrl = 'https://credibilityinstitute.com/contact';
 
@@ -203,6 +204,7 @@ const App: React.FC = () => {
     { label: 'Notes Evernote', icon: 'fa-note-sticky', key: 'NOTES' as const },
     { label: 'Cartes mémo', icon: 'fa-bolt', key: 'MEMO' as const },
     { label: 'Balado', icon: 'fa-podcast', key: 'BALADO' as const },
+    { label: 'Blog', icon: 'fa-newspaper', key: 'BLOG' as const },
     { label: 'Assistant IA', icon: 'fa-robot', key: 'ASSISTANT' as const },
     { label: 'Contact', icon: 'fa-envelope', key: 'CONTACT' as const },
   ];
@@ -513,6 +515,10 @@ const App: React.FC = () => {
                           }
                           if (item.key === 'BALADO') {
                             setMenuSection('BALADO');
+                            return;
+                          }
+                          if (item.key === 'BLOG') {
+                            setMenuSection('BLOG');
                             return;
                           }
                           if (item.key === 'MEMO') {
@@ -1016,6 +1022,36 @@ const App: React.FC = () => {
                     >
                       <i className="fas fa-up-right-from-square"></i>
                       Ouvrir dans Spotify
+                    </a>
+                  </div>
+                )}
+
+                {menuSection === 'BLOG' && (
+                  <div className="space-y-8">
+                    <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                      <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">Blog</h1>
+                      <p className="text-slate-600 text-lg">Consulte les articles du blog Stepru directement dans l'application.</p>
+                    </div>
+
+                    <div className="bg-white rounded-3xl border border-slate-200 p-4 md:p-6 shadow-sm">
+                      <iframe
+                        title="Blog Stepru"
+                        src={blogUrl}
+                        width="100%"
+                        height="900"
+                        loading="lazy"
+                        className="rounded-2xl"
+                      />
+                    </div>
+
+                    <a
+                      href={blogUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-white font-bold hover:bg-indigo-700 transition-colors"
+                    >
+                      <i className="fas fa-up-right-from-square"></i>
+                      Ouvrir le blog
                     </a>
                   </div>
                 )}
