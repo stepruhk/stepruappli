@@ -193,30 +193,10 @@ const App: React.FC = () => {
     setView(AppView.TOPIC_DETAIL);
 
     if (sessionData[topic.id]) return;
-    if (!topic.content.trim()) {
-      setSessionData((prev) => ({
-        ...prev,
-        [topic.id]: { topicId: topic.id, summary: '', flashcards: [] },
-      }));
-      return;
-    }
-
-    setLoading("Préparation de votre matériel d'étude...");
-    try {
-      const [summary, flashcards] = await Promise.all([
-        summarizeContent(topic.content),
-        generateFlashcards(topic.content),
-      ]);
-      
-      setSessionData(prev => ({
-        ...prev,
-        [topic.id]: { topicId: topic.id, summary, flashcards }
-      }));
-    } catch (error) {
-      handleAuthError(error);
-    } finally {
-      setLoading(null);
-    }
+    setSessionData((prev) => ({
+      ...prev,
+      [topic.id]: { topicId: topic.id, summary: '', flashcards: [] },
+    }));
   };
 
   const currentSession = selectedTopic ? sessionData[selectedTopic.id] : null;
@@ -687,75 +667,16 @@ const App: React.FC = () => {
                       Retour aux cours
                     </button>
 
-                    <div className="flex flex-col lg:flex-row gap-8">
-                      <div className="flex-1">
-                        <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-sm mb-8">
-                          <div className="flex items-center space-x-3 mb-4">
-                            <span className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-xs font-bold uppercase tracking-wider">
-                              {selectedTopic.category}
-                            </span>
-                          </div>
-                          <h1 className="text-4xl font-black text-slate-900 mb-6 leading-tight">{selectedTopic.title}</h1>
-                          
-                          {selectedTopic.content.trim() && currentSession?.summary ? (
-                            <div className="prose prose-slate max-w-none mb-10">
-                              <h2 className="text-xl font-bold text-slate-800 mb-4 border-l-4 border-indigo-600 pl-4">Résumé IA</h2>
-                              <div className="text-slate-600 leading-relaxed space-y-4" dangerouslySetInnerHTML={{ __html: currentSession.summary.replace(/\n/g, '<br/>') }} />
-                            </div>
-                          ) : !selectedTopic.content.trim() ? (
-                            <div className="h-40 flex items-center justify-center bg-slate-50 rounded-xl text-slate-500">
-                              Contenu à venir pour ce cours.
-                            </div>
-                          ) : (
-                            <div className="h-64 flex items-center justify-center bg-slate-50 rounded-xl animate-pulse text-slate-400">
-                              Chargement du résumé...
-                            </div>
-                          )}
-
-                          {selectedTopic.content.trim() && (
-                            <>
-                              <hr className="border-slate-100 my-10" />
-                              <div className="prose prose-slate max-w-none">
-                                <h2 className="text-xl font-bold text-slate-800 mb-4">Contenu Complet</h2>
-                                <p className="text-slate-500 italic leading-relaxed whitespace-pre-line">{selectedTopic.content}</p>
-                              </div>
-                            </>
-                          )}
-                        </div>
+                    <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-sm mb-8">
+                      <div className="flex items-center space-x-3 mb-4">
+                        <span className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-xs font-bold uppercase tracking-wider">
+                          {selectedTopic.category}
+                        </span>
                       </div>
-
-                      {selectedTopic.content.trim() && (
-                        <div className="w-full lg:w-80 space-y-6">
-                          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
-                              <i className="fas fa-bolt text-yellow-500 mr-2"></i>
-                              Auto-Évaluation
-                            </h3>
-                            <p className="text-sm text-slate-500 mb-6">Testez vos connaissances avec des flashcards générées à partir du cours.</p>
-                            <button
-                              disabled={!currentSession?.flashcards?.length}
-                              onClick={() => setShowFlashcards(true)}
-                              className="w-full py-3 border-2 border-indigo-600 text-indigo-600 rounded-xl font-bold hover:bg-indigo-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              Réviser ({currentSession?.flashcards?.length || 0} cartes)
-                            </button>
-                          </div>
-
-                          <div className="bg-slate-900 rounded-2xl p-6 text-white shadow-xl shadow-indigo-200/20">
-                            <h3 className="font-bold mb-4">Votre Progression</h3>
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="text-xs text-slate-400">Lecture terminée</span>
-                              <span className="text-xs font-bold text-indigo-400">100%</span>
-                            </div>
-                            <div className="h-2 w-full bg-slate-800 rounded-full mb-6">
-                              <div className="h-full w-full bg-indigo-500 rounded-full"></div>
-                            </div>
-                            <div className="p-4 bg-white/5 rounded-xl border border-white/10 text-xs leading-relaxed text-slate-300 italic">
-                              "La répétition espacée via les flashcards augmente la rétention de 60%."
-                            </div>
-                          </div>
-                        </div>
-                      )}
+                      <h1 className="text-4xl font-black text-slate-900 mb-6 leading-tight">{selectedTopic.title}</h1>
+                      <div className="h-40 flex items-center justify-center bg-slate-50 rounded-xl text-slate-500">
+                        Contenu à venir pour ce cours.
+                      </div>
                     </div>
                   </div>
                 )}
