@@ -767,7 +767,11 @@ const App: React.FC = () => {
                   <div className="space-y-8">
                     <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
                       <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">Notes Evernote</h1>
-                      <p className="text-slate-600 text-lg">Ajoute tes notes de cours et retrouve-les ici.</p>
+                      <p className="text-slate-600 text-lg">
+                        {canEditResources
+                          ? 'Ajoute tes notes de cours et retrouve-les ici.'
+                          : 'Notes ajoutées par le professeur.'}
+                      </p>
                       {!canEditResources && (
                         <p className="mt-3 text-sm font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
                           Mode étudiant: consultation seulement. Seul le professeur peut ajouter ou supprimer des notes.
