@@ -21,6 +21,13 @@ import {
 import FlashcardDeck from './components/FlashcardDeck.tsx';
 
 type MenuSection = 'ACCUEIL' | 'CONTENU' | 'NOTES' | 'MEMO' | 'BALADO' | 'BLOG' | 'ASSISTANT' | 'CONTACT';
+type PodcastEpisode = {
+  title: string;
+  link?: string;
+  pubDate?: string;
+  description?: string;
+  audioUrl?: string;
+};
 
 const App: React.FC = () => {
   const visibleTopics = INITIAL_TOPICS.filter((topic) => topic.id !== '4');
@@ -54,10 +61,12 @@ const App: React.FC = () => {
   const [landingImageIndex, setLandingImageIndex] = useState(0);
   const landingImageUrl = landingImageCandidates[Math.min(landingImageIndex, landingImageCandidates.length - 1)];
   const spotifyShowUrl = 'https://open.spotify.com/show/4C0DeBIvVZjRbM6MUOylOT?si=VZGKDnooR52E7qbZZ2aweA';
-  const spotifyEmbedUrl = 'https://open.spotify.com/embed-podcast/show/4C0DeBIvVZjRbM6MUOylOT?utm_source=generator';
   const blogUrl = 'https://stepru.wordpress.com';
   const assistantUrl = 'https://chatgpt.com/g/g-ZltU00p7B-stepru-the-comms-professor';
   const contactUrl = 'https://credibilityinstitute.com/contact';
+  const [podcastEpisodes, setPodcastEpisodes] = useState<PodcastEpisode[]>([]);
+  const [podcastLoading, setPodcastLoading] = useState(false);
+  const [podcastError, setPodcastError] = useState<string | null>(null);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -99,6 +108,31 @@ const App: React.FC = () => {
 
     void loadCourseResources();
   }, [authChecked, isAuthenticated, resourceCourseId]);
+
+  useEffect(() => {
+    const loadPodcastEpisodes = async () => {
+      if (!authChecked || !isAuthenticated) return;
+      if (menuSection !== 'BALADO') return;
+
+      setPodcastLoading(true);
+      setPodcastError(null);
+      try {
+        const response = await fetch('/api/podcast-episodes');
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data?.error?.message || 'Impossible de charger les épisodes.');
+        }
+        setPodcastEpisodes(Array.isArray(data?.episodes) ? data.episodes : []);
+      } catch (error) {
+        console.error(error);
+        setPodcastError('Impossible de charger la liste des épisodes.');
+      } finally {
+        setPodcastLoading(false);
+      }
+    };
+
+    void loadPodcastEpisodes();
+  }, [authChecked, isAuthenticated, menuSection]);
 
   const handleAuthError = (error: unknown) => {
     console.error(error);
@@ -999,20 +1033,64 @@ const App: React.FC = () => {
                   <div className="space-y-8">
                     <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
                       <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">Balado</h1>
-                      <p className="text-slate-600 text-lg">Écoute ton balado Spotify directement dans l'application.</p>
+                      <p className="text-slate-600 text-lg">Tous les épisodes du balado sont disponibles ici automatiquement.</p>
                     </div>
 
-                    <div className="bg-white rounded-3xl border border-slate-200 p-4 md:p-6 shadow-sm">
-                      <iframe
-                        title="Balado Spotify"
-                        src={spotifyEmbedUrl}
-                        width="100%"
-                        height="980"
-                        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                        loading="lazy"
-                        className="rounded-2xl"
-                      />
-                    </div>
+                    {podcastLoading && (
+                      <div className="bg-white rounded-2xl border border-slate-200 p-6 text-slate-500">
+                        Chargement des épisodes...
+                      </div>
+                    )}
+
+                    {podcastError && (
+                      <div className="bg-rose-50 rounded-2xl border border-rose-200 p-6 text-rose-700">
+                        {podcastError}
+                      </div>
+                    )}
+
+                    {!podcastLoading && !podcastError && podcastEpisodes.length === 0 && (
+                      <div className="bg-white rounded-2xl border border-slate-200 p-6 text-slate-500">
+                        Aucun épisode trouvé pour le moment.
+                      </div>
+                    )}
+
+                    {!podcastLoading && podcastEpisodes.length > 0 && (
+                      <div className="space-y-4">
+                        {podcastEpisodes.map((episode, index) => (
+                          <article key={`${episode.title}-${index}`} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                            <h2 className="text-xl font-black text-slate-900">{episode.title}</h2>
+                            {episode.pubDate && (
+                              <p className="text-sm text-slate-400 mt-1">
+                                {new Date(episode.pubDate).toLocaleDateString('fr-FR', {
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric',
+                                })}
+                              </p>
+                            )}
+                            {episode.description && (
+                              <p className="text-slate-700 mt-3">{episode.description}</p>
+                            )}
+                            {episode.audioUrl && (
+                              <audio controls preload="none" className="mt-4 w-full">
+                                <source src={episode.audioUrl} />
+                              </audio>
+                            )}
+                            {episode.link && (
+                              <a
+                                href={episode.link}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-2 mt-4 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                              >
+                                <i className="fas fa-up-right-from-square"></i>
+                                Ouvrir l'épisode
+                              </a>
+                            )}
+                          </article>
+                        ))}
+                      </div>
+                    )}
 
                     <a
                       href={spotifyShowUrl}

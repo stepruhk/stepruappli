@@ -22,6 +22,8 @@ const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 60_000);
 const RATE_LIMIT_MAX_REQUESTS = Number(process.env.RATE_LIMIT_MAX_REQUESTS || 30);
 const MAX_CONTENT_LENGTH = Number(process.env.MAX_CONTENT_LENGTH || 12_000);
 const MAX_PODCAST_TEXT_LENGTH = Number(process.env.MAX_PODCAST_TEXT_LENGTH || 8_000);
+const PODCAST_RSS_URL = (process.env.PODCAST_RSS_URL || "https://anchor.fm/s/10c060bb4/podcast/rss").trim();
+const MAX_PODCAST_EPISODES = Number(process.env.MAX_PODCAST_EPISODES || 50);
 const MAX_PASSWORD_LENGTH = Number(process.env.MAX_PASSWORD_LENGTH || 256);
 const MAX_URL_LENGTH = Number(process.env.MAX_URL_LENGTH || 30_000_000);
 const MAX_TITLE_LENGTH = Number(process.env.MAX_TITLE_LENGTH || 180);
@@ -231,6 +233,55 @@ function readOptionalTextField(body, fieldName, maxLength) {
     });
   }
   return cleaned;
+}
+
+function decodeHtmlEntities(value) {
+  return value
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
+function stripTags(value) {
+  return value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function extractTag(xml, tagName) {
+  const cdataRegex = new RegExp(`<${tagName}[^>]*>\\s*<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>\\s*<\\/${tagName}>`, "i");
+  const cdataMatch = xml.match(cdataRegex);
+  if (cdataMatch?.[1]) return cdataMatch[1].trim();
+
+  const tagRegex = new RegExp(`<${tagName}[^>]*>([\\s\\S]*?)<\\/${tagName}>`, "i");
+  const tagMatch = xml.match(tagRegex);
+  return tagMatch?.[1]?.trim() || "";
+}
+
+function extractEnclosureUrl(xml) {
+  const enclosureMatch = xml.match(/<enclosure[^>]*url="([^"]+)"[^>]*>/i);
+  return enclosureMatch?.[1] || "";
+}
+
+function parsePodcastRss(xmlText) {
+  const items = [];
+  const itemRegex = /<item\b[\s\S]*?<\/item>/gi;
+  let match;
+
+  while ((match = itemRegex.exec(xmlText)) !== null) {
+    const itemXml = match[0];
+    const title = decodeHtmlEntities(extractTag(itemXml, "title"));
+    const link = extractTag(itemXml, "link");
+    const pubDate = extractTag(itemXml, "pubDate");
+    const descriptionRaw = extractTag(itemXml, "description");
+    const description = decodeHtmlEntities(stripTags(descriptionRaw)).slice(0, 500);
+    const audioUrl = extractEnclosureUrl(itemXml);
+
+    if (!title) continue;
+    items.push({ title, link, pubDate, description, audioUrl });
+  }
+
+  return items.slice(0, MAX_PODCAST_EPISODES);
 }
 
 async function ensureStoreLoaded() {
@@ -814,6 +865,34 @@ app.post("/api/podcast", async (req, res) => {
     }
     const audioDataUrl = `data:audio/mp3;base64,${buffer.toString("base64")}`;
     res.json({ audioDataUrl });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.get("/api/podcast-episodes", async (_req, res) => {
+  try {
+    if (!PODCAST_RSS_URL) {
+      throw new ApiError(500, "PODCAST_RSS_NOT_CONFIGURED", "Podcast RSS URL is not configured.");
+    }
+
+    const response = await fetch(PODCAST_RSS_URL, {
+      method: "GET",
+      headers: {
+        Accept: "application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8",
+      },
+    });
+
+    if (!response.ok) {
+      throw new ApiError(502, "PODCAST_RSS_UNAVAILABLE", "Impossible de récupérer le flux podcast.");
+    }
+
+    const xml = await response.text();
+    const episodes = parsePodcastRss(xml);
+    res.json({
+      source: PODCAST_RSS_URL,
+      episodes,
+    });
   } catch (error) {
     sendError(res, error);
   }
