@@ -46,8 +46,12 @@ const App: React.FC = () => {
   const [pdfTitle, setPdfTitle] = useState('');
   const [contentItems, setContentItems] = useState<LearningContentItem[]>([]);
   const [uploadingPdf, setUploadingPdf] = useState(false);
-  const landingImageUrl =
-    'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1800&q=80';
+  const landingImageCandidates = [
+    'https://images.pexels.com/photos/1184572/pexels-photo-1184572.jpeg?auto=compress&cs=tinysrgb&w=1800',
+    'https://images.pexels.com/photos/1595385/pexels-photo-1595385.jpeg?auto=compress&cs=tinysrgb&w=1800',
+  ];
+  const [landingImageIndex, setLandingImageIndex] = useState(0);
+  const landingImageUrl = landingImageCandidates[Math.min(landingImageIndex, landingImageCandidates.length - 1)];
   const spotifyShowUrl = 'https://open.spotify.com/show/4C0DeBIvVZjRbM6MUOylOT?si=VZGKDnooR52E7qbZZ2aweA';
   const spotifyEmbedUrl = 'https://open.spotify.com/embed/show/4C0DeBIvVZjRbM6MUOylOT?utm_source=generator';
   const assistantUrl = 'https://chatgpt.com/g/g-ZltU00p7B-stepru-the-comms-professor';
@@ -394,7 +398,12 @@ const App: React.FC = () => {
           <div className="relative min-h-[82vh] overflow-hidden rounded-[32px]">
             <img
               src={landingImageUrl}
-              alt="Étudiants en communication"
+              alt=""
+              onError={() => {
+                setLandingImageIndex((current) =>
+                  Math.min(current + 1, landingImageCandidates.length - 1),
+                );
+              }}
               className="absolute inset-0 h-full w-full object-cover"
             />
             <div className="absolute inset-0 bg-slate-950/55"></div>
