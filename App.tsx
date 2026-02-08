@@ -704,45 +704,50 @@ const App: React.FC = () => {
                             </div>
                           )}
 
-                          <hr className="border-slate-100 my-10" />
-
-                          <div className="prose prose-slate max-w-none">
-                            <h2 className="text-xl font-bold text-slate-800 mb-4">Contenu Complet</h2>
-                            <p className="text-slate-500 italic leading-relaxed whitespace-pre-line">{selectedTopic.content}</p>
-                          </div>
+                          {selectedTopic.content.trim() && (
+                            <>
+                              <hr className="border-slate-100 my-10" />
+                              <div className="prose prose-slate max-w-none">
+                                <h2 className="text-xl font-bold text-slate-800 mb-4">Contenu Complet</h2>
+                                <p className="text-slate-500 italic leading-relaxed whitespace-pre-line">{selectedTopic.content}</p>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
 
-                      <div className="w-full lg:w-80 space-y-6">
-                        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                          <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
-                            <i className="fas fa-bolt text-yellow-500 mr-2"></i>
-                            Auto-Évaluation
-                          </h3>
-                          <p className="text-sm text-slate-500 mb-6">Testez vos connaissances avec des flashcards générées à partir du cours.</p>
-                          <button 
-                            disabled={!currentSession?.flashcards?.length}
-                            onClick={() => setShowFlashcards(true)}
-                            className="w-full py-3 border-2 border-indigo-600 text-indigo-600 rounded-xl font-bold hover:bg-indigo-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            Réviser ({currentSession?.flashcards?.length || 0} cartes)
-                          </button>
-                        </div>
+                      {selectedTopic.content.trim() && (
+                        <div className="w-full lg:w-80 space-y-6">
+                          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+                            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
+                              <i className="fas fa-bolt text-yellow-500 mr-2"></i>
+                              Auto-Évaluation
+                            </h3>
+                            <p className="text-sm text-slate-500 mb-6">Testez vos connaissances avec des flashcards générées à partir du cours.</p>
+                            <button
+                              disabled={!currentSession?.flashcards?.length}
+                              onClick={() => setShowFlashcards(true)}
+                              className="w-full py-3 border-2 border-indigo-600 text-indigo-600 rounded-xl font-bold hover:bg-indigo-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              Réviser ({currentSession?.flashcards?.length || 0} cartes)
+                            </button>
+                          </div>
 
-                        <div className="bg-slate-900 rounded-2xl p-6 text-white shadow-xl shadow-indigo-200/20">
-                          <h3 className="font-bold mb-4">Votre Progression</h3>
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs text-slate-400">Lecture terminée</span>
-                            <span className="text-xs font-bold text-indigo-400">100%</span>
-                          </div>
-                          <div className="h-2 w-full bg-slate-800 rounded-full mb-6">
-                            <div className="h-full w-full bg-indigo-500 rounded-full"></div>
-                          </div>
-                          <div className="p-4 bg-white/5 rounded-xl border border-white/10 text-xs leading-relaxed text-slate-300 italic">
-                            "La répétition espacée via les flashcards augmente la rétention de 60%."
+                          <div className="bg-slate-900 rounded-2xl p-6 text-white shadow-xl shadow-indigo-200/20">
+                            <h3 className="font-bold mb-4">Votre Progression</h3>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs text-slate-400">Lecture terminée</span>
+                              <span className="text-xs font-bold text-indigo-400">100%</span>
+                            </div>
+                            <div className="h-2 w-full bg-slate-800 rounded-full mb-6">
+                              <div className="h-full w-full bg-indigo-500 rounded-full"></div>
+                            </div>
+                            <div className="p-4 bg-white/5 rounded-xl border border-white/10 text-xs leading-relaxed text-slate-300 italic">
+                              "La répétition espacée via les flashcards augmente la rétention de 60%."
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   </div>
                 )}
