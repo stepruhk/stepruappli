@@ -120,12 +120,13 @@ const App: React.FC = () => {
         const response = await fetch('/api/podcast-episodes');
         const data = await response.json();
         if (!response.ok) {
-          throw new Error(data?.error?.message || 'Impossible de charger les épisodes.');
+          const details = data?.error?.details ? ` (${JSON.stringify(data.error.details)})` : '';
+          throw new Error((data?.error?.message || 'Impossible de charger les épisodes.') + details);
         }
         setPodcastEpisodes(Array.isArray(data?.episodes) ? data.episodes : []);
       } catch (error) {
         console.error(error);
-        setPodcastError('Impossible de charger la liste des épisodes.');
+        setPodcastError(error instanceof Error ? error.message : 'Impossible de charger la liste des épisodes.');
       } finally {
         setPodcastLoading(false);
       }

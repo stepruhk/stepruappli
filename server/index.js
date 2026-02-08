@@ -284,6 +284,28 @@ function parsePodcastRss(xmlText) {
   return items.slice(0, MAX_PODCAST_EPISODES);
 }
 
+function parsePodcastAtom(xmlText) {
+  const entries = [];
+  const entryRegex = /<entry\b[\s\S]*?<\/entry>/gi;
+  let match;
+
+  while ((match = entryRegex.exec(xmlText)) !== null) {
+    const entryXml = match[0];
+    const title = decodeHtmlEntities(extractTag(entryXml, "title"));
+    const pubDate = extractTag(entryXml, "published") || extractTag(entryXml, "updated");
+    const descriptionRaw = extractTag(entryXml, "summary") || extractTag(entryXml, "content");
+    const description = decodeHtmlEntities(stripTags(descriptionRaw)).slice(0, 500);
+    const linkMatch = entryXml.match(/<link[^>]*href="([^"]+)"[^>]*>/i);
+    const link = linkMatch?.[1] || "";
+    const audioUrl = extractEnclosureUrl(entryXml);
+
+    if (!title) continue;
+    entries.push({ title, link, pubDate, description, audioUrl });
+  }
+
+  return entries.slice(0, MAX_PODCAST_EPISODES);
+}
+
 async function ensureStoreLoaded() {
   if (storeCache) return storeCache;
 
@@ -875,24 +897,62 @@ app.get("/api/podcast-episodes", async (_req, res) => {
     if (!PODCAST_RSS_URL) {
       throw new ApiError(500, "PODCAST_RSS_NOT_CONFIGURED", "Podcast RSS URL is not configured.");
     }
-
-    const response = await fetch(PODCAST_RSS_URL, {
-      method: "GET",
-      headers: {
-        Accept: "application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8",
-      },
-    });
-
-    if (!response.ok) {
-      throw new ApiError(502, "PODCAST_RSS_UNAVAILABLE", "Impossible de récupérer le flux podcast.");
+    const candidates = [PODCAST_RSS_URL];
+    if (PODCAST_RSS_URL.includes("anchor.fm")) {
+      candidates.push(PODCAST_RSS_URL.replace("anchor.fm", "spotifyanchor-web.app.link"));
     }
 
-    const xml = await response.text();
-    const episodes = parsePodcastRss(xml);
-    res.json({
-      source: PODCAST_RSS_URL,
-      episodes,
-    });
+    let lastError = null;
+    for (const sourceUrl of candidates) {
+      try {
+        const response = await fetch(sourceUrl, {
+          method: "GET",
+          redirect: "follow",
+          headers: {
+            Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.8",
+            "User-Agent":
+              "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+          },
+        });
+
+        if (!response.ok) {
+          const body = await response.text().catch(() => "");
+          lastError = {
+            status: response.status,
+            body: body.slice(0, 180),
+            sourceUrl,
+          };
+          continue;
+        }
+
+        const xml = await response.text();
+        const episodes = parsePodcastRss(xml);
+        const fallbackEpisodes = episodes.length ? episodes : parsePodcastAtom(xml);
+
+        if (!fallbackEpisodes.length) {
+          lastError = {
+            status: 200,
+            body: "No podcast entries found in feed.",
+            sourceUrl,
+          };
+          continue;
+        }
+
+        res.json({
+          source: sourceUrl,
+          episodes: fallbackEpisodes,
+        });
+        return;
+      } catch (error) {
+        lastError = {
+          status: 0,
+          body: String(error),
+          sourceUrl,
+        };
+      }
+    }
+
+    throw new ApiError(502, "PODCAST_RSS_UNAVAILABLE", "Impossible de récupérer le flux podcast.", lastError);
   } catch (error) {
     sendError(res, error);
   }
