@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Topic, AppView, StudySession } from './types.ts';
 import { INITIAL_TOPICS } from './constants.ts';
+import ciLogo from './assets/ci-logo.png';
 import {
   checkAuthStatus,
   createCourseContent,
@@ -637,6 +638,7 @@ const App: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       {visibleTopics.map((topic, index) => {
                         const style = cardAccentStyles[index % cardAccentStyles.length];
+                        const isCredibilityCourse = topic.id === '5';
                         return (
                         <div 
                           key={topic.id}
@@ -644,8 +646,12 @@ const App: React.FC = () => {
                           className="relative bg-white rounded-3xl p-8 md:p-10 cursor-pointer border border-slate-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all group overflow-hidden"
                         >
                           <div className={`absolute -top-8 -right-8 w-36 h-36 rounded-full ${style.bubble}`}></div>
-                          <div className={`relative w-16 h-16 rounded-2xl ${style.icon} flex items-center justify-center mb-8`}>
-                            <i className={`fas ${topic.icon} text-2xl`}></i>
+                          <div className={`relative w-16 h-16 rounded-2xl ${isCredibilityCourse ? 'bg-white border border-slate-200' : style.icon} flex items-center justify-center mb-8 overflow-hidden`}>
+                            {isCredibilityCourse ? (
+                              <img src={ciLogo} alt="" className="w-12 h-12 object-contain" />
+                            ) : (
+                              <i className={`fas ${topic.icon} text-2xl`}></i>
+                            )}
                           </div>
                           <h3 className="relative text-2xl md:text-3xl font-black text-slate-900 mb-3 leading-tight">{topic.title}</h3>
                           <p className="relative text-xl md:text-2xl text-slate-600 leading-relaxed">{topic.description}</p>
