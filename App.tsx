@@ -49,7 +49,7 @@ const App: React.FC = () => {
   const spotifyShowUrl = 'https://open.spotify.com/show/4C0DeBIvVZjRbM6MUOylOT?si=VZGKDnooR52E7qbZZ2aweA';
   const spotifyEmbedUrl = 'https://open.spotify.com/embed/show/4C0DeBIvVZjRbM6MUOylOT?utm_source=generator';
   const assistantUrl = 'https://chatgpt.com/g/g-ZltU00p7B-stepru-the-comms-professor';
-  const contactEmail = 'contact@eduboost.app';
+  const contactUrl = 'https://credibilityinstitute.com/contact';
 
   useEffect(() => {
     const initAuth = async () => {
@@ -1096,16 +1096,18 @@ const App: React.FC = () => {
                       <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
                         <h2 className="text-2xl font-black text-slate-900 mb-3 flex items-center gap-2">
                           <i className="fas fa-envelope text-indigo-600"></i>
-                          Courriel
+                          Contact
                         </h2>
                         <p className="text-slate-600 mb-6">
-                          Pour toute question pédagogique ou technique.
+                          Pour toute question pédagogique, technique, ou juste pour prendre contact.
                         </p>
                         <a
-                          href={`mailto:${contactEmail}?subject=Question%20EduBoost`}
+                          href={contactUrl}
+                          target="_blank"
+                          rel="noreferrer"
                           className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-white font-bold hover:bg-indigo-700 transition-colors"
                         >
-                          Écrire à {contactEmail}
+                          Ouvrir le formulaire de contact
                         </a>
                       </div>
 
