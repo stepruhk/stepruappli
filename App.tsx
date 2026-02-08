@@ -47,8 +47,8 @@ const App: React.FC = () => {
   const [contentItems, setContentItems] = useState<LearningContentItem[]>([]);
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const landingImageCandidates = [
-    'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1800&q=80',
     'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1800&q=80',
+    'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1800&q=80',
     'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1800&q=80',
   ];
   const [landingImageIndex, setLandingImageIndex] = useState(0);
