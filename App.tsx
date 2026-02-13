@@ -49,11 +49,11 @@ const App: React.FC = () => {
   const [noteTitle, setNoteTitle] = useState('');
   const [noteContent, setNoteContent] = useState('');
   const [noteLink, setNoteLink] = useState('');
-  const [evernoteNotes, setEvernoteNotes] = useState<EvernoteNote[]>([]);
+  const [evernoteNotesByCourse, setEvernoteNotesByCourse] = useState<Record<string, EvernoteNote[]>>({});
   const [contentTitle, setContentTitle] = useState('');
   const [contentUrl, setContentUrl] = useState('');
   const [pdfTitle, setPdfTitle] = useState('');
-  const [contentItems, setContentItems] = useState<LearningContentItem[]>([]);
+  const [contentItemsByCourse, setContentItemsByCourse] = useState<Record<string, LearningContentItem[]>>({});
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const landingImageCandidates = [
     'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1800&q=80',
@@ -109,8 +109,8 @@ const App: React.FC = () => {
           listEvernoteNotes(resourceCourseId),
           listCourseContent(resourceCourseId),
         ]);
-        setEvernoteNotes(notes);
-        setContentItems(resources);
+        setEvernoteNotesByCourse((prev) => ({ ...prev, [resourceCourseId]: notes }));
+        setContentItemsByCourse((prev) => ({ ...prev, [resourceCourseId]: resources }));
       } catch (error) {
         console.error(error);
       }
@@ -210,13 +210,17 @@ const App: React.FC = () => {
 
   const currentSession = selectedTopic ? sessionData[selectedTopic.id] : null;
   const resourceCourse = visibleTopics.find((topic) => topic.id === resourceCourseId) || null;
-  const filteredEvernoteNotes = evernoteNotes.filter((note) => note.courseId === resourceCourseId);
-  const filteredContentItems = contentItems.filter((item) => item.courseId === resourceCourseId);
+  const activeResourceCourseId =
+    menuSection === 'ACCUEIL' && view === AppView.TOPIC_DETAIL && selectedTopic
+      ? selectedTopic.id
+      : resourceCourseId;
+  const filteredEvernoteNotes = evernoteNotesByCourse[resourceCourseId] || [];
+  const filteredContentItems = contentItemsByCourse[resourceCourseId] || [];
   const selectedTopicNotes = selectedTopic
-    ? evernoteNotes.filter((note) => note.courseId === selectedTopic.id)
+    ? (evernoteNotesByCourse[selectedTopic.id] || [])
     : [];
   const selectedTopicContentItems = selectedTopic
-    ? contentItems.filter((item) => item.courseId === selectedTopic.id)
+    ? (contentItemsByCourse[selectedTopic.id] || [])
     : [];
   const flashcardsForModal = menuSection === 'MEMO'
     ? (sessionData[resourceCourseId]?.flashcards || [])
@@ -261,7 +265,8 @@ const App: React.FC = () => {
 
   const addEvernoteNote = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!resourceCourseId) return;
+    const courseId = activeResourceCourseId;
+    if (!courseId) return;
     const title = noteTitle.trim();
     const content = noteContent.trim();
     const rawLink = noteLink.trim();
@@ -274,12 +279,15 @@ const App: React.FC = () => {
 
     try {
       const newNote = await createEvernoteNote({
-        courseId: resourceCourseId,
+        courseId,
         title,
         content,
         link: link || undefined,
       });
-      setEvernoteNotes((prev) => [newNote, ...prev]);
+      setEvernoteNotesByCourse((prev) => ({
+        ...prev,
+        [courseId]: [newNote, ...(prev[courseId] || [])],
+      }));
       setNoteTitle('');
       setNoteContent('');
       setNoteLink('');
@@ -291,9 +299,14 @@ const App: React.FC = () => {
   };
 
   const deleteEvernoteNote = async (id: string) => {
+    const courseId = activeResourceCourseId;
     try {
       await removeEvernoteNote(id);
-      setEvernoteNotes((prev) => prev.filter((note) => note.id !== id));
+      if (!courseId) return;
+      setEvernoteNotesByCourse((prev) => ({
+        ...prev,
+        [courseId]: (prev[courseId] || []).filter((note) => note.id !== id),
+      }));
     } catch (error) {
       console.error(error);
       alert("Impossible de supprimer la note.");
@@ -302,7 +315,8 @@ const App: React.FC = () => {
 
   const addContentLink = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!resourceCourseId) return;
+    const courseId = activeResourceCourseId;
+    if (!courseId) return;
     const title = contentTitle.trim();
     const rawUrl = contentUrl.trim();
     if (!title || !rawUrl) return;
@@ -312,12 +326,15 @@ const App: React.FC = () => {
 
     try {
       const item = await createCourseContent({
-        courseId: resourceCourseId,
+        courseId,
         type: 'LIEN',
         title,
         url: normalizedUrl,
       });
-      setContentItems((prev) => [item, ...prev]);
+      setContentItemsByCourse((prev) => ({
+        ...prev,
+        [courseId]: [item, ...(prev[courseId] || [])],
+      }));
       setContentTitle('');
       setContentUrl('');
     } catch (error) {
@@ -359,7 +376,8 @@ const App: React.FC = () => {
 
   const addPdfContent = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!resourceCourseId) return;
+    const courseId = activeResourceCourseId;
+    if (!courseId) return;
     const form = event.currentTarget;
     const fileInput = form.elements.namedItem('pdf-file') as HTMLInputElement | null;
     const file = fileInput?.files?.[0];
@@ -370,12 +388,15 @@ const App: React.FC = () => {
     try {
       const dataUrl = await fileToDataUrl(file);
       const item = await createCourseContent({
-        courseId: resourceCourseId,
+        courseId,
         type: 'PDF',
         title,
         url: dataUrl,
       });
-      setContentItems((prev) => [item, ...prev]);
+      setContentItemsByCourse((prev) => ({
+        ...prev,
+        [courseId]: [item, ...(prev[courseId] || [])],
+      }));
       setPdfTitle('');
       if (fileInput) fileInput.value = '';
     } catch (error) {
@@ -388,9 +409,14 @@ const App: React.FC = () => {
   };
 
   const deleteContentItem = async (id: string) => {
+    const courseId = activeResourceCourseId;
     try {
       await removeCourseContent(id);
-      setContentItems((prev) => prev.filter((item) => item.id !== id));
+      if (!courseId) return;
+      setContentItemsByCourse((prev) => ({
+        ...prev,
+        [courseId]: (prev[courseId] || []).filter((item) => item.id !== id),
+      }));
     } catch (error) {
       console.error(error);
       alert("Impossible de supprimer ce contenu.");
