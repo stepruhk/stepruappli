@@ -710,11 +710,6 @@ const App: React.FC = () => {
                           ? 'Ajoute tes notes de cours et retrouve-les ici.'
                           : 'Notes ajoutées par le professeur.'}
                       </p>
-                      {!canEditResources && (
-                        <p className="mt-3 text-sm font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-                          Mode étudiant: consultation seulement. Seul le professeur peut ajouter ou supprimer des notes.
-                        </p>
-                      )}
                       <div className="mt-5 max-w-md">
                         <label className="block">
                           <span className="text-sm font-semibold text-slate-700">Cours lié</span>
@@ -835,11 +830,6 @@ const App: React.FC = () => {
                           ? 'Ajoute des documents PDF et des hyperliens utiles pour tes cours.'
                           : 'Documents ajoutés par le professeur.'}
                       </p>
-                      {!canEditResources && (
-                        <p className="mt-3 text-sm font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-                          Mode étudiant: consultation seulement. Seul le professeur peut ajouter ou supprimer du contenu.
-                        </p>
-                      )}
                       <div className="mt-5 max-w-md">
                         <label className="block">
                           <span className="text-sm font-semibold text-slate-700">Cours lié</span>
