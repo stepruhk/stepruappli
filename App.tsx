@@ -29,6 +29,7 @@ type PodcastEpisode = {
   description?: string;
   audioUrl?: string;
 };
+const GENERAL_COURSE_ID = 'general';
 
 const App: React.FC = () => {
   const visibleTopics = INITIAL_TOPICS;
@@ -88,10 +89,17 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (resourceCourseId === GENERAL_COURSE_ID) return;
     if (!visibleTopics.some((topic) => topic.id === resourceCourseId)) {
       setResourceCourseId(visibleTopics[0]?.id || '');
     }
   }, [resourceCourseId, visibleTopics]);
+
+  useEffect(() => {
+    if (menuSection === 'ACCUEIL' && view === AppView.TOPIC_DETAIL && selectedTopic && resourceCourseId !== selectedTopic.id) {
+      setResourceCourseId(selectedTopic.id);
+    }
+  }, [menuSection, view, selectedTopic, resourceCourseId]);
 
   useEffect(() => {
     const loadCourseResources = async () => {
@@ -204,6 +212,12 @@ const App: React.FC = () => {
   const resourceCourse = visibleTopics.find((topic) => topic.id === resourceCourseId) || null;
   const filteredEvernoteNotes = evernoteNotes.filter((note) => note.courseId === resourceCourseId);
   const filteredContentItems = contentItems.filter((item) => item.courseId === resourceCourseId);
+  const selectedTopicNotes = selectedTopic
+    ? evernoteNotes.filter((note) => note.courseId === selectedTopic.id)
+    : [];
+  const selectedTopicContentItems = selectedTopic
+    ? contentItems.filter((item) => item.courseId === selectedTopic.id)
+    : [];
   const flashcardsForModal = menuSection === 'MEMO'
     ? (sessionData[resourceCourseId]?.flashcards || [])
     : (currentSession?.flashcards || []);
@@ -436,6 +450,15 @@ const App: React.FC = () => {
       setView(AppView.DASHBOARD);
       setSelectedTopic(null);
       return;
+    }
+    if (section === 'NOTES' || section === 'CONTENU') {
+      setView(AppView.DASHBOARD);
+      setResourceCourseId(GENERAL_COURSE_ID);
+      setMenuSection(section);
+      return;
+    }
+    if (section === 'MEMO' && resourceCourseId === GENERAL_COURSE_ID) {
+      setResourceCourseId(visibleTopics[0]?.id || '');
     }
     setMenuSection(section);
   };
@@ -694,8 +717,193 @@ const App: React.FC = () => {
                         </span>
                       </div>
                       <h1 className="text-4xl font-black text-slate-900 mb-6 leading-tight">{selectedTopic.title}</h1>
-                      <div className="h-40 flex items-center justify-center bg-slate-50 rounded-xl text-slate-500">
+                      <div className="h-24 flex items-center justify-center bg-slate-50 rounded-xl text-slate-500">
                         Contenu à venir pour ce cours.
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                        <h2 className="text-2xl font-black text-slate-900 mb-2">Contenu du cours</h2>
+                        <p className="text-slate-600 mb-6">
+                          Documents et liens spécifiques à ce cours.
+                        </p>
+
+                        {canEditResources && (
+                          <div className="space-y-4 mb-6">
+                            <form onSubmit={addContentLink} className="space-y-3 rounded-2xl border border-slate-200 p-4">
+                              <h3 className="font-bold text-slate-900">Ajouter un hyperlien</h3>
+                              <input
+                                type="text"
+                                value={contentTitle}
+                                onChange={(event) => setContentTitle(event.target.value)}
+                                placeholder="Titre du lien"
+                                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                required
+                              />
+                              <input
+                                type="url"
+                                value={contentUrl}
+                                onChange={(event) => setContentUrl(event.target.value)}
+                                placeholder="https://..."
+                                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                required
+                              />
+                              <button
+                                type="submit"
+                                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-white font-bold hover:bg-indigo-700 transition-colors"
+                              >
+                                <i className="fas fa-link"></i>
+                                Ajouter le lien
+                              </button>
+                            </form>
+
+                            <form onSubmit={addPdfContent} className="space-y-3 rounded-2xl border border-slate-200 p-4">
+                              <h3 className="font-bold text-slate-900">Ajouter un PDF</h3>
+                              <input
+                                type="text"
+                                value={pdfTitle}
+                                onChange={(event) => setPdfTitle(event.target.value)}
+                                placeholder="Titre du PDF"
+                                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                required
+                              />
+                              <input
+                                type="file"
+                                name="pdf-file"
+                                accept="application/pdf"
+                                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 bg-white"
+                                required
+                              />
+                              <button
+                                type="submit"
+                                disabled={uploadingPdf}
+                                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-white font-bold hover:bg-emerald-700 transition-colors disabled:opacity-60"
+                              >
+                                <i className="fas fa-file-pdf"></i>
+                                {uploadingPdf ? 'Import en cours...' : 'Ajouter le PDF'}
+                              </button>
+                            </form>
+                          </div>
+                        )}
+
+                        <div className="space-y-3">
+                          {selectedTopicContentItems.length === 0 && (
+                            <div className="rounded-2xl border border-slate-200 p-4 text-slate-500">
+                              Aucun document ou lien pour ce cours.
+                            </div>
+                          )}
+                          {selectedTopicContentItems.map((item) => (
+                            <article key={item.id} className="rounded-2xl border border-slate-200 p-4">
+                              <div className="flex items-start justify-between gap-4">
+                                <div>
+                                  <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ${item.type === 'PDF' ? 'bg-rose-50 text-rose-600' : 'bg-indigo-50 text-indigo-600'}`}>
+                                    {item.type}
+                                  </span>
+                                  <h3 className="text-lg font-black text-slate-900 mt-2">{item.title}</h3>
+                                  <button
+                                    type="button"
+                                    onClick={() => { void openContentItem(item); }}
+                                    className="inline-flex items-center gap-2 mt-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                                  >
+                                    <i className="fas fa-up-right-from-square"></i>
+                                    Ouvrir
+                                  </button>
+                                </div>
+                                {canEditResources && (
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteContentItem(item.id)}
+                                    className="text-sm font-semibold text-rose-600 hover:text-rose-700"
+                                  >
+                                    Supprimer
+                                  </button>
+                                )}
+                              </div>
+                            </article>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                        <h2 className="text-2xl font-black text-slate-900 mb-2">Notes Evernote du cours</h2>
+                        <p className="text-slate-600 mb-6">
+                          Notes et liens Evernote spécifiques à ce cours.
+                        </p>
+
+                        {canEditResources && (
+                          <form onSubmit={addEvernoteNote} className="space-y-3 mb-6 rounded-2xl border border-slate-200 p-4">
+                            <h3 className="font-bold text-slate-900">Ajouter une note</h3>
+                            <input
+                              type="text"
+                              value={noteTitle}
+                              onChange={(event) => setNoteTitle(event.target.value)}
+                              placeholder="Titre de la note"
+                              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              required
+                            />
+                            <textarea
+                              value={noteContent}
+                              onChange={(event) => setNoteContent(event.target.value)}
+                              placeholder="Contenu de la note (optionnel si lien Evernote)"
+                              className="w-full min-h-28 rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                            <input
+                              type="url"
+                              value={noteLink}
+                              onChange={(event) => setNoteLink(event.target.value)}
+                              placeholder="https://www.evernote.com/..."
+                              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                            <button
+                              type="submit"
+                              className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-white font-bold hover:bg-indigo-700 transition-colors"
+                            >
+                              <i className="fas fa-plus"></i>
+                              Ajouter la note
+                            </button>
+                          </form>
+                        )}
+
+                        <div className="space-y-3">
+                          {selectedTopicNotes.length === 0 && (
+                            <div className="rounded-2xl border border-slate-200 p-4 text-slate-500">
+                              Aucune note pour ce cours.
+                            </div>
+                          )}
+                          {selectedTopicNotes.map((note) => (
+                            <article key={note.id} className="rounded-2xl border border-slate-200 p-4">
+                              <div className="flex items-start justify-between gap-4">
+                                <div>
+                                  <h3 className="text-lg font-black text-slate-900">{note.title}</h3>
+                                  {note.link && (
+                                    <a
+                                      href={note.link}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="inline-flex items-center gap-2 mt-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                                    >
+                                      <i className="fas fa-up-right-from-square"></i>
+                                      Ouvrir le lien Evernote
+                                    </a>
+                                  )}
+                                  {note.content && (
+                                    <p className="text-slate-700 mt-3 whitespace-pre-line">{note.content}</p>
+                                  )}
+                                </div>
+                                {canEditResources && (
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteEvernoteNote(note.id)}
+                                    className="text-sm font-semibold text-rose-600 hover:text-rose-700"
+                                  >
+                                    Supprimer
+                                  </button>
+                                )}
+                              </div>
+                            </article>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -707,23 +915,9 @@ const App: React.FC = () => {
                       <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">Notes Evernote</h1>
                       <p className="text-slate-600 text-lg">
                         {canEditResources
-                          ? 'Ajoute tes notes de cours et retrouve-les ici.'
-                          : 'Notes ajoutées par le professeur.'}
+                          ? 'Ajoute ici des notes générales pour tous les cours.'
+                          : 'Notes générales ajoutées par le professeur.'}
                       </p>
-                      <div className="mt-5 max-w-md">
-                        <label className="block">
-                          <span className="text-sm font-semibold text-slate-700">Cours lié</span>
-                          <select
-                            value={resourceCourseId}
-                            onChange={(event) => setResourceCourseId(event.target.value)}
-                            className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                          >
-                            {visibleTopics.map((topic) => (
-                              <option key={topic.id} value={topic.id}>{topic.title}</option>
-                            ))}
-                          </select>
-                        </label>
-                      </div>
                     </div>
 
                     {canEditResources && (
@@ -775,11 +969,11 @@ const App: React.FC = () => {
 
                     <div className="space-y-4">
                       <h2 className="text-2xl font-black text-slate-900">
-                        Mes notes - {resourceCourse?.title || 'Cours'} ({filteredEvernoteNotes.length})
+                        Notes générales ({filteredEvernoteNotes.length})
                       </h2>
                       {filteredEvernoteNotes.length === 0 && (
                         <div className="bg-white rounded-2xl border border-slate-200 p-6 text-slate-500">
-                          Aucune note pour ce cours pour le moment.
+                          Aucune note générale pour le moment.
                         </div>
                       )}
                       {filteredEvernoteNotes.map((note) => (
@@ -827,23 +1021,9 @@ const App: React.FC = () => {
                       <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">Contenu</h1>
                       <p className="text-slate-600 text-lg">
                         {canEditResources
-                          ? 'Ajoute des documents PDF et des hyperliens utiles pour tes cours.'
-                          : 'Documents ajoutés par le professeur.'}
+                          ? 'Ajoute ici des documents et liens généraux.'
+                          : 'Documents généraux ajoutés par le professeur.'}
                       </p>
-                      <div className="mt-5 max-w-md">
-                        <label className="block">
-                          <span className="text-sm font-semibold text-slate-700">Cours lié</span>
-                          <select
-                            value={resourceCourseId}
-                            onChange={(event) => setResourceCourseId(event.target.value)}
-                            className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                          >
-                            {visibleTopics.map((topic) => (
-                              <option key={topic.id} value={topic.id}>{topic.title}</option>
-                            ))}
-                          </select>
-                        </label>
-                      </div>
                     </div>
 
                     {canEditResources && (
@@ -922,11 +1102,11 @@ const App: React.FC = () => {
 
                     <div className="space-y-4">
                       <h2 className="text-2xl font-black text-slate-900">
-                        Contenus ajoutés - {resourceCourse?.title || 'Cours'} ({filteredContentItems.length})
+                        Contenus généraux ({filteredContentItems.length})
                       </h2>
                       {filteredContentItems.length === 0 && (
                         <div className="bg-white rounded-2xl border border-slate-200 p-6 text-slate-500">
-                          Aucun document ou lien ajouté pour ce cours.
+                          Aucun document ou lien général pour le moment.
                         </div>
                       )}
                       {filteredContentItems.map((item) => (
