@@ -57,6 +57,20 @@ async function postJson<T>(endpoint: string, body: Record<string, unknown>): Pro
   return data as T;
 }
 
+async function putJson<T>(endpoint: string, body: Record<string, unknown>): Promise<T> {
+  const response = await fetch(endpoint, {
+    method: "PUT",
+    headers: buildHeaders(),
+    body: JSON.stringify(body),
+  });
+  const data = (await response.json()) as ApiErrorShape & T;
+  if (!response.ok) {
+    if (typeof data?.error === "string") throw new Error(data.error);
+    throw new Error(data?.error?.message || "Request failed");
+  }
+  return data as T;
+}
+
 async function getJson<T>(endpoint: string): Promise<T> {
   const response = await fetch(endpoint, {
     method: "GET",
@@ -190,6 +204,15 @@ export async function removeEvernoteNote(id: string): Promise<void> {
   await deleteJson<{ ok: boolean }>(`/api/notes/${encodeURIComponent(id)}`);
 }
 
+export async function updateEvernoteNote(
+  id: string,
+  payload: { title: string; content?: string; link?: string },
+): Promise<EvernoteNote> {
+  const response = await putJson<{ note?: EvernoteNote }>(`/api/notes/${encodeURIComponent(id)}`, payload);
+  if (!response.note) throw new Error("Impossible de modifier la note.");
+  return response.note;
+}
+
 export async function listCourseContent(courseId: string): Promise<LearningContentItem[]> {
   const response = await getJson<{ resources?: LearningContentItem[] }>(`/api/resources?courseId=${encodeURIComponent(courseId)}`);
   return response.resources || [];
@@ -208,4 +231,13 @@ export async function createCourseContent(payload: {
 
 export async function removeCourseContent(id: string): Promise<void> {
   await deleteJson<{ ok: boolean }>(`/api/resources/${encodeURIComponent(id)}`);
+}
+
+export async function updateCourseContent(
+  id: string,
+  payload: { type: "PDF" | "LIEN"; title: string; url: string },
+): Promise<LearningContentItem> {
+  const response = await putJson<{ resource?: LearningContentItem }>(`/api/resources/${encodeURIComponent(id)}`, payload);
+  if (!response.resource) throw new Error("Impossible de modifier le contenu.");
+  return response.resource;
 }

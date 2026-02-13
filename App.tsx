@@ -15,6 +15,8 @@ import {
   removeCourseContent,
   removeEvernoteNote,
   summarizeContent,
+  updateCourseContent,
+  updateEvernoteNote,
   type EvernoteNote,
   type LearningContentItem,
   type UserRole,
@@ -49,10 +51,18 @@ const App: React.FC = () => {
   const [noteTitle, setNoteTitle] = useState('');
   const [noteContent, setNoteContent] = useState('');
   const [noteLink, setNoteLink] = useState('');
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editNoteTitle, setEditNoteTitle] = useState('');
+  const [editNoteContent, setEditNoteContent] = useState('');
+  const [editNoteLink, setEditNoteLink] = useState('');
   const [evernoteNotesByCourse, setEvernoteNotesByCourse] = useState<Record<string, EvernoteNote[]>>({});
   const [contentTitle, setContentTitle] = useState('');
   const [contentUrl, setContentUrl] = useState('');
   const [pdfTitle, setPdfTitle] = useState('');
+  const [editingContentId, setEditingContentId] = useState<string | null>(null);
+  const [editContentTitle, setEditContentTitle] = useState('');
+  const [editContentUrl, setEditContentUrl] = useState('');
+  const [editContentType, setEditContentType] = useState<'PDF' | 'LIEN'>('LIEN');
   const [contentItemsByCourse, setContentItemsByCourse] = useState<Record<string, LearningContentItem[]>>({});
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const landingImageCandidates = [
@@ -423,6 +433,90 @@ const App: React.FC = () => {
     } catch (error) {
       console.error(error);
       alert("Impossible de supprimer ce contenu.");
+    }
+  };
+
+  const startEditNote = (note: EvernoteNote) => {
+    setEditingNoteId(note.id);
+    setEditNoteTitle(note.title);
+    setEditNoteContent(note.content || '');
+    setEditNoteLink(note.link || '');
+  };
+
+  const cancelEditNote = () => {
+    setEditingNoteId(null);
+    setEditNoteTitle('');
+    setEditNoteContent('');
+    setEditNoteLink('');
+  };
+
+  const saveEditNote = async (note: EvernoteNote) => {
+    const title = editNoteTitle.trim();
+    const content = editNoteContent.trim();
+    const rawLink = editNoteLink.trim();
+    const link = rawLink
+      ? rawLink.startsWith('http://') || rawLink.startsWith('https://')
+        ? rawLink
+        : `https://${rawLink}`
+      : '';
+    if (!title || (!content && !link)) return;
+
+    try {
+      const updated = await updateEvernoteNote(note.id, {
+        title,
+        content,
+        link: link || undefined,
+      });
+      setEvernoteNotesByCourse((prev) => ({
+        ...prev,
+        [note.courseId]: (prev[note.courseId] || []).map((entry) => (entry.id === note.id ? updated : entry)),
+      }));
+      cancelEditNote();
+    } catch (error) {
+      console.error(error);
+      handleAuthError(error);
+      alert(`Impossible de modifier la note. ${getErrorMessage(error)}`);
+    }
+  };
+
+  const startEditContent = (item: LearningContentItem) => {
+    setEditingContentId(item.id);
+    setEditContentTitle(item.title);
+    setEditContentUrl(item.type === 'LIEN' ? item.url : '');
+    setEditContentType(item.type);
+  };
+
+  const cancelEditContent = () => {
+    setEditingContentId(null);
+    setEditContentTitle('');
+    setEditContentUrl('');
+    setEditContentType('LIEN');
+  };
+
+  const saveEditContent = async (item: LearningContentItem) => {
+    const title = editContentTitle.trim();
+    if (!title) return;
+    const rawUrl = editContentType === 'LIEN' ? editContentUrl.trim() : item.url;
+    if (!rawUrl) return;
+    const url = editContentType === 'LIEN'
+      ? (rawUrl.startsWith('http://') || rawUrl.startsWith('https://') ? rawUrl : `https://${rawUrl}`)
+      : rawUrl;
+
+    try {
+      const updated = await updateCourseContent(item.id, {
+        type: editContentType,
+        title,
+        url,
+      });
+      setContentItemsByCourse((prev) => ({
+        ...prev,
+        [item.courseId]: (prev[item.courseId] || []).map((entry) => (entry.id === item.id ? updated : entry)),
+      }));
+      cancelEditContent();
+    } catch (error) {
+      console.error(error);
+      handleAuthError(error);
+      alert(`Impossible de modifier le contenu. ${getErrorMessage(error)}`);
     }
   };
 
@@ -824,31 +918,86 @@ const App: React.FC = () => {
                           )}
                           {selectedTopicContentItems.map((item) => (
                             <article key={item.id} className="rounded-2xl border border-slate-200 p-4">
-                              <div className="flex items-start justify-between gap-4">
-                                <div>
-                                  <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ${item.type === 'PDF' ? 'bg-rose-50 text-rose-600' : 'bg-indigo-50 text-indigo-600'}`}>
-                                    {item.type}
-                                  </span>
-                                  <h3 className="text-lg font-black text-slate-900 mt-2">{item.title}</h3>
-                                  <button
-                                    type="button"
-                                    onClick={() => { void openContentItem(item); }}
-                                    className="inline-flex items-center gap-2 mt-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
-                                  >
-                                    <i className="fas fa-up-right-from-square"></i>
-                                    Ouvrir
-                                  </button>
+                              {canEditResources && editingContentId === item.id ? (
+                                <form
+                                  onSubmit={(event) => {
+                                    event.preventDefault();
+                                    void saveEditContent(item);
+                                  }}
+                                  className="space-y-3"
+                                >
+                                  <input
+                                    type="text"
+                                    value={editContentTitle}
+                                    onChange={(event) => setEditContentTitle(event.target.value)}
+                                    className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    required
+                                  />
+                                  {editContentType === 'LIEN' ? (
+                                    <input
+                                      type="url"
+                                      value={editContentUrl}
+                                      onChange={(event) => setEditContentUrl(event.target.value)}
+                                      className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                      required
+                                    />
+                                  ) : (
+                                    <p className="text-xs text-slate-500">
+                                      Pour remplacer le PDF, supprimez-le puis ajoutez un nouveau fichier.
+                                    </p>
+                                  )}
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="submit"
+                                      className="rounded-xl bg-indigo-600 px-4 py-2 text-white text-sm font-bold hover:bg-indigo-700"
+                                    >
+                                      Enregistrer
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={cancelEditContent}
+                                      className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100"
+                                    >
+                                      Annuler
+                                    </button>
+                                  </div>
+                                </form>
+                              ) : (
+                                <div className="flex items-start justify-between gap-4">
+                                  <div>
+                                    <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ${item.type === 'PDF' ? 'bg-rose-50 text-rose-600' : 'bg-indigo-50 text-indigo-600'}`}>
+                                      {item.type}
+                                    </span>
+                                    <h3 className="text-lg font-black text-slate-900 mt-2">{item.title}</h3>
+                                    <button
+                                      type="button"
+                                      onClick={() => { void openContentItem(item); }}
+                                      className="inline-flex items-center gap-2 mt-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                                    >
+                                      <i className="fas fa-up-right-from-square"></i>
+                                      Ouvrir
+                                    </button>
+                                  </div>
+                                  {canEditResources && (
+                                    <div className="flex items-center gap-3">
+                                      <button
+                                        type="button"
+                                        onClick={() => startEditContent(item)}
+                                        className="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                                      >
+                                        Modifier
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => deleteContentItem(item.id)}
+                                        className="text-sm font-semibold text-rose-600 hover:text-rose-700"
+                                      >
+                                        Supprimer
+                                      </button>
+                                    </div>
+                                  )}
                                 </div>
-                                {canEditResources && (
-                                  <button
-                                    type="button"
-                                    onClick={() => deleteContentItem(item.id)}
-                                    className="text-sm font-semibold text-rose-600 hover:text-rose-700"
-                                  >
-                                    Supprimer
-                                  </button>
-                                )}
-                              </div>
+                              )}
                             </article>
                           ))}
                         </div>
@@ -902,34 +1051,89 @@ const App: React.FC = () => {
                           )}
                           {selectedTopicNotes.map((note) => (
                             <article key={note.id} className="rounded-2xl border border-slate-200 p-4">
-                              <div className="flex items-start justify-between gap-4">
-                                <div>
-                                  <h3 className="text-lg font-black text-slate-900">{note.title}</h3>
-                                  {note.link && (
-                                    <a
-                                      href={note.link}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="inline-flex items-center gap-2 mt-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                              {canEditResources && editingNoteId === note.id ? (
+                                <form
+                                  onSubmit={(event) => {
+                                    event.preventDefault();
+                                    void saveEditNote(note);
+                                  }}
+                                  className="space-y-3"
+                                >
+                                  <input
+                                    type="text"
+                                    value={editNoteTitle}
+                                    onChange={(event) => setEditNoteTitle(event.target.value)}
+                                    className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    required
+                                  />
+                                  <textarea
+                                    value={editNoteContent}
+                                    onChange={(event) => setEditNoteContent(event.target.value)}
+                                    className="w-full min-h-24 rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="Contenu (optionnel si lien)"
+                                  />
+                                  <input
+                                    type="url"
+                                    value={editNoteLink}
+                                    onChange={(event) => setEditNoteLink(event.target.value)}
+                                    className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="https://www.evernote.com/..."
+                                  />
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="submit"
+                                      className="rounded-xl bg-indigo-600 px-4 py-2 text-white text-sm font-bold hover:bg-indigo-700"
                                     >
-                                      <i className="fas fa-up-right-from-square"></i>
-                                      Ouvrir le lien Evernote
-                                    </a>
-                                  )}
-                                  {note.content && (
-                                    <p className="text-slate-700 mt-3 whitespace-pre-line">{note.content}</p>
+                                      Enregistrer
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={cancelEditNote}
+                                      className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100"
+                                    >
+                                      Annuler
+                                    </button>
+                                  </div>
+                                </form>
+                              ) : (
+                                <div className="flex items-start justify-between gap-4">
+                                  <div>
+                                    <h3 className="text-lg font-black text-slate-900">{note.title}</h3>
+                                    {note.link && (
+                                      <a
+                                        href={note.link}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-2 mt-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                                      >
+                                        <i className="fas fa-up-right-from-square"></i>
+                                        Ouvrir le lien Evernote
+                                      </a>
+                                    )}
+                                    {note.content && (
+                                      <p className="text-slate-700 mt-3 whitespace-pre-line">{note.content}</p>
+                                    )}
+                                  </div>
+                                  {canEditResources && (
+                                    <div className="flex items-center gap-3">
+                                      <button
+                                        type="button"
+                                        onClick={() => startEditNote(note)}
+                                        className="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                                      >
+                                        Modifier
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => deleteEvernoteNote(note.id)}
+                                        className="text-sm font-semibold text-rose-600 hover:text-rose-700"
+                                      >
+                                        Supprimer
+                                      </button>
+                                    </div>
                                   )}
                                 </div>
-                                {canEditResources && (
-                                  <button
-                                    type="button"
-                                    onClick={() => deleteEvernoteNote(note.id)}
-                                    className="text-sm font-semibold text-rose-600 hover:text-rose-700"
-                                  >
-                                    Supprimer
-                                  </button>
-                                )}
-                              </div>
+                              )}
                             </article>
                           ))}
                         </div>
@@ -1007,36 +1211,93 @@ const App: React.FC = () => {
                       )}
                       {filteredEvernoteNotes.map((note) => (
                         <article key={note.id} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                          <div className="flex items-start justify-between gap-4">
-                            <div>
-                              <h3 className="text-xl font-black text-slate-900">{note.title}</h3>
-                          <p className="text-sm text-slate-400 mt-1">
-                            {new Date(note.createdAt).toLocaleString('fr-FR')}
-                          </p>
-                          {note.link && (
-                            <a
-                              href={note.link}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-2 mt-3 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                          {canEditResources && editingNoteId === note.id ? (
+                            <form
+                              onSubmit={(event) => {
+                                event.preventDefault();
+                                void saveEditNote(note);
+                              }}
+                              className="space-y-3"
                             >
-                              <i className="fas fa-up-right-from-square"></i>
-                              Ouvrir le lien Evernote
-                            </a>
-                          )}
-                        </div>
-                            {canEditResources && (
-                              <button
-                                type="button"
-                                onClick={() => deleteEvernoteNote(note.id)}
-                                className="text-sm font-semibold text-rose-600 hover:text-rose-700"
-                              >
-                                Supprimer
-                              </button>
-                            )}
-                          </div>
-                          {note.content && (
-                            <p className="text-slate-700 mt-4 whitespace-pre-line">{note.content}</p>
+                              <input
+                                type="text"
+                                value={editNoteTitle}
+                                onChange={(event) => setEditNoteTitle(event.target.value)}
+                                className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                required
+                              />
+                              <textarea
+                                value={editNoteContent}
+                                onChange={(event) => setEditNoteContent(event.target.value)}
+                                className="w-full min-h-24 rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                placeholder="Contenu (optionnel si lien)"
+                              />
+                              <input
+                                type="url"
+                                value={editNoteLink}
+                                onChange={(event) => setEditNoteLink(event.target.value)}
+                                className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                placeholder="https://www.evernote.com/..."
+                              />
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="submit"
+                                  className="rounded-xl bg-indigo-600 px-4 py-2 text-white text-sm font-bold hover:bg-indigo-700"
+                                >
+                                  Enregistrer
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={cancelEditNote}
+                                  className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100"
+                                >
+                                  Annuler
+                                </button>
+                              </div>
+                            </form>
+                          ) : (
+                            <>
+                              <div className="flex items-start justify-between gap-4">
+                                <div>
+                                  <h3 className="text-xl font-black text-slate-900">{note.title}</h3>
+                                  <p className="text-sm text-slate-400 mt-1">
+                                    {new Date(note.createdAt).toLocaleString('fr-FR')}
+                                  </p>
+                                  {note.link && (
+                                    <a
+                                      href={note.link}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="inline-flex items-center gap-2 mt-3 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                                    >
+                                      <i className="fas fa-up-right-from-square"></i>
+                                      Ouvrir le lien Evernote
+                                    </a>
+                                  )}
+                                </div>
+                                {canEditResources && (
+                                  <div className="flex items-center gap-3">
+                                    <button
+                                      type="button"
+                                      onClick={() => startEditNote(note)}
+                                      className="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                                    >
+                                      Modifier
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => deleteEvernoteNote(note.id)}
+                                      className="text-sm font-semibold text-rose-600 hover:text-rose-700"
+                                    >
+                                      Supprimer
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                              {note.content && (
+                                <p className="text-slate-700 mt-4 whitespace-pre-line">{note.content}</p>
+                              )}
+                            </>
                           )}
                         </article>
                       ))}
@@ -1140,38 +1401,93 @@ const App: React.FC = () => {
                       )}
                       {filteredContentItems.map((item) => (
                         <article key={item.id} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                          <div className="flex items-start justify-between gap-4">
-                            <div>
-                              <div className="flex items-center gap-2 mb-2">
-                                <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ${item.type === 'PDF' ? 'bg-rose-50 text-rose-600' : 'bg-indigo-50 text-indigo-600'}`}>
-                                  {item.type}
-                                </span>
+                          {canEditResources && editingContentId === item.id ? (
+                            <form
+                              onSubmit={(event) => {
+                                event.preventDefault();
+                                void saveEditContent(item);
+                              }}
+                              className="space-y-3"
+                            >
+                              <input
+                                type="text"
+                                value={editContentTitle}
+                                onChange={(event) => setEditContentTitle(event.target.value)}
+                                className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                required
+                              />
+                              {editContentType === 'LIEN' ? (
+                                <input
+                                  type="url"
+                                  value={editContentUrl}
+                                  onChange={(event) => setEditContentUrl(event.target.value)}
+                                  className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  required
+                                />
+                              ) : (
+                                <p className="text-xs text-slate-500">
+                                  Pour remplacer le PDF, supprimez-le puis ajoutez un nouveau fichier.
+                                </p>
+                              )}
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="submit"
+                                  className="rounded-xl bg-indigo-600 px-4 py-2 text-white text-sm font-bold hover:bg-indigo-700"
+                                >
+                                  Enregistrer
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={cancelEditContent}
+                                  className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100"
+                                >
+                                  Annuler
+                                </button>
                               </div>
-                              <h3 className="text-xl font-black text-slate-900">{item.title}</h3>
-                              <p className="text-sm text-slate-400 mt-1">
-                                {new Date(item.createdAt).toLocaleString('fr-FR')}
-                              </p>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  void openContentItem(item);
-                                }}
-                                className="inline-flex items-center gap-2 mt-3 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
-                              >
-                                <i className="fas fa-up-right-from-square"></i>
-                                Ouvrir
-                              </button>
+                            </form>
+                          ) : (
+                            <div className="flex items-start justify-between gap-4">
+                              <div>
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ${item.type === 'PDF' ? 'bg-rose-50 text-rose-600' : 'bg-indigo-50 text-indigo-600'}`}>
+                                    {item.type}
+                                  </span>
+                                </div>
+                                <h3 className="text-xl font-black text-slate-900">{item.title}</h3>
+                                <p className="text-sm text-slate-400 mt-1">
+                                  {new Date(item.createdAt).toLocaleString('fr-FR')}
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    void openContentItem(item);
+                                  }}
+                                  className="inline-flex items-center gap-2 mt-3 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                                >
+                                  <i className="fas fa-up-right-from-square"></i>
+                                  Ouvrir
+                                </button>
+                              </div>
+                              {canEditResources && (
+                                <div className="flex items-center gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => startEditContent(item)}
+                                    className="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                                  >
+                                    Modifier
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteContentItem(item.id)}
+                                    className="text-sm font-semibold text-rose-600 hover:text-rose-700"
+                                  >
+                                    Supprimer
+                                  </button>
+                                </div>
+                              )}
                             </div>
-                            {canEditResources && (
-                              <button
-                                type="button"
-                                onClick={() => deleteContentItem(item.id)}
-                                className="text-sm font-semibold text-rose-600 hover:text-rose-700"
-                              >
-                                Supprimer
-                              </button>
-                            )}
-                          </div>
+                          )}
                         </article>
                       ))}
                     </div>

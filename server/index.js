@@ -611,6 +611,67 @@ app.post("/api/notes", async (req, res) => {
   }
 });
 
+app.put("/api/notes/:id", async (req, res) => {
+  try {
+    requireProfessor(req);
+    const id = String(req.params.id || "").trim();
+    if (!id) {
+      throw new ApiError(400, "INVALID_INPUT", "Missing note id.");
+    }
+
+    const title = readRequiredTextField(req.body, "title", MAX_TITLE_LENGTH);
+    const content = readOptionalTextField(req.body, "content", MAX_CONTENT_LENGTH);
+    const link = readOptionalTextField(req.body, "link", MAX_URL_LENGTH);
+
+    if (!content && !link) {
+      throw new ApiError(400, "INVALID_INPUT", "Either \"content\" or \"link\" must be provided.");
+    }
+    if (link && !isValidHttpUrl(link)) {
+      throw new ApiError(400, "INVALID_INPUT", "Field \"link\" must be a valid http(s) URL.");
+    }
+
+    if (hasSupabaseStorage) {
+      const rows = await supabaseRequest(`notes?id=eq.${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify({
+          title,
+          content,
+          link: link || null,
+        }),
+      });
+      const updated = Array.isArray(rows) ? rows[0] : null;
+      if (!updated) {
+        throw new ApiError(404, "NOT_FOUND", "Note not found.");
+      }
+      res.json({
+        note: {
+          id: updated.id,
+          courseId: updated.course_id,
+          title: updated.title,
+          content: updated.content || "",
+          link: updated.link || undefined,
+          createdAt: updated.created_at,
+        },
+      });
+      return;
+    }
+
+    const store = await ensureStoreLoaded();
+    const note = store.notes.find((entry) => entry.id === id);
+    if (!note) {
+      throw new ApiError(404, "NOT_FOUND", "Note not found.");
+    }
+    note.title = title;
+    note.content = content;
+    note.link = link || undefined;
+    await saveStore();
+    res.json({ note });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
 app.delete("/api/notes/:id", async (req, res) => {
   try {
     requireProfessor(req);
@@ -738,6 +799,70 @@ app.post("/api/resources", async (req, res) => {
     await saveStore();
 
     res.status(201).json({ resource });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.put("/api/resources/:id", async (req, res) => {
+  try {
+    requireProfessor(req);
+    const id = String(req.params.id || "").trim();
+    if (!id) {
+      throw new ApiError(400, "INVALID_INPUT", "Missing resource id.");
+    }
+
+    const title = readRequiredTextField(req.body, "title", MAX_TITLE_LENGTH);
+    const type = readRequiredTextField(req.body, "type", 16).toUpperCase();
+    const url = readRequiredTextField(req.body, "url", MAX_URL_LENGTH);
+
+    if (type !== "PDF" && type !== "LIEN") {
+      throw new ApiError(400, "INVALID_INPUT", "Field \"type\" must be PDF or LIEN.");
+    }
+    if (type === "LIEN" && !isValidHttpUrl(url)) {
+      throw new ApiError(400, "INVALID_INPUT", "Field \"url\" must be a valid http(s) URL for LIEN.");
+    }
+    if (type === "PDF" && !url.startsWith("data:application/pdf")) {
+      throw new ApiError(400, "INVALID_INPUT", "Field \"url\" must be a PDF data URL for PDF resources.");
+    }
+
+    if (hasSupabaseStorage) {
+      const rows = await supabaseRequest(`resources?id=eq.${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify({
+          title,
+          type,
+          url,
+        }),
+      });
+      const updated = Array.isArray(rows) ? rows[0] : null;
+      if (!updated) {
+        throw new ApiError(404, "NOT_FOUND", "Resource not found.");
+      }
+      res.json({
+        resource: {
+          id: updated.id,
+          courseId: updated.course_id,
+          type: updated.type,
+          title: updated.title,
+          url: updated.url,
+          createdAt: updated.created_at,
+        },
+      });
+      return;
+    }
+
+    const store = await ensureStoreLoaded();
+    const resource = store.resources.find((entry) => entry.id === id);
+    if (!resource) {
+      throw new ApiError(404, "NOT_FOUND", "Resource not found.");
+    }
+    resource.title = title;
+    resource.type = type;
+    resource.url = url;
+    await saveStore();
+    res.json({ resource });
   } catch (error) {
     sendError(res, error);
   }
