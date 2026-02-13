@@ -472,7 +472,7 @@ const App: React.FC = () => {
                   L’espace d’apprentissage des étudiant(e)s en communication
                 </h1>
                 <p className="mt-5 text-lg md:text-2xl text-slate-100/90">
-                  Cours, contenu, notes, balado et assistant IA dans une seule plateforme.
+                  Cours, contenu, balado, assistant IA, et cartes mémo dans une seule plateforme.
                 </p>
               </div>
 
@@ -983,7 +983,12 @@ const App: React.FC = () => {
                   <div className="space-y-8">
                     <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
                       <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">Comprendre les RP le temps d'un café.</h1>
-                      <p className="text-slate-600 text-lg">Tous les épisodes du balado sont disponibles ici et dans Spotify.</p>
+                      <p className="text-slate-600 text-lg">
+                        Une chance unique pour les étudiant(e)s universitaires, nouveaux diplômé(e)s, et jeunes professionnel(le)s pour découvrir des discussions exclusives avec des pros des RP. Écoutez aussi des étudiants(es) qui partagent leurs réflexions et discussions sur leur apprentissage en comm strat et relations publiques.
+                        <br />
+                        <br />
+                        Apprenez-en davantage sur certains concepts grâce à des plongées profondes (deep dive).
+                      </p>
                     </div>
 
                     {podcastLoading && (
