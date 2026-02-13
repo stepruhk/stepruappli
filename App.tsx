@@ -191,6 +191,9 @@ const App: React.FC = () => {
       setPassword('');
     } catch (error) {
       console.error(error);
+      logout();
+      setIsAuthenticated(false);
+      setUserRole('student');
       setAuthError('Mot de passe incorrect. Réessayez.');
     }
   };

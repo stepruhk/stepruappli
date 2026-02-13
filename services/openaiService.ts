@@ -120,35 +120,21 @@ function fallbackFlashcards(content: string): Flashcard[] {
 }
 
 export async function loginWithPassword(password: string, role: UserRole = "student"): Promise<UserRole> {
-  try {
-    const endpoint = role === "professor" ? "/api/auth/prof-login" : "/api/auth/login";
-    const response = await postJson<{ token?: string; role?: UserRole }>(endpoint, { password });
-    if (!response.token) throw new Error("Invalid response");
-    localStorage.setItem(AUTH_TOKEN_KEY, response.token);
-    localStorage.setItem(AUTH_ROLE_KEY, response.role || role);
-    return response.role || role;
-  } catch {
-    if (!password.trim()) throw new Error("Mot de passe requis.");
-    // Static fallback mode: local auth only.
-    localStorage.setItem(AUTH_TOKEN_KEY, `local-${Date.now()}`);
-    localStorage.setItem(AUTH_ROLE_KEY, role);
-    return role;
-  }
+  if (!password.trim()) throw new Error("Mot de passe requis.");
+  const endpoint = role === "professor" ? "/api/auth/prof-login" : "/api/auth/login";
+  const response = await postJson<{ token?: string; role?: UserRole }>(endpoint, { password });
+  if (!response.token) throw new Error("Invalid response");
+  localStorage.setItem(AUTH_TOKEN_KEY, response.token);
+  localStorage.setItem(AUTH_ROLE_KEY, response.role || role);
+  return response.role || role;
 }
 
 export async function checkAuthStatus(): Promise<{ authenticated: boolean; role: UserRole }> {
-  try {
-    const response = await getJson<{ authenticated?: boolean; role?: UserRole }>("/api/auth/status");
-    return {
-      authenticated: Boolean(response?.authenticated),
-      role: response?.role || "student",
-    };
-  } catch {
-    return {
-      authenticated: Boolean(localStorage.getItem(AUTH_TOKEN_KEY)),
-      role: (localStorage.getItem(AUTH_ROLE_KEY) as UserRole) || "student",
-    };
-  }
+  const response = await getJson<{ authenticated?: boolean; role?: UserRole }>("/api/auth/status");
+  return {
+    authenticated: Boolean(response?.authenticated),
+    role: response?.role || "student",
+  };
 }
 
 export function logout() {
