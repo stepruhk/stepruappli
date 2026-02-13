@@ -32,6 +32,10 @@ type PodcastEpisode = {
   audioUrl?: string;
 };
 const GENERAL_COURSE_ID = 'general';
+const PROFESSOR_PROFILE_PREFIX = 'professor-profile:';
+const PROFESSOR_BIO_TITLE = '__PROF_BIO__';
+const PROFESSOR_SOCIAL_PREFIX = '[SOCIAL] ';
+const PROFESSOR_PUBLICATION_PREFIX = '[PUBLICATION] ';
 
 const App: React.FC = () => {
   const visibleTopics = INITIAL_TOPICS;
@@ -64,6 +68,11 @@ const App: React.FC = () => {
   const [editContentUrl, setEditContentUrl] = useState('');
   const [editContentType, setEditContentType] = useState<'PDF' | 'LIEN'>('LIEN');
   const [contentItemsByCourse, setContentItemsByCourse] = useState<Record<string, LearningContentItem[]>>({});
+  const [professorBioText, setProfessorBioText] = useState('');
+  const [socialLinkTitle, setSocialLinkTitle] = useState('');
+  const [socialLinkUrl, setSocialLinkUrl] = useState('');
+  const [publicationTitle, setPublicationTitle] = useState('');
+  const [publicationUrl, setPublicationUrl] = useState('');
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const landingImageCandidates = [
     'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1800&q=80',
@@ -128,6 +137,35 @@ const App: React.FC = () => {
 
     void loadCourseResources();
   }, [authChecked, isAuthenticated, resourceCourseId]);
+
+  useEffect(() => {
+    const loadProfessorSection = async () => {
+      if (!authChecked || !isAuthenticated || !selectedTopic) return;
+      const profileCourseId = `${PROFESSOR_PROFILE_PREFIX}${selectedTopic.id}`;
+      try {
+        const [notes, resources] = await Promise.all([
+          listEvernoteNotes(profileCourseId),
+          listCourseContent(profileCourseId),
+        ]);
+        setEvernoteNotesByCourse((prev) => ({ ...prev, [profileCourseId]: notes }));
+        setContentItemsByCourse((prev) => ({ ...prev, [profileCourseId]: resources }));
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    void loadProfessorSection();
+  }, [authChecked, isAuthenticated, selectedTopic]);
+
+  useEffect(() => {
+    if (!selectedTopic) {
+      setProfessorBioText('');
+      return;
+    }
+    const profileCourseId = `${PROFESSOR_PROFILE_PREFIX}${selectedTopic.id}`;
+    const bioNote = (evernoteNotesByCourse[profileCourseId] || []).find((note) => note.title === PROFESSOR_BIO_TITLE);
+    setProfessorBioText(bioNote?.content || '');
+  }, [selectedTopic, evernoteNotesByCourse]);
 
   useEffect(() => {
     const loadPodcastEpisodes = async () => {
@@ -235,6 +273,12 @@ const App: React.FC = () => {
   const selectedTopicContentItems = selectedTopic
     ? (contentItemsByCourse[selectedTopic.id] || [])
     : [];
+  const professorProfileCourseId = selectedTopic ? `${PROFESSOR_PROFILE_PREFIX}${selectedTopic.id}` : '';
+  const professorProfileNotes = professorProfileCourseId ? (evernoteNotesByCourse[professorProfileCourseId] || []) : [];
+  const professorBioNote = professorProfileNotes.find((note) => note.title === PROFESSOR_BIO_TITLE) || null;
+  const professorSectionItems = professorProfileCourseId ? (contentItemsByCourse[professorProfileCourseId] || []) : [];
+  const professorSocialLinks = professorSectionItems.filter((item) => item.title.startsWith(PROFESSOR_SOCIAL_PREFIX));
+  const professorPublications = professorSectionItems.filter((item) => item.title.startsWith(PROFESSOR_PUBLICATION_PREFIX));
   const flashcardsForModal = menuSection === 'MEMO'
     ? (sessionData[resourceCourseId]?.flashcards || [])
     : (currentSession?.flashcards || []);
@@ -517,6 +561,119 @@ const App: React.FC = () => {
       console.error(error);
       handleAuthError(error);
       alert(`Impossible de modifier le contenu. ${getErrorMessage(error)}`);
+    }
+  };
+
+  const getProfessorItemLabel = (title: string) =>
+    title
+      .replace(PROFESSOR_SOCIAL_PREFIX, '')
+      .replace(PROFESSOR_PUBLICATION_PREFIX, '')
+      .trim();
+
+  const saveProfessorBio = async () => {
+    if (!selectedTopic) return;
+    const profileCourseId = `${PROFESSOR_PROFILE_PREFIX}${selectedTopic.id}`;
+    const content = professorBioText.trim();
+    if (!content) return;
+
+    try {
+      if (professorBioNote) {
+        const updated = await updateEvernoteNote(professorBioNote.id, {
+          title: PROFESSOR_BIO_TITLE,
+          content,
+        });
+        setEvernoteNotesByCourse((prev) => ({
+          ...prev,
+          [profileCourseId]: (prev[profileCourseId] || []).map((note) => (note.id === updated.id ? updated : note)),
+        }));
+      } else {
+        const created = await createEvernoteNote({
+          courseId: profileCourseId,
+          title: PROFESSOR_BIO_TITLE,
+          content,
+        });
+        setEvernoteNotesByCourse((prev) => ({
+          ...prev,
+          [profileCourseId]: [created, ...(prev[profileCourseId] || [])],
+        }));
+      }
+    } catch (error) {
+      console.error(error);
+      handleAuthError(error);
+      alert(`Impossible d'enregistrer la bio. ${getErrorMessage(error)}`);
+    }
+  };
+
+  const addProfessorSocialLink = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!selectedTopic) return;
+    const profileCourseId = `${PROFESSOR_PROFILE_PREFIX}${selectedTopic.id}`;
+    const title = socialLinkTitle.trim();
+    const rawUrl = socialLinkUrl.trim();
+    if (!title || !rawUrl) return;
+    const url = rawUrl.startsWith('http://') || rawUrl.startsWith('https://') ? rawUrl : `https://${rawUrl}`;
+
+    try {
+      const created = await createCourseContent({
+        courseId: profileCourseId,
+        type: 'LIEN',
+        title: `${PROFESSOR_SOCIAL_PREFIX}${title}`,
+        url,
+      });
+      setContentItemsByCourse((prev) => ({
+        ...prev,
+        [profileCourseId]: [created, ...(prev[profileCourseId] || [])],
+      }));
+      setSocialLinkTitle('');
+      setSocialLinkUrl('');
+    } catch (error) {
+      console.error(error);
+      handleAuthError(error);
+      alert(`Impossible d'ajouter le lien social. ${getErrorMessage(error)}`);
+    }
+  };
+
+  const addProfessorPublication = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!selectedTopic) return;
+    const profileCourseId = `${PROFESSOR_PROFILE_PREFIX}${selectedTopic.id}`;
+    const title = publicationTitle.trim();
+    const rawUrl = publicationUrl.trim();
+    if (!title || !rawUrl) return;
+    const url = rawUrl.startsWith('http://') || rawUrl.startsWith('https://') ? rawUrl : `https://${rawUrl}`;
+
+    try {
+      const created = await createCourseContent({
+        courseId: profileCourseId,
+        type: 'LIEN',
+        title: `${PROFESSOR_PUBLICATION_PREFIX}${title}`,
+        url,
+      });
+      setContentItemsByCourse((prev) => ({
+        ...prev,
+        [profileCourseId]: [created, ...(prev[profileCourseId] || [])],
+      }));
+      setPublicationTitle('');
+      setPublicationUrl('');
+    } catch (error) {
+      console.error(error);
+      handleAuthError(error);
+      alert(`Impossible d'ajouter la publication. ${getErrorMessage(error)}`);
+    }
+  };
+
+  const deleteProfessorItem = async (item: LearningContentItem) => {
+    if (!selectedTopic) return;
+    const profileCourseId = `${PROFESSOR_PROFILE_PREFIX}${selectedTopic.id}`;
+    try {
+      await removeCourseContent(item.id);
+      setContentItemsByCourse((prev) => ({
+        ...prev,
+        [profileCourseId]: (prev[profileCourseId] || []).filter((entry) => entry.id !== item.id),
+      }));
+    } catch (error) {
+      console.error(error);
+      alert("Impossible de supprimer cet élément.");
     }
   };
 
@@ -1136,6 +1293,155 @@ const App: React.FC = () => {
                               )}
                             </article>
                           ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                      <h2 className="text-2xl font-black text-slate-900 mb-2">Votre professeur</h2>
+                      <p className="text-slate-600 mb-6">
+                        Bio, liens de réseaux sociaux et publications pour ce cours.
+                      </p>
+
+                      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                        <div className="rounded-2xl border border-slate-200 p-5">
+                          <h3 className="text-lg font-black text-slate-900 mb-3">Bio</h3>
+                          {canEditResources ? (
+                            <div className="space-y-3">
+                              <textarea
+                                value={professorBioText}
+                                onChange={(event) => setProfessorBioText(event.target.value)}
+                                placeholder="Ajoutez votre bio pour ce cours..."
+                                className="w-full min-h-36 rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => { void saveProfessorBio(); }}
+                                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-white font-bold hover:bg-indigo-700 transition-colors"
+                              >
+                                <i className="fas fa-save"></i>
+                                Enregistrer la bio
+                              </button>
+                            </div>
+                          ) : (
+                            <p className="text-slate-700 whitespace-pre-line">
+                              {professorBioNote?.content || 'Bio à venir.'}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-200 p-5">
+                          <h3 className="text-lg font-black text-slate-900 mb-3">Réseaux sociaux</h3>
+                          {canEditResources && (
+                            <form onSubmit={addProfessorSocialLink} className="space-y-3 mb-4">
+                              <input
+                                type="text"
+                                value={socialLinkTitle}
+                                onChange={(event) => setSocialLinkTitle(event.target.value)}
+                                placeholder="Ex: LinkedIn"
+                                className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                required
+                              />
+                              <input
+                                type="url"
+                                value={socialLinkUrl}
+                                onChange={(event) => setSocialLinkUrl(event.target.value)}
+                                placeholder="https://..."
+                                className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                required
+                              />
+                              <button
+                                type="submit"
+                                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-white text-sm font-bold hover:bg-indigo-700 transition-colors"
+                              >
+                                <i className="fas fa-plus"></i>
+                                Ajouter
+                              </button>
+                            </form>
+                          )}
+                          <div className="space-y-2">
+                            {professorSocialLinks.length === 0 && (
+                              <p className="text-slate-500 text-sm">Aucun lien social pour ce cours.</p>
+                            )}
+                            {professorSocialLinks.map((item) => (
+                              <div key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2">
+                                <a
+                                  href={item.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-indigo-600 hover:text-indigo-700 font-semibold text-sm"
+                                >
+                                  {getProfessorItemLabel(item.title)}
+                                </a>
+                                {canEditResources && (
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteProfessorItem(item)}
+                                    className="text-xs font-semibold text-rose-600 hover:text-rose-700"
+                                  >
+                                    Supprimer
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-200 p-5">
+                          <h3 className="text-lg font-black text-slate-900 mb-3">Publications</h3>
+                          {canEditResources && (
+                            <form onSubmit={addProfessorPublication} className="space-y-3 mb-4">
+                              <input
+                                type="text"
+                                value={publicationTitle}
+                                onChange={(event) => setPublicationTitle(event.target.value)}
+                                placeholder="Titre de publication"
+                                className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                required
+                              />
+                              <input
+                                type="url"
+                                value={publicationUrl}
+                                onChange={(event) => setPublicationUrl(event.target.value)}
+                                placeholder="https://..."
+                                className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                required
+                              />
+                              <button
+                                type="submit"
+                                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-white text-sm font-bold hover:bg-indigo-700 transition-colors"
+                              >
+                                <i className="fas fa-plus"></i>
+                                Ajouter
+                              </button>
+                            </form>
+                          )}
+                          <div className="space-y-2">
+                            {professorPublications.length === 0 && (
+                              <p className="text-slate-500 text-sm">Aucune publication pour ce cours.</p>
+                            )}
+                            {professorPublications.map((item) => (
+                              <div key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2">
+                                <a
+                                  href={item.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-indigo-600 hover:text-indigo-700 font-semibold text-sm"
+                                >
+                                  {getProfessorItemLabel(item.title)}
+                                </a>
+                                {canEditResources && (
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteProfessorItem(item)}
+                                    className="text-xs font-semibold text-rose-600 hover:text-rose-700"
+                                  >
+                                    Supprimer
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     </div>
