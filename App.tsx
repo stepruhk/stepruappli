@@ -8,6 +8,7 @@ import {
   createCourseContent,
   createEvernoteNote,
   generateFlashcards,
+  getAccessMetrics,
   listCourseContent,
   listEvernoteNotes,
   loginWithPassword,
@@ -17,6 +18,7 @@ import {
   summarizeContent,
   updateCourseContent,
   updateEvernoteNote,
+  type AccessMetrics,
   type EvernoteNote,
   type LearningContentItem,
   type UserRole,
@@ -89,6 +91,9 @@ const App: React.FC = () => {
   const [podcastEpisodes, setPodcastEpisodes] = useState<PodcastEpisode[]>([]);
   const [podcastLoading, setPodcastLoading] = useState(false);
   const [podcastError, setPodcastError] = useState<string | null>(null);
+  const [accessMetrics, setAccessMetrics] = useState<AccessMetrics | null>(null);
+  const [accessMetricsLoading, setAccessMetricsLoading] = useState(false);
+  const [accessMetricsError, setAccessMetricsError] = useState<string | null>(null);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -195,6 +200,27 @@ const App: React.FC = () => {
 
     void loadPodcastEpisodes();
   }, [authChecked, isAuthenticated, menuSection]);
+
+  useEffect(() => {
+    const loadAccessMetrics = async () => {
+      if (!authChecked || !isAuthenticated || userRole !== 'professor') return;
+      if (menuSection !== 'CONTACT') return;
+
+      setAccessMetricsLoading(true);
+      setAccessMetricsError(null);
+      try {
+        const metrics = await getAccessMetrics();
+        setAccessMetrics(metrics);
+      } catch (error) {
+        console.error(error);
+        setAccessMetricsError('Impossible de charger le compteur pour le moment.');
+      } finally {
+        setAccessMetricsLoading(false);
+      }
+    };
+
+    void loadAccessMetrics();
+  }, [authChecked, isAuthenticated, menuSection, userRole]);
 
   const handleAuthError = (error: unknown) => {
     console.error(error);
@@ -2062,6 +2088,55 @@ const App: React.FC = () => {
                           Ouvrir l'Assistant IA
                         </a>
                       </div>
+
+                      {canEditResources && (
+                        <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm lg:col-span-2">
+                          <h2 className="text-2xl font-black text-slate-900 mb-2 flex items-center gap-2">
+                            <i className="fas fa-chart-line text-indigo-600"></i>
+                            Compteur d'accès à l'app
+                          </h2>
+                          <p className="text-slate-600 mb-6">
+                            Statistiques des connexions réussies (visites).
+                          </p>
+
+                          {accessMetricsLoading && (
+                            <p className="text-slate-500">Chargement des statistiques...</p>
+                          )}
+
+                          {accessMetricsError && (
+                            <p className="text-rose-600">{accessMetricsError}</p>
+                          )}
+
+                          {!accessMetricsLoading && !accessMetricsError && accessMetrics && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                              <div className="rounded-2xl border border-slate-200 p-4 bg-slate-50">
+                                <p className="text-xs uppercase tracking-wider text-slate-500 font-bold">Total</p>
+                                <p className="text-3xl font-black text-slate-900">{accessMetrics.total}</p>
+                              </div>
+                              <div className="rounded-2xl border border-slate-200 p-4 bg-slate-50">
+                                <p className="text-xs uppercase tracking-wider text-slate-500 font-bold">Aujourd'hui</p>
+                                <p className="text-3xl font-black text-slate-900">{accessMetrics.today}</p>
+                              </div>
+                              <div className="rounded-2xl border border-slate-200 p-4 bg-slate-50">
+                                <p className="text-xs uppercase tracking-wider text-slate-500 font-bold">Étudiants</p>
+                                <p className="text-3xl font-black text-slate-900">{accessMetrics.student}</p>
+                              </div>
+                              <div className="rounded-2xl border border-slate-200 p-4 bg-slate-50">
+                                <p className="text-xs uppercase tracking-wider text-slate-500 font-bold">Professeur</p>
+                                <p className="text-3xl font-black text-slate-900">{accessMetrics.professor}</p>
+                              </div>
+                            </div>
+                          )}
+
+                          {!accessMetricsLoading && !accessMetricsError && accessMetrics && (
+                            <p className="text-sm text-slate-500 mt-4">
+                              Dernier accès: {accessMetrics.lastAccessAt
+                                ? new Date(accessMetrics.lastAccessAt).toLocaleString('fr-FR')
+                                : 'Aucun accès enregistré'}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

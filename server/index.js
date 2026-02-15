@@ -28,6 +28,8 @@ const MAX_PASSWORD_LENGTH = Number(process.env.MAX_PASSWORD_LENGTH || 256);
 const MAX_URL_LENGTH = Number(process.env.MAX_URL_LENGTH || 30_000_000);
 const MAX_TITLE_LENGTH = Number(process.env.MAX_TITLE_LENGTH || 180);
 const MAX_JSON_BODY_LIMIT = String(process.env.MAX_JSON_BODY_LIMIT || "35mb");
+const ACCESS_ANALYTICS_COURSE_ID = "__analytics_access__";
+const ACCESS_ANALYTICS_TITLE = "__ACCESS_EVENT__";
 
 const rateBuckets = new Map();
 const authSessions = new Map();
@@ -337,14 +339,16 @@ async function supabaseRequest(pathname, init = {}, { allowNotFound = false } = 
     throw new ApiError(500, "STORAGE_NOT_CONFIGURED", "Supabase storage is not configured.");
   }
 
+  const headers = {
+    apikey: SUPABASE_SERVICE_ROLE_KEY,
+    Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+    "Content-Type": "application/json",
+    ...(init.headers || {}),
+  };
+
   const response = await fetch(`${SUPABASE_URL}/rest/v1/${pathname}`, {
     ...init,
-    headers: {
-      apikey: SUPABASE_SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-      "Content-Type": "application/json",
-      ...(init.headers || {}),
-    },
+    headers,
   });
 
   if (allowNotFound && response.status === 404) return null;
@@ -365,6 +369,138 @@ async function supabaseRequest(pathname, init = {}, { allowNotFound = false } = 
   } catch {
     return text;
   }
+}
+
+async function supabaseCount(pathname) {
+  if (!hasSupabaseStorage) return 0;
+
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/${pathname}`, {
+    method: "GET",
+    headers: {
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      Prefer: "count=exact",
+      Range: "0-0",
+    },
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new ApiError(502, "STORAGE_ERROR", "Storage backend request failed.", {
+      status: response.status,
+      body: text || null,
+      path: pathname,
+    });
+  }
+
+  const contentRange = response.headers.get("content-range") || "";
+  const total = Number(contentRange.split("/")[1] || 0);
+  return Number.isFinite(total) ? total : 0;
+}
+
+async function recordAccess(role = "student") {
+  const nowIso = new Date().toISOString();
+  const entry = {
+    id: crypto.randomUUID(),
+    courseId: ACCESS_ANALYTICS_COURSE_ID,
+    title: ACCESS_ANALYTICS_TITLE,
+    content: role,
+    link: null,
+    createdAt: nowIso,
+  };
+
+  if (hasSupabaseStorage) {
+    try {
+      await supabaseRequest("notes", {
+        method: "POST",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({
+          id: entry.id,
+          course_id: entry.courseId,
+          title: entry.title,
+          content: entry.content,
+          link: entry.link,
+          created_at: entry.createdAt,
+        }),
+      });
+      return;
+    } catch (error) {
+      console.warn("Could not persist access metric in Supabase, fallback to local storage.", error);
+    }
+  }
+
+  const store = await ensureStoreLoaded();
+  store.notes.unshift({
+    id: entry.id,
+    courseId: entry.courseId,
+    title: entry.title,
+    content: entry.content,
+    createdAt: entry.createdAt,
+  });
+  await saveStore();
+}
+
+async function readAccessMetrics() {
+  const startOfDayUtc = new Date();
+  startOfDayUtc.setUTCHours(0, 0, 0, 0);
+  const startOfDayIso = startOfDayUtc.toISOString();
+
+  if (hasSupabaseStorage) {
+    try {
+      const encodedCourseId = encodeURIComponent(ACCESS_ANALYTICS_COURSE_ID);
+      const encodedTitle = encodeURIComponent(ACCESS_ANALYTICS_TITLE);
+      const encodedStudent = encodeURIComponent("student");
+      const encodedProfessor = encodeURIComponent("professor");
+      const encodedDayStart = encodeURIComponent(startOfDayIso);
+      const baseFilter = `course_id=eq.${encodedCourseId}&title=eq.${encodedTitle}`;
+
+      const [total, student, professor, today, latestRows] = await Promise.all([
+        supabaseCount(`notes?${baseFilter}&select=id`),
+        supabaseCount(`notes?${baseFilter}&content=eq.${encodedStudent}&select=id`),
+        supabaseCount(`notes?${baseFilter}&content=eq.${encodedProfessor}&select=id`),
+        supabaseCount(`notes?${baseFilter}&created_at=gte.${encodedDayStart}&select=id`),
+        supabaseRequest(
+          `notes?${baseFilter}&select=created_at&order=created_at.desc&limit=1`,
+          { method: "GET" },
+        ),
+      ]);
+
+      const lastAccessAt = Array.isArray(latestRows) && latestRows[0]?.created_at
+        ? latestRows[0].created_at
+        : null;
+
+      return {
+        total,
+        student,
+        professor,
+        today,
+        lastAccessAt,
+      };
+    } catch (error) {
+      console.warn("Could not read access metrics from Supabase, fallback to local storage.", error);
+    }
+  }
+
+  const store = await ensureStoreLoaded();
+  const events = store.notes.filter(
+    (note) => note.courseId === ACCESS_ANALYTICS_COURSE_ID && note.title === ACCESS_ANALYTICS_TITLE,
+  );
+
+  const today = events.filter((note) => new Date(note.createdAt) >= startOfDayUtc).length;
+  const student = events.filter((note) => note.content === "student").length;
+  const professor = events.filter((note) => note.content === "professor").length;
+  const lastAccessAt = events.reduce((latest, note) => {
+    if (!latest) return note.createdAt || null;
+    return new Date(note.createdAt).getTime() > new Date(latest).getTime() ? note.createdAt : latest;
+  }, null);
+
+  return {
+    total: events.length,
+    student,
+    professor,
+    today,
+    lastAccessAt,
+  };
 }
 
 setInterval(() => {
@@ -453,6 +589,9 @@ app.post("/api/auth/login", (req, res) => {
     }
 
     const token = createSessionToken();
+    void recordAccess("student").catch((error) => {
+      console.error("Failed to record student access:", error);
+    });
     res.json({
       token,
       role: "student",
@@ -478,6 +617,9 @@ app.post("/api/auth/prof-login", (req, res) => {
     }
 
     const token = createSessionToken("professor");
+    void recordAccess("professor").catch((error) => {
+      console.error("Failed to record professor access:", error);
+    });
     res.json({
       token,
       role: "professor",
@@ -1078,6 +1220,16 @@ app.get("/api/podcast-episodes", async (_req, res) => {
     }
 
     throw new ApiError(502, "PODCAST_RSS_UNAVAILABLE", "Impossible de récupérer le flux podcast.", lastError);
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.get("/api/access-metrics", async (req, res) => {
+  try {
+    requireProfessor(req);
+    const metrics = await readAccessMetrics();
+    res.json(metrics);
   } catch (error) {
     sendError(res, error);
   }

@@ -20,6 +20,13 @@ export type LearningContentItem = {
   url: string;
   createdAt: string;
 };
+export type AccessMetrics = {
+  total: number;
+  student: number;
+  professor: number;
+  today: number;
+  lastAccessAt: string | null;
+};
 
 type ApiErrorShape = {
   error?: {
@@ -240,4 +247,15 @@ export async function updateCourseContent(
   const response = await putJson<{ resource?: LearningContentItem }>(`/api/resources/${encodeURIComponent(id)}`, payload);
   if (!response.resource) throw new Error("Impossible de modifier le contenu.");
   return response.resource;
+}
+
+export async function getAccessMetrics(): Promise<AccessMetrics> {
+  const response = await getJson<Partial<AccessMetrics>>("/api/access-metrics");
+  return {
+    total: Number(response.total || 0),
+    student: Number(response.student || 0),
+    professor: Number(response.professor || 0),
+    today: Number(response.today || 0),
+    lastAccessAt: response.lastAccessAt || null,
+  };
 }
