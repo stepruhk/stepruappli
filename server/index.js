@@ -30,6 +30,8 @@ const MAX_TITLE_LENGTH = Number(process.env.MAX_TITLE_LENGTH || 180);
 const MAX_JSON_BODY_LIMIT = String(process.env.MAX_JSON_BODY_LIMIT || "35mb");
 const ACCESS_ANALYTICS_COURSE_ID = "__analytics_access__";
 const ACCESS_ANALYTICS_TITLE = "__ACCESS_EVENT__";
+const ORDER_META_COURSE_ID = "__ui_order__";
+const ORDER_META_PREFIX = "__ORDER__";
 
 const rateBuckets = new Map();
 const authSessions = new Map();
@@ -237,6 +239,49 @@ function readOptionalTextField(body, fieldName, maxLength) {
   return cleaned;
 }
 
+function normalizeOrderIds(value) {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set();
+  const ids = [];
+  for (const entry of value) {
+    if (typeof entry !== "string") continue;
+    const id = entry.trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    ids.push(id);
+  }
+  return ids;
+}
+
+function getOrderMetaTitle(entityType, courseId) {
+  return `${ORDER_META_PREFIX}:${entityType}:${courseId}`;
+}
+
+function parseOrderIds(raw) {
+  if (typeof raw !== "string" || !raw.trim()) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return normalizeOrderIds(parsed);
+  } catch {
+    return [];
+  }
+}
+
+function applyManualOrder(items, orderedIds) {
+  if (!Array.isArray(items) || !items.length) return [];
+  const orderMap = new Map();
+  orderedIds.forEach((id, index) => {
+    orderMap.set(id, index);
+  });
+  const fallbackRank = Number.MAX_SAFE_INTEGER;
+  return [...items].sort((a, b) => {
+    const rankA = orderMap.has(a.id) ? orderMap.get(a.id) : fallbackRank;
+    const rankB = orderMap.has(b.id) ? orderMap.get(b.id) : fallbackRank;
+    if (rankA !== rankB) return rankA - rankB;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+}
+
 function decodeHtmlEntities(value) {
   return value
     .replace(/&amp;/g, "&")
@@ -396,6 +441,97 @@ async function supabaseCount(pathname) {
   const contentRange = response.headers.get("content-range") || "";
   const total = Number(contentRange.split("/")[1] || 0);
   return Number.isFinite(total) ? total : 0;
+}
+
+async function readStoredOrder(entityType, courseId) {
+  if (!courseId) return [];
+  const title = getOrderMetaTitle(entityType, courseId);
+
+  if (hasSupabaseStorage) {
+    const rows = await supabaseRequest(
+      `notes?course_id=eq.${encodeURIComponent(ORDER_META_COURSE_ID)}&title=eq.${encodeURIComponent(title)}&select=content,created_at&order=created_at.desc&limit=1`,
+      { method: "GET" },
+    );
+    const row = Array.isArray(rows) ? rows[0] : null;
+    return parseOrderIds(row?.content);
+  }
+
+  const store = await ensureStoreLoaded();
+  const row = store.notes
+    .filter((note) => note.courseId === ORDER_META_COURSE_ID && note.title === title)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+  return parseOrderIds(row?.content);
+}
+
+async function upsertStoredOrder(entityType, courseId, orderedIds) {
+  const normalizedIds = normalizeOrderIds(orderedIds);
+  const title = getOrderMetaTitle(entityType, courseId);
+  const content = JSON.stringify(normalizedIds);
+  const nowIso = new Date().toISOString();
+
+  if (hasSupabaseStorage) {
+    const rows = await supabaseRequest(
+      `notes?course_id=eq.${encodeURIComponent(ORDER_META_COURSE_ID)}&title=eq.${encodeURIComponent(title)}&select=id,created_at&order=created_at.desc`,
+      { method: "GET" },
+    );
+    const first = Array.isArray(rows) ? rows[0] : null;
+    if (first?.id) {
+      await supabaseRequest(`notes?id=eq.${encodeURIComponent(first.id)}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({
+          content,
+          created_at: nowIso,
+        }),
+      });
+      return;
+    }
+
+    await supabaseRequest("notes", {
+      method: "POST",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({
+        id: crypto.randomUUID(),
+        course_id: ORDER_META_COURSE_ID,
+        title,
+        content,
+        link: null,
+        created_at: nowIso,
+      }),
+    });
+    return;
+  }
+
+  const store = await ensureStoreLoaded();
+  const existing = store.notes.find((note) => note.courseId === ORDER_META_COURSE_ID && note.title === title);
+  if (existing) {
+    existing.content = content;
+    existing.createdAt = nowIso;
+  } else {
+    store.notes.unshift({
+      id: crypto.randomUUID(),
+      courseId: ORDER_META_COURSE_ID,
+      title,
+      content,
+      createdAt: nowIso,
+    });
+  }
+  await saveStore();
+}
+
+async function prependItemInOrder(entityType, courseId, itemId) {
+  if (!courseId || !itemId) return;
+  const current = await readStoredOrder(entityType, courseId);
+  const next = [itemId, ...current.filter((id) => id !== itemId)];
+  await upsertStoredOrder(entityType, courseId, next);
+}
+
+async function removeItemFromOrder(entityType, courseId, itemId) {
+  if (!courseId || !itemId) return;
+  const current = await readStoredOrder(entityType, courseId);
+  if (!current.includes(itemId)) return;
+  const next = current.filter((id) => id !== itemId);
+  await upsertStoredOrder(entityType, courseId, next);
 }
 
 async function recordAccess(role = "student") {
@@ -661,12 +797,13 @@ app.get("/api/notes", async (req, res) => {
     if (!courseId) {
       throw new ApiError(400, "INVALID_INPUT", "Query parameter \"courseId\" is required.");
     }
+    const orderedIds = await readStoredOrder("notes", courseId);
     if (hasSupabaseStorage) {
       const rows = await supabaseRequest(
         `notes?course_id=eq.${encodeURIComponent(courseId)}&select=id,course_id,title,content,link,created_at&order=created_at.desc`,
         { method: "GET" },
       );
-      const notes = Array.isArray(rows)
+      const parsedNotes = Array.isArray(rows)
         ? rows.map((row) => ({
             id: row.id,
             courseId: row.course_id,
@@ -676,14 +813,16 @@ app.get("/api/notes", async (req, res) => {
             createdAt: row.created_at,
           }))
         : [];
+      const notes = applyManualOrder(parsedNotes, orderedIds);
       res.json({ notes });
       return;
     }
 
     const store = await ensureStoreLoaded();
-    const notes = store.notes
+    const parsedNotes = store.notes
       .filter((note) => note.courseId === courseId)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const notes = applyManualOrder(parsedNotes, orderedIds);
     res.json({ notes });
   } catch (error) {
     sendError(res, error);
@@ -730,6 +869,7 @@ app.post("/api/notes", async (req, res) => {
       if (!created) {
         throw new ApiError(502, "STORAGE_ERROR", "Unable to persist note.");
       }
+      await prependItemInOrder("notes", note.courseId, note.id);
       res.status(201).json({
         note: {
           id: created.id,
@@ -746,6 +886,7 @@ app.post("/api/notes", async (req, res) => {
     const store = await ensureStoreLoaded();
     store.notes.unshift(note);
     await saveStore();
+    await prependItemInOrder("notes", note.courseId, note.id);
 
     res.status(201).json({ note });
   } catch (error) {
@@ -823,20 +964,32 @@ app.delete("/api/notes/:id", async (req, res) => {
     }
 
     if (hasSupabaseStorage) {
+      const existingRows = await supabaseRequest(
+        `notes?id=eq.${encodeURIComponent(id)}&select=id,course_id&limit=1`,
+        { method: "GET" },
+      );
+      const existing = Array.isArray(existingRows) ? existingRows[0] : null;
       await supabaseRequest(`notes?id=eq.${encodeURIComponent(id)}`, {
         method: "DELETE",
       });
+      if (existing?.course_id) {
+        await removeItemFromOrder("notes", existing.course_id, id);
+      }
       res.json({ ok: true });
       return;
     }
 
     const store = await ensureStoreLoaded();
+    const deletedNote = store.notes.find((note) => note.id === id);
     const before = store.notes.length;
     store.notes = store.notes.filter((note) => note.id !== id);
     if (store.notes.length === before) {
       throw new ApiError(404, "NOT_FOUND", "Note not found.");
     }
     await saveStore();
+    if (deletedNote?.courseId) {
+      await removeItemFromOrder("notes", deletedNote.courseId, id);
+    }
     res.json({ ok: true });
   } catch (error) {
     sendError(res, error);
@@ -849,12 +1002,13 @@ app.get("/api/resources", async (req, res) => {
     if (!courseId) {
       throw new ApiError(400, "INVALID_INPUT", "Query parameter \"courseId\" is required.");
     }
+    const orderedIds = await readStoredOrder("resources", courseId);
     if (hasSupabaseStorage) {
       const rows = await supabaseRequest(
         `resources?course_id=eq.${encodeURIComponent(courseId)}&select=id,course_id,type,title,url,created_at&order=created_at.desc`,
         { method: "GET" },
       );
-      const resources = Array.isArray(rows)
+      const parsedResources = Array.isArray(rows)
         ? rows.map((row) => ({
             id: row.id,
             courseId: row.course_id,
@@ -864,14 +1018,16 @@ app.get("/api/resources", async (req, res) => {
             createdAt: row.created_at,
           }))
         : [];
+      const resources = applyManualOrder(parsedResources, orderedIds);
       res.json({ resources });
       return;
     }
 
     const store = await ensureStoreLoaded();
-    const resources = store.resources
+    const parsedResources = store.resources
       .filter((item) => item.courseId === courseId)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const resources = applyManualOrder(parsedResources, orderedIds);
     res.json({ resources });
   } catch (error) {
     sendError(res, error);
@@ -923,6 +1079,7 @@ app.post("/api/resources", async (req, res) => {
       if (!created) {
         throw new ApiError(502, "STORAGE_ERROR", "Unable to persist resource.");
       }
+      await prependItemInOrder("resources", resource.courseId, resource.id);
       res.status(201).json({
         resource: {
           id: created.id,
@@ -939,6 +1096,7 @@ app.post("/api/resources", async (req, res) => {
     const store = await ensureStoreLoaded();
     store.resources.unshift(resource);
     await saveStore();
+    await prependItemInOrder("resources", resource.courseId, resource.id);
 
     res.status(201).json({ resource });
   } catch (error) {
@@ -1019,20 +1177,53 @@ app.delete("/api/resources/:id", async (req, res) => {
     }
 
     if (hasSupabaseStorage) {
+      const existingRows = await supabaseRequest(
+        `resources?id=eq.${encodeURIComponent(id)}&select=id,course_id&limit=1`,
+        { method: "GET" },
+      );
+      const existing = Array.isArray(existingRows) ? existingRows[0] : null;
       await supabaseRequest(`resources?id=eq.${encodeURIComponent(id)}`, {
         method: "DELETE",
       });
+      if (existing?.course_id) {
+        await removeItemFromOrder("resources", existing.course_id, id);
+      }
       res.json({ ok: true });
       return;
     }
 
     const store = await ensureStoreLoaded();
+    const deletedResource = store.resources.find((item) => item.id === id);
     const before = store.resources.length;
     store.resources = store.resources.filter((item) => item.id !== id);
     if (store.resources.length === before) {
       throw new ApiError(404, "NOT_FOUND", "Resource not found.");
     }
     await saveStore();
+    if (deletedResource?.courseId) {
+      await removeItemFromOrder("resources", deletedResource.courseId, id);
+    }
+    res.json({ ok: true });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.put("/api/order", async (req, res) => {
+  try {
+    requireProfessor(req);
+    const entityTypeRaw = readRequiredTextField(req.body, "entityType", 32).toLowerCase();
+    const courseId = readRequiredTextField(req.body, "courseId", 128);
+    const orderedIds = normalizeOrderIds(req.body?.orderedIds);
+
+    if (entityTypeRaw !== "notes" && entityTypeRaw !== "resources") {
+      throw new ApiError(400, "INVALID_INPUT", "Field \"entityType\" must be notes or resources.");
+    }
+    if (!Array.isArray(req.body?.orderedIds)) {
+      throw new ApiError(400, "INVALID_INPUT", "Field \"orderedIds\" must be an array.");
+    }
+
+    await upsertStoredOrder(entityTypeRaw, courseId, orderedIds);
     res.json({ ok: true });
   } catch (error) {
     sendError(res, error);

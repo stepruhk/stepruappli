@@ -15,12 +15,14 @@ import {
   logout,
   removeCourseContent,
   removeEvernoteNote,
+  saveCourseOrder,
   summarizeContent,
   updateCourseContent,
   updateEvernoteNote,
   type AccessMetrics,
   type EvernoteNote,
   type LearningContentItem,
+  type OrderEntityType,
   type UserRole,
 } from './services/openaiService.ts';
 import FlashcardDeck from './components/FlashcardDeck.tsx';
@@ -344,6 +346,62 @@ const App: React.FC = () => {
     { label: 'Contact', icon: 'fa-envelope', key: 'CONTACT' as const },
   ];
   const canEditResources = userRole === 'professor';
+
+  const persistOrder = async (entityType: OrderEntityType, courseId: string, orderedIds: string[]) => {
+    await saveCourseOrder(entityType, courseId, orderedIds);
+  };
+
+  const moveNoteItem = async (courseId: string, noteId: string, direction: 'up' | 'down') => {
+    const current = evernoteNotesByCourse[courseId] || [];
+    const index = current.findIndex((item) => item.id === noteId);
+    if (index === -1) return;
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= current.length) return;
+
+    const next = [...current];
+    [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+    setEvernoteNotesByCourse((prev) => ({ ...prev, [courseId]: next }));
+
+    try {
+      await persistOrder('notes', courseId, next.map((item) => item.id));
+    } catch (error) {
+      console.error(error);
+      setEvernoteNotesByCourse((prev) => ({ ...prev, [courseId]: current }));
+      handleAuthError(error);
+      alert(`Impossible de changer l'ordre des notes. ${getErrorMessage(error)}`);
+    }
+  };
+
+  const moveContentItem = async (
+    courseId: string,
+    itemId: string,
+    direction: 'up' | 'down',
+    predicate?: (item: LearningContentItem) => boolean,
+  ) => {
+    const current = contentItemsByCourse[courseId] || [];
+    const filterFn = predicate || (() => true);
+    const subset = current.filter(filterFn);
+    const index = subset.findIndex((item) => item.id === itemId);
+    if (index === -1) return;
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= subset.length) return;
+
+    const movedSubset = [...subset];
+    [movedSubset[index], movedSubset[targetIndex]] = [movedSubset[targetIndex], movedSubset[index]];
+
+    let pointer = 0;
+    const next = current.map((item) => (filterFn(item) ? movedSubset[pointer++] : item));
+    setContentItemsByCourse((prev) => ({ ...prev, [courseId]: next }));
+
+    try {
+      await persistOrder('resources', courseId, next.map((item) => item.id));
+    } catch (error) {
+      console.error(error);
+      setContentItemsByCourse((prev) => ({ ...prev, [courseId]: current }));
+      handleAuthError(error);
+      alert(`Impossible de changer l'ordre des contenus. ${getErrorMessage(error)}`);
+    }
+  };
 
   const addEvernoteNote = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -1098,7 +1156,7 @@ const App: React.FC = () => {
                               Aucun document ou lien pour ce cours.
                             </div>
                           )}
-                          {selectedTopicContentItems.map((item) => (
+                          {selectedTopicContentItems.map((item, index) => (
                             <article key={item.id} className="rounded-2xl border border-slate-200 p-4">
                               {canEditResources && editingContentId === item.id ? (
                                 <form
@@ -1162,6 +1220,24 @@ const App: React.FC = () => {
                                   </div>
                                   {canEditResources && (
                                     <div className="flex items-center gap-3">
+                                      <button
+                                        type="button"
+                                        onClick={() => { void moveContentItem(item.courseId, item.id, 'up'); }}
+                                        disabled={index === 0}
+                                        className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                                        title="Monter"
+                                      >
+                                        <i className="fas fa-arrow-up"></i>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => { void moveContentItem(item.courseId, item.id, 'down'); }}
+                                        disabled={index === selectedTopicContentItems.length - 1}
+                                        className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                                        title="Descendre"
+                                      >
+                                        <i className="fas fa-arrow-down"></i>
+                                      </button>
                                       <button
                                         type="button"
                                         onClick={() => startEditContent(item)}
@@ -1231,7 +1307,7 @@ const App: React.FC = () => {
                               Aucune note pour ce cours.
                             </div>
                           )}
-                          {selectedTopicNotes.map((note) => (
+                          {selectedTopicNotes.map((note, index) => (
                             <article key={note.id} className="rounded-2xl border border-slate-200 p-4">
                               {canEditResources && editingNoteId === note.id ? (
                                 <form
@@ -1298,6 +1374,24 @@ const App: React.FC = () => {
                                   </div>
                                   {canEditResources && (
                                     <div className="flex items-center gap-3">
+                                      <button
+                                        type="button"
+                                        onClick={() => { void moveNoteItem(note.courseId, note.id, 'up'); }}
+                                        disabled={index === 0}
+                                        className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                                        title="Monter"
+                                      >
+                                        <i className="fas fa-arrow-up"></i>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => { void moveNoteItem(note.courseId, note.id, 'down'); }}
+                                        disabled={index === selectedTopicNotes.length - 1}
+                                        className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                                        title="Descendre"
+                                      >
+                                        <i className="fas fa-arrow-down"></i>
+                                      </button>
                                       <button
                                         type="button"
                                         onClick={() => startEditNote(note)}
@@ -1388,7 +1482,7 @@ const App: React.FC = () => {
                             {professorSocialLinks.length === 0 && (
                               <p className="text-slate-500 text-sm">Aucun lien social pour ce cours.</p>
                             )}
-                            {professorSocialLinks.map((item) => (
+                            {professorSocialLinks.map((item, index) => (
                               <div key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2">
                                 <a
                                   href={item.url}
@@ -1399,13 +1493,47 @@ const App: React.FC = () => {
                                   {getProfessorItemLabel(item.title)}
                                 </a>
                                 {canEditResources && (
-                                  <button
-                                    type="button"
-                                    onClick={() => deleteProfessorItem(item)}
-                                    className="text-xs font-semibold text-rose-600 hover:text-rose-700"
-                                  >
-                                    Supprimer
-                                  </button>
+                                  <div className="flex items-center gap-3">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        void moveContentItem(
+                                          item.courseId,
+                                          item.id,
+                                          'up',
+                                          (entry) => entry.title.startsWith(PROFESSOR_SOCIAL_PREFIX),
+                                        );
+                                      }}
+                                      disabled={index === 0}
+                                      className="text-xs font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                                      title="Monter"
+                                    >
+                                      <i className="fas fa-arrow-up"></i>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        void moveContentItem(
+                                          item.courseId,
+                                          item.id,
+                                          'down',
+                                          (entry) => entry.title.startsWith(PROFESSOR_SOCIAL_PREFIX),
+                                        );
+                                      }}
+                                      disabled={index === professorSocialLinks.length - 1}
+                                      className="text-xs font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                                      title="Descendre"
+                                    >
+                                      <i className="fas fa-arrow-down"></i>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => deleteProfessorItem(item)}
+                                      className="text-xs font-semibold text-rose-600 hover:text-rose-700"
+                                    >
+                                      Supprimer
+                                    </button>
+                                  </div>
                                 )}
                               </div>
                             ))}
@@ -1445,7 +1573,7 @@ const App: React.FC = () => {
                             {professorPublications.length === 0 && (
                               <p className="text-slate-500 text-sm">Aucune publication pour ce cours.</p>
                             )}
-                            {professorPublications.map((item) => (
+                            {professorPublications.map((item, index) => (
                               <div key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2">
                                 <a
                                   href={item.url}
@@ -1456,13 +1584,47 @@ const App: React.FC = () => {
                                   {getProfessorItemLabel(item.title)}
                                 </a>
                                 {canEditResources && (
-                                  <button
-                                    type="button"
-                                    onClick={() => deleteProfessorItem(item)}
-                                    className="text-xs font-semibold text-rose-600 hover:text-rose-700"
-                                  >
-                                    Supprimer
-                                  </button>
+                                  <div className="flex items-center gap-3">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        void moveContentItem(
+                                          item.courseId,
+                                          item.id,
+                                          'up',
+                                          (entry) => entry.title.startsWith(PROFESSOR_PUBLICATION_PREFIX),
+                                        );
+                                      }}
+                                      disabled={index === 0}
+                                      className="text-xs font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                                      title="Monter"
+                                    >
+                                      <i className="fas fa-arrow-up"></i>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        void moveContentItem(
+                                          item.courseId,
+                                          item.id,
+                                          'down',
+                                          (entry) => entry.title.startsWith(PROFESSOR_PUBLICATION_PREFIX),
+                                        );
+                                      }}
+                                      disabled={index === professorPublications.length - 1}
+                                      className="text-xs font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                                      title="Descendre"
+                                    >
+                                      <i className="fas fa-arrow-down"></i>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => deleteProfessorItem(item)}
+                                      className="text-xs font-semibold text-rose-600 hover:text-rose-700"
+                                    >
+                                      Supprimer
+                                    </button>
+                                  </div>
                                 )}
                               </div>
                             ))}
@@ -1567,7 +1729,7 @@ const App: React.FC = () => {
                           Aucun document ou lien général pour le moment.
                         </div>
                       )}
-                      {filteredContentItems.map((item) => (
+                      {filteredContentItems.map((item, index) => (
                         <article key={item.id} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
                           {canEditResources && editingContentId === item.id ? (
                             <form
@@ -1638,6 +1800,24 @@ const App: React.FC = () => {
                               </div>
                               {canEditResources && (
                                 <div className="flex items-center gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => { void moveContentItem(item.courseId, item.id, 'up'); }}
+                                    disabled={index === 0}
+                                    className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                                    title="Monter"
+                                  >
+                                    <i className="fas fa-arrow-up"></i>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => { void moveContentItem(item.courseId, item.id, 'down'); }}
+                                    disabled={index === filteredContentItems.length - 1}
+                                    className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                                    title="Descendre"
+                                  >
+                                    <i className="fas fa-arrow-down"></i>
+                                  </button>
                                   <button
                                     type="button"
                                     onClick={() => startEditContent(item)}
@@ -1721,7 +1901,7 @@ const App: React.FC = () => {
                             Aucune note générale pour le moment.
                           </div>
                         )}
-                        {filteredEvernoteNotes.map((note) => (
+                        {filteredEvernoteNotes.map((note, index) => (
                           <article key={note.id} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
                             {canEditResources && editingNoteId === note.id ? (
                               <form
@@ -1789,6 +1969,24 @@ const App: React.FC = () => {
                                   </div>
                                   {canEditResources && (
                                     <div className="flex items-center gap-3">
+                                      <button
+                                        type="button"
+                                        onClick={() => { void moveNoteItem(note.courseId, note.id, 'up'); }}
+                                        disabled={index === 0}
+                                        className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                                        title="Monter"
+                                      >
+                                        <i className="fas fa-arrow-up"></i>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => { void moveNoteItem(note.courseId, note.id, 'down'); }}
+                                        disabled={index === filteredEvernoteNotes.length - 1}
+                                        className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                                        title="Descendre"
+                                      >
+                                        <i className="fas fa-arrow-down"></i>
+                                      </button>
                                       <button
                                         type="button"
                                         onClick={() => startEditNote(note)}

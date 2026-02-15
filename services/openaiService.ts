@@ -27,6 +27,7 @@ export type AccessMetrics = {
   today: number;
   lastAccessAt: string | null;
 };
+export type OrderEntityType = "notes" | "resources";
 
 type ApiErrorShape = {
   error?: {
@@ -258,4 +259,16 @@ export async function getAccessMetrics(): Promise<AccessMetrics> {
     today: Number(response.today || 0),
     lastAccessAt: response.lastAccessAt || null,
   };
+}
+
+export async function saveCourseOrder(
+  entityType: OrderEntityType,
+  courseId: string,
+  orderedIds: string[],
+): Promise<void> {
+  await putJson<{ ok?: boolean }>("/api/order", {
+    entityType,
+    courseId,
+    orderedIds,
+  });
 }
