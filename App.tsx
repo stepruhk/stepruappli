@@ -23,7 +23,7 @@ import {
 } from './services/openaiService.ts';
 import FlashcardDeck from './components/FlashcardDeck.tsx';
 
-type MenuSection = 'ACCUEIL' | 'CONTENU' | 'NOTES' | 'MEMO' | 'BALADO' | 'BLOG' | 'ASSISTANT' | 'CONTACT';
+type MenuSection = 'ACCUEIL' | 'CONTENU' | 'MEMO' | 'BALADO' | 'BLOG' | 'ASSISTANT' | 'CONTACT';
 type PodcastEpisode = {
   title: string;
   link?: string;
@@ -311,7 +311,6 @@ const App: React.FC = () => {
   const mainMenuItems = [
     { label: 'Accueil', icon: 'fa-border-all', key: 'ACCUEIL' as const },
     { label: 'Contenu', icon: 'fa-file-lines', key: 'CONTENU' as const },
-    { label: 'Notes Evernote', icon: 'fa-note-sticky', key: 'NOTES' as const },
     { label: 'Cartes mémo', icon: 'fa-bolt', key: 'MEMO' as const },
     { label: 'Balado', icon: 'fa-podcast', key: 'BALADO' as const },
     { label: 'Blog', icon: 'fa-newspaper', key: 'BLOG' as const },
@@ -731,7 +730,7 @@ const App: React.FC = () => {
       setSelectedTopic(null);
       return;
     }
-    if (section === 'NOTES' || section === 'CONTENU') {
+    if (section === 'CONTENU') {
       setView(AppView.DASHBOARD);
       setResourceCourseId(GENERAL_COURSE_ID);
       setMenuSection(section);
@@ -1448,169 +1447,6 @@ const App: React.FC = () => {
                   </div>
                 )}
 
-                {menuSection === 'NOTES' && (
-                  <div className="space-y-8">
-                    <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-                      <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">Notes Evernote</h1>
-                      <p className="text-slate-600 text-lg">
-                        {canEditResources
-                          ? 'Ajoute ici des notes générales pour tous les cours.'
-                          : 'Notes générales ajoutées par le professeur.'}
-                      </p>
-                    </div>
-
-                    {canEditResources && (
-                      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-                        <h2 className="text-2xl font-black text-slate-900 mb-6">Ajouter une note</h2>
-                        <form onSubmit={addEvernoteNote} className="space-y-4">
-                        <label className="block">
-                          <span className="text-sm font-semibold text-slate-700">Titre</span>
-                          <input
-                            type="text"
-                            value={noteTitle}
-                            onChange={(event) => setNoteTitle(event.target.value)}
-                            placeholder="Ex: Plan de relations médias"
-                            className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            required
-                          />
-                        </label>
-                        <label className="block">
-                          <span className="text-sm font-semibold text-slate-700">Contenu</span>
-                          <textarea
-                            value={noteContent}
-                            onChange={(event) => setNoteContent(event.target.value)}
-                            placeholder="Optionnel si tu mets un lien Evernote"
-                            className="mt-2 w-full min-h-36 rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                          />
-                        </label>
-                        <label className="block">
-                          <span className="text-sm font-semibold text-slate-700">Lien Evernote</span>
-                          <input
-                            type="url"
-                            value={noteLink}
-                            onChange={(event) => setNoteLink(event.target.value)}
-                            placeholder="https://www.evernote.com/..."
-                            className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                          />
-                        </label>
-                        <p className="text-xs text-slate-500">Ajoute du contenu, un lien Evernote, ou les deux.</p>
-
-                          <button
-                            type="submit"
-                            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-white font-bold hover:bg-indigo-700 transition-colors"
-                          >
-                            <i className="fas fa-plus"></i>
-                            Ajouter la note
-                          </button>
-                        </form>
-                      </div>
-                    )}
-
-                    <div className="space-y-4">
-                      <h2 className="text-2xl font-black text-slate-900">
-                        Notes générales ({filteredEvernoteNotes.length})
-                      </h2>
-                      {filteredEvernoteNotes.length === 0 && (
-                        <div className="bg-white rounded-2xl border border-slate-200 p-6 text-slate-500">
-                          Aucune note générale pour le moment.
-                        </div>
-                      )}
-                      {filteredEvernoteNotes.map((note) => (
-                        <article key={note.id} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                          {canEditResources && editingNoteId === note.id ? (
-                            <form
-                              onSubmit={(event) => {
-                                event.preventDefault();
-                                void saveEditNote(note);
-                              }}
-                              className="space-y-3"
-                            >
-                              <input
-                                type="text"
-                                value={editNoteTitle}
-                                onChange={(event) => setEditNoteTitle(event.target.value)}
-                                className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                required
-                              />
-                              <textarea
-                                value={editNoteContent}
-                                onChange={(event) => setEditNoteContent(event.target.value)}
-                                className="w-full min-h-24 rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                placeholder="Contenu (optionnel si lien)"
-                              />
-                              <input
-                                type="url"
-                                value={editNoteLink}
-                                onChange={(event) => setEditNoteLink(event.target.value)}
-                                className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                placeholder="https://www.evernote.com/..."
-                              />
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="submit"
-                                  className="rounded-xl bg-indigo-600 px-4 py-2 text-white text-sm font-bold hover:bg-indigo-700"
-                                >
-                                  Enregistrer
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={cancelEditNote}
-                                  className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100"
-                                >
-                                  Annuler
-                                </button>
-                              </div>
-                            </form>
-                          ) : (
-                            <>
-                              <div className="flex items-start justify-between gap-4">
-                                <div>
-                                  <h3 className="text-xl font-black text-slate-900">{note.title}</h3>
-                                  <p className="text-sm text-slate-400 mt-1">
-                                    {new Date(note.createdAt).toLocaleString('fr-FR')}
-                                  </p>
-                                  {note.link && (
-                                    <a
-                                      href={note.link}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="inline-flex items-center gap-2 mt-3 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
-                                    >
-                                      <i className="fas fa-up-right-from-square"></i>
-                                      Ouvrir le lien Evernote
-                                    </a>
-                                  )}
-                                </div>
-                                {canEditResources && (
-                                  <div className="flex items-center gap-3">
-                                    <button
-                                      type="button"
-                                      onClick={() => startEditNote(note)}
-                                      className="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
-                                    >
-                                      Modifier
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => deleteEvernoteNote(note.id)}
-                                      className="text-sm font-semibold text-rose-600 hover:text-rose-700"
-                                    >
-                                      Supprimer
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                              {note.content && (
-                                <p className="text-slate-700 mt-4 whitespace-pre-line">{note.content}</p>
-                              )}
-                            </>
-                          )}
-                        </article>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
                 {menuSection === 'CONTENU' && (
                   <div className="space-y-8">
                     <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
@@ -1796,6 +1632,162 @@ const App: React.FC = () => {
                           )}
                         </article>
                       ))}
+                    </div>
+
+                    <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                      <h2 className="text-2xl font-black text-slate-900 mb-2">Notes générales</h2>
+                      <p className="text-slate-600 text-lg mb-6">
+                        {canEditResources
+                          ? 'Ajoute ici des notes générales pour tous les cours.'
+                          : 'Notes générales ajoutées par le professeur.'}
+                      </p>
+
+                      {canEditResources && (
+                        <form onSubmit={addEvernoteNote} className="space-y-4 mb-8">
+                          <label className="block">
+                            <span className="text-sm font-semibold text-slate-700">Titre</span>
+                            <input
+                              type="text"
+                              value={noteTitle}
+                              onChange={(event) => setNoteTitle(event.target.value)}
+                              placeholder="Ex: Plan de relations médias"
+                              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              required
+                            />
+                          </label>
+                          <label className="block">
+                            <span className="text-sm font-semibold text-slate-700">Contenu</span>
+                            <textarea
+                              value={noteContent}
+                              onChange={(event) => setNoteContent(event.target.value)}
+                              placeholder="Optionnel si tu mets un lien Evernote"
+                              className="mt-2 w-full min-h-36 rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </label>
+                          <label className="block">
+                            <span className="text-sm font-semibold text-slate-700">Lien Evernote</span>
+                            <input
+                              type="url"
+                              value={noteLink}
+                              onChange={(event) => setNoteLink(event.target.value)}
+                              placeholder="https://www.evernote.com/..."
+                              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </label>
+                          <p className="text-xs text-slate-500">Ajoute du contenu, un lien Evernote, ou les deux.</p>
+
+                          <button
+                            type="submit"
+                            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-white font-bold hover:bg-indigo-700 transition-colors"
+                          >
+                            <i className="fas fa-plus"></i>
+                            Ajouter la note
+                          </button>
+                        </form>
+                      )}
+
+                      <div className="space-y-4">
+                        <h3 className="text-xl font-black text-slate-900">
+                          Notes générales ({filteredEvernoteNotes.length})
+                        </h3>
+                        {filteredEvernoteNotes.length === 0 && (
+                          <div className="bg-white rounded-2xl border border-slate-200 p-6 text-slate-500">
+                            Aucune note générale pour le moment.
+                          </div>
+                        )}
+                        {filteredEvernoteNotes.map((note) => (
+                          <article key={note.id} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                            {canEditResources && editingNoteId === note.id ? (
+                              <form
+                                onSubmit={(event) => {
+                                  event.preventDefault();
+                                  void saveEditNote(note);
+                                }}
+                                className="space-y-3"
+                              >
+                                <input
+                                  type="text"
+                                  value={editNoteTitle}
+                                  onChange={(event) => setEditNoteTitle(event.target.value)}
+                                  className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  required
+                                />
+                                <textarea
+                                  value={editNoteContent}
+                                  onChange={(event) => setEditNoteContent(event.target.value)}
+                                  className="w-full min-h-24 rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  placeholder="Contenu (optionnel si lien)"
+                                />
+                                <input
+                                  type="url"
+                                  value={editNoteLink}
+                                  onChange={(event) => setEditNoteLink(event.target.value)}
+                                  className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  placeholder="https://www.evernote.com/..."
+                                />
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="submit"
+                                    className="rounded-xl bg-indigo-600 px-4 py-2 text-white text-sm font-bold hover:bg-indigo-700"
+                                  >
+                                    Enregistrer
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={cancelEditNote}
+                                    className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100"
+                                  >
+                                    Annuler
+                                  </button>
+                                </div>
+                              </form>
+                            ) : (
+                              <>
+                                <div className="flex items-start justify-between gap-4">
+                                  <div>
+                                    <h3 className="text-xl font-black text-slate-900">{note.title}</h3>
+                                    <p className="text-sm text-slate-400 mt-1">
+                                      {new Date(note.createdAt).toLocaleString('fr-FR')}
+                                    </p>
+                                    {note.link && (
+                                      <a
+                                        href={note.link}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-2 mt-3 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                                      >
+                                        <i className="fas fa-up-right-from-square"></i>
+                                        Ouvrir le lien Evernote
+                                      </a>
+                                    )}
+                                  </div>
+                                  {canEditResources && (
+                                    <div className="flex items-center gap-3">
+                                      <button
+                                        type="button"
+                                        onClick={() => startEditNote(note)}
+                                        className="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                                      >
+                                        Modifier
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => deleteEvernoteNote(note.id)}
+                                        className="text-sm font-semibold text-rose-600 hover:text-rose-700"
+                                      >
+                                        Supprimer
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                                {note.content && (
+                                  <p className="text-slate-700 mt-4 whitespace-pre-line">{note.content}</p>
+                                )}
+                              </>
+                            )}
+                          </article>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}
