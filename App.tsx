@@ -40,6 +40,7 @@ const PROFESSOR_PROFILE_PREFIX = 'professor-profile:';
 const PROFESSOR_BIO_TITLE = '__PROF_BIO__';
 const PROFESSOR_SOCIAL_PREFIX = '[SOCIAL] ';
 const PROFESSOR_PUBLICATION_PREFIX = '[PUBLICATION] ';
+const PROFESSOR_LITERATURE_PREFIX = '[LITERATURE] ';
 
 const App: React.FC = () => {
   const visibleTopics = INITIAL_TOPICS;
@@ -77,6 +78,8 @@ const App: React.FC = () => {
   const [socialLinkUrl, setSocialLinkUrl] = useState('');
   const [publicationTitle, setPublicationTitle] = useState('');
   const [publicationUrl, setPublicationUrl] = useState('');
+  const [literatureTitle, setLiteratureTitle] = useState('');
+  const [literatureUrl, setLiteratureUrl] = useState('');
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const landingImageCandidates = [
     'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1800&q=80',
@@ -307,6 +310,7 @@ const App: React.FC = () => {
   const professorSectionItems = professorProfileCourseId ? (contentItemsByCourse[professorProfileCourseId] || []) : [];
   const professorSocialLinks = professorSectionItems.filter((item) => item.title.startsWith(PROFESSOR_SOCIAL_PREFIX));
   const professorPublications = professorSectionItems.filter((item) => item.title.startsWith(PROFESSOR_PUBLICATION_PREFIX));
+  const professorLiterature = professorSectionItems.filter((item) => item.title.startsWith(PROFESSOR_LITERATURE_PREFIX));
   const flashcardsForModal = menuSection === 'MEMO'
     ? (sessionData[resourceCourseId]?.flashcards || [])
     : (currentSession?.flashcards || []);
@@ -651,6 +655,7 @@ const App: React.FC = () => {
     title
       .replace(PROFESSOR_SOCIAL_PREFIX, '')
       .replace(PROFESSOR_PUBLICATION_PREFIX, '')
+      .replace(PROFESSOR_LITERATURE_PREFIX, '')
       .trim();
 
   const saveProfessorBio = async () => {
@@ -742,6 +747,35 @@ const App: React.FC = () => {
       console.error(error);
       handleAuthError(error);
       alert(`Impossible d'ajouter la publication. ${getErrorMessage(error)}`);
+    }
+  };
+
+  const addProfessorLiterature = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!selectedTopic) return;
+    const profileCourseId = `${PROFESSOR_PROFILE_PREFIX}${selectedTopic.id}`;
+    const title = literatureTitle.trim();
+    const rawUrl = literatureUrl.trim();
+    if (!title || !rawUrl) return;
+    const url = rawUrl.startsWith('http://') || rawUrl.startsWith('https://') ? rawUrl : `https://${rawUrl}`;
+
+    try {
+      const created = await createCourseContent({
+        courseId: profileCourseId,
+        type: 'LIEN',
+        title: `${PROFESSOR_LITERATURE_PREFIX}${title}`,
+        url,
+      });
+      setContentItemsByCourse((prev) => ({
+        ...prev,
+        [profileCourseId]: [created, ...(prev[profileCourseId] || [])],
+      }));
+      setLiteratureTitle('');
+      setLiteratureUrl('');
+    } catch (error) {
+      console.error(error);
+      handleAuthError(error);
+      alert(`Impossible d'ajouter cette référence. ${getErrorMessage(error)}`);
     }
   };
 
@@ -1612,6 +1646,97 @@ const App: React.FC = () => {
                                         );
                                       }}
                                       disabled={index === professorPublications.length - 1}
+                                      className="text-xs font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                                      title="Descendre"
+                                    >
+                                      <i className="fas fa-arrow-down"></i>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => deleteProfessorItem(item)}
+                                      className="text-xs font-semibold text-rose-600 hover:text-rose-700"
+                                    >
+                                      Supprimer
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-200 p-5">
+                          <h3 className="text-lg font-black text-slate-900 mb-3">Litérature intéressante</h3>
+                          {canEditResources && (
+                            <form onSubmit={addProfessorLiterature} className="space-y-3 mb-4">
+                              <input
+                                type="text"
+                                value={literatureTitle}
+                                onChange={(event) => setLiteratureTitle(event.target.value)}
+                                placeholder="Titre du livre"
+                                className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                required
+                              />
+                              <input
+                                type="url"
+                                value={literatureUrl}
+                                onChange={(event) => setLiteratureUrl(event.target.value)}
+                                placeholder="https://..."
+                                className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                required
+                              />
+                              <button
+                                type="submit"
+                                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-white text-sm font-bold hover:bg-indigo-700 transition-colors"
+                              >
+                                <i className="fas fa-plus"></i>
+                                Ajouter
+                              </button>
+                            </form>
+                          )}
+                          <div className="space-y-2">
+                            {professorLiterature.length === 0 && (
+                              <p className="text-slate-500 text-sm">Aucune référence pour ce cours.</p>
+                            )}
+                            {professorLiterature.map((item, index) => (
+                              <div key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2">
+                                <a
+                                  href={item.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-indigo-600 hover:text-indigo-700 font-semibold text-sm"
+                                >
+                                  {getProfessorItemLabel(item.title)}
+                                </a>
+                                {canEditResources && (
+                                  <div className="flex items-center gap-3">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        void moveContentItem(
+                                          item.courseId,
+                                          item.id,
+                                          'up',
+                                          (entry) => entry.title.startsWith(PROFESSOR_LITERATURE_PREFIX),
+                                        );
+                                      }}
+                                      disabled={index === 0}
+                                      className="text-xs font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                                      title="Monter"
+                                    >
+                                      <i className="fas fa-arrow-up"></i>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        void moveContentItem(
+                                          item.courseId,
+                                          item.id,
+                                          'down',
+                                          (entry) => entry.title.startsWith(PROFESSOR_LITERATURE_PREFIX),
+                                        );
+                                      }}
+                                      disabled={index === professorLiterature.length - 1}
                                       className="text-xs font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
                                       title="Descendre"
                                     >
