@@ -27,7 +27,7 @@ import {
 } from './services/openaiService.ts';
 import FlashcardDeck from './components/FlashcardDeck.tsx';
 
-type MenuSection = 'ACCUEIL' | 'CONTENU' | 'MEMO' | 'BALADO' | 'BLOG' | 'ASSISTANT' | 'CONTACT';
+type MenuSection = 'ACCUEIL' | 'CONTENU' | 'ANNONCES' | 'MEMO' | 'BALADO' | 'BLOG' | 'ASSISTANT' | 'CONTACT';
 type PodcastEpisode = {
   title: string;
   link?: string;
@@ -36,6 +36,7 @@ type PodcastEpisode = {
   audioUrl?: string;
 };
 const GENERAL_COURSE_ID = 'general';
+const ANNOUNCEMENTS_COURSE_ID = 'announcements';
 const PROFESSOR_PROFILE_PREFIX = 'professor-profile:';
 const PROFESSOR_BIO_TITLE = '__PROF_BIO__';
 const PROFESSOR_SOCIAL_PREFIX = '[SOCIAL] ';
@@ -118,7 +119,7 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (resourceCourseId === GENERAL_COURSE_ID) return;
+    if (resourceCourseId === GENERAL_COURSE_ID || resourceCourseId === ANNOUNCEMENTS_COURSE_ID) return;
     if (!visibleTopics.some((topic) => topic.id === resourceCourseId)) {
       setResourceCourseId(visibleTopics[0]?.id || '');
     }
@@ -301,6 +302,7 @@ const App: React.FC = () => {
   const selectedTopicNotes = selectedTopic
     ? (evernoteNotesByCourse[selectedTopic.id] || [])
     : [];
+  const announcementNotes = evernoteNotesByCourse[ANNOUNCEMENTS_COURSE_ID] || [];
   const selectedTopicContentItems = selectedTopic
     ? (contentItemsByCourse[selectedTopic.id] || [])
     : [];
@@ -343,6 +345,7 @@ const App: React.FC = () => {
   const mainMenuItems = [
     { label: 'Accueil', icon: 'fa-border-all', key: 'ACCUEIL' as const },
     { label: 'Contenu', icon: 'fa-file-lines', key: 'CONTENU' as const },
+    { label: 'Annonces', icon: 'fa-bullhorn', key: 'ANNONCES' as const },
     { label: 'Cartes mémo', icon: 'fa-bolt', key: 'MEMO' as const },
     { label: 'Balado', icon: 'fa-podcast', key: 'BALADO' as const },
     { label: 'Blog', icon: 'fa-newspaper', key: 'BLOG' as const },
@@ -851,6 +854,12 @@ const App: React.FC = () => {
     if (section === 'CONTENU') {
       setView(AppView.DASHBOARD);
       setResourceCourseId(GENERAL_COURSE_ID);
+      setMenuSection(section);
+      return;
+    }
+    if (section === 'ANNONCES') {
+      setView(AppView.DASHBOARD);
+      setResourceCourseId(ANNOUNCEMENTS_COURSE_ID);
       setMenuSection(section);
       return;
     }
@@ -2137,6 +2146,186 @@ const App: React.FC = () => {
                           </article>
                         ))}
                       </div>
+                    </div>
+                  </div>
+                )}
+
+                {menuSection === 'ANNONCES' && (
+                  <div className="space-y-8">
+                    <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                      <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">Annonces</h1>
+                      <p className="text-slate-600 text-lg">
+                        {canEditResources
+                          ? 'Publie ici les annonces importantes pour toute la classe.'
+                          : 'Consulte les annonces publiées par le professeur.'}
+                      </p>
+                    </div>
+
+                    {canEditResources && (
+                      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                        <h2 className="text-2xl font-black text-slate-900 mb-6">Publier une annonce</h2>
+                        <form onSubmit={addEvernoteNote} className="space-y-4">
+                          <label className="block">
+                            <span className="text-sm font-semibold text-slate-700">Titre</span>
+                            <input
+                              type="text"
+                              value={noteTitle}
+                              onChange={(event) => setNoteTitle(event.target.value)}
+                              placeholder="Ex: Examen - date importante"
+                              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              required
+                            />
+                          </label>
+                          <label className="block">
+                            <span className="text-sm font-semibold text-slate-700">Message</span>
+                            <textarea
+                              value={noteContent}
+                              onChange={(event) => setNoteContent(event.target.value)}
+                              placeholder="Écris ton annonce ici..."
+                              className="mt-2 w-full min-h-32 rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </label>
+                          <label className="block">
+                            <span className="text-sm font-semibold text-slate-700">Lien (optionnel)</span>
+                            <input
+                              type="url"
+                              value={noteLink}
+                              onChange={(event) => setNoteLink(event.target.value)}
+                              placeholder="https://..."
+                              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </label>
+
+                          <button
+                            type="submit"
+                            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-white font-bold hover:bg-indigo-700 transition-colors"
+                          >
+                            <i className="fas fa-plus"></i>
+                            Publier l'annonce
+                          </button>
+                        </form>
+                      </div>
+                    )}
+
+                    <div className="space-y-4">
+                      <h2 className="text-2xl font-black text-slate-900">
+                        Annonces ({announcementNotes.length})
+                      </h2>
+                      {announcementNotes.length === 0 && (
+                        <div className="bg-white rounded-2xl border border-slate-200 p-6 text-slate-500">
+                          Aucune annonce pour le moment.
+                        </div>
+                      )}
+                      {announcementNotes.map((note, index) => (
+                        <article key={note.id} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                          {canEditResources && editingNoteId === note.id ? (
+                            <form
+                              onSubmit={(event) => {
+                                event.preventDefault();
+                                void saveEditNote(note);
+                              }}
+                              className="space-y-3"
+                            >
+                              <input
+                                type="text"
+                                value={editNoteTitle}
+                                onChange={(event) => setEditNoteTitle(event.target.value)}
+                                className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                required
+                              />
+                              <textarea
+                                value={editNoteContent}
+                                onChange={(event) => setEditNoteContent(event.target.value)}
+                                className="w-full min-h-24 rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                placeholder="Message de l'annonce"
+                              />
+                              <input
+                                type="url"
+                                value={editNoteLink}
+                                onChange={(event) => setEditNoteLink(event.target.value)}
+                                className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                placeholder="https://..."
+                              />
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="submit"
+                                  className="rounded-xl bg-indigo-600 px-4 py-2 text-white text-sm font-bold hover:bg-indigo-700"
+                                >
+                                  Enregistrer
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={cancelEditNote}
+                                  className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100"
+                                >
+                                  Annuler
+                                </button>
+                              </div>
+                            </form>
+                          ) : (
+                            <>
+                              <div className="flex items-start justify-between gap-4">
+                                <div>
+                                  <h3 className="text-xl font-black text-slate-900">{note.title}</h3>
+                                  <p className="text-sm text-slate-500 mt-1">
+                                    Date de parution : {new Date(note.createdAt).toLocaleString('fr-FR')}
+                                  </p>
+                                  {note.link && (
+                                    <a
+                                      href={note.link}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="inline-flex items-center gap-2 mt-3 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                                    >
+                                      <i className="fas fa-up-right-from-square"></i>
+                                      Ouvrir le lien
+                                    </a>
+                                  )}
+                                </div>
+                                {canEditResources && (
+                                  <div className="flex items-center gap-3">
+                                    <button
+                                      type="button"
+                                      onClick={() => { void moveNoteItem(note.courseId, note.id, 'up'); }}
+                                      disabled={index === 0}
+                                      className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                                      title="Monter"
+                                    >
+                                      <i className="fas fa-arrow-up"></i>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => { void moveNoteItem(note.courseId, note.id, 'down'); }}
+                                      disabled={index === announcementNotes.length - 1}
+                                      className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                                      title="Descendre"
+                                    >
+                                      <i className="fas fa-arrow-down"></i>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => startEditNote(note)}
+                                      className="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                                    >
+                                      Modifier
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => deleteEvernoteNote(note.id)}
+                                      className="text-sm font-semibold text-rose-600 hover:text-rose-700"
+                                    >
+                                      Supprimer
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                              {note.content && (
+                                <p className="text-slate-700 mt-4 whitespace-pre-line">{note.content}</p>
+                              )}
+                            </>
+                          )}
+                        </article>
+                      ))}
                     </div>
                   </div>
                 )}
