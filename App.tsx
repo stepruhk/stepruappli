@@ -345,11 +345,11 @@ const App: React.FC = () => {
   const mainMenuItems = [
     { label: 'Accueil', icon: 'fa-border-all', key: 'ACCUEIL' as const },
     { label: 'Contenu', icon: 'fa-file-lines', key: 'CONTENU' as const },
-    { label: 'Annonces', icon: 'fa-bullhorn', key: 'ANNONCES' as const },
     { label: 'Cartes mémo', icon: 'fa-bolt', key: 'MEMO' as const },
     { label: 'Balado', icon: 'fa-podcast', key: 'BALADO' as const },
     { label: 'Blog', icon: 'fa-newspaper', key: 'BLOG' as const },
     { label: 'Assistant IA', icon: 'fa-robot', key: 'ASSISTANT' as const },
+    { label: 'Annonces', icon: 'fa-bullhorn', key: 'ANNONCES' as const },
     { label: 'Contact', icon: 'fa-envelope', key: 'CONTACT' as const },
   ];
   const canEditResources = userRole === 'professor';
