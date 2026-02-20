@@ -80,6 +80,7 @@ const App: React.FC = () => {
   const [publicationTitle, setPublicationTitle] = useState('');
   const [publicationUrl, setPublicationUrl] = useState('');
   const [literatureTitle, setLiteratureTitle] = useState('');
+  const [literatureCitation, setLiteratureCitation] = useState('');
   const [literatureUrl, setLiteratureUrl] = useState('');
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const landingImageCandidates = [
@@ -309,10 +310,10 @@ const App: React.FC = () => {
   const professorProfileCourseId = selectedTopic ? `${PROFESSOR_PROFILE_PREFIX}${selectedTopic.id}` : '';
   const professorProfileNotes = professorProfileCourseId ? (evernoteNotesByCourse[professorProfileCourseId] || []) : [];
   const professorBioNote = professorProfileNotes.find((note) => note.title === PROFESSOR_BIO_TITLE) || null;
+  const professorLiteratureNotes = professorProfileNotes.filter((note) => note.title.startsWith(PROFESSOR_LITERATURE_PREFIX));
   const professorSectionItems = professorProfileCourseId ? (contentItemsByCourse[professorProfileCourseId] || []) : [];
   const professorSocialLinks = professorSectionItems.filter((item) => item.title.startsWith(PROFESSOR_SOCIAL_PREFIX));
   const professorPublications = professorSectionItems.filter((item) => item.title.startsWith(PROFESSOR_PUBLICATION_PREFIX));
-  const professorLiterature = professorSectionItems.filter((item) => item.title.startsWith(PROFESSOR_LITERATURE_PREFIX));
   const flashcardsForModal = menuSection === 'MEMO'
     ? (sessionData[resourceCourseId]?.flashcards || [])
     : (currentSession?.flashcards || []);
@@ -358,15 +359,25 @@ const App: React.FC = () => {
     await saveCourseOrder(entityType, courseId, orderedIds);
   };
 
-  const moveNoteItem = async (courseId: string, noteId: string, direction: 'up' | 'down') => {
+  const moveNoteItem = async (
+    courseId: string,
+    noteId: string,
+    direction: 'up' | 'down',
+    predicate?: (note: EvernoteNote) => boolean,
+  ) => {
     const current = evernoteNotesByCourse[courseId] || [];
-    const index = current.findIndex((item) => item.id === noteId);
+    const filterFn = predicate || (() => true);
+    const subset = current.filter(filterFn);
+    const index = subset.findIndex((item) => item.id === noteId);
     if (index === -1) return;
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= current.length) return;
+    if (targetIndex < 0 || targetIndex >= subset.length) return;
 
-    const next = [...current];
-    [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+    const movedSubset = [...subset];
+    [movedSubset[index], movedSubset[targetIndex]] = [movedSubset[targetIndex], movedSubset[index]];
+
+    let pointer = 0;
+    const next = current.map((item) => (filterFn(item) ? movedSubset[pointer++] : item));
     setEvernoteNotesByCourse((prev) => ({ ...prev, [courseId]: next }));
 
     try {
@@ -758,27 +769,44 @@ const App: React.FC = () => {
     if (!selectedTopic) return;
     const profileCourseId = `${PROFESSOR_PROFILE_PREFIX}${selectedTopic.id}`;
     const title = literatureTitle.trim();
+    const citation = literatureCitation.trim();
     const rawUrl = literatureUrl.trim();
     if (!title || !rawUrl) return;
     const url = rawUrl.startsWith('http://') || rawUrl.startsWith('https://') ? rawUrl : `https://${rawUrl}`;
 
     try {
-      const created = await createCourseContent({
+      const created = await createEvernoteNote({
         courseId: profileCourseId,
-        type: 'LIEN',
         title: `${PROFESSOR_LITERATURE_PREFIX}${title}`,
-        url,
+        content: citation,
+        link: url,
       });
-      setContentItemsByCourse((prev) => ({
+      setEvernoteNotesByCourse((prev) => ({
         ...prev,
         [profileCourseId]: [created, ...(prev[profileCourseId] || [])],
       }));
       setLiteratureTitle('');
+      setLiteratureCitation('');
       setLiteratureUrl('');
     } catch (error) {
       console.error(error);
       handleAuthError(error);
       alert(`Impossible d'ajouter cette référence. ${getErrorMessage(error)}`);
+    }
+  };
+
+  const deleteProfessorLiterature = async (noteId: string) => {
+    if (!selectedTopic) return;
+    const profileCourseId = `${PROFESSOR_PROFILE_PREFIX}${selectedTopic.id}`;
+    try {
+      await removeEvernoteNote(noteId);
+      setEvernoteNotesByCourse((prev) => ({
+        ...prev,
+        [profileCourseId]: (prev[profileCourseId] || []).filter((entry) => entry.id !== noteId),
+      }));
+    } catch (error) {
+      console.error(error);
+      alert("Impossible de supprimer cette lecture.");
     }
   };
 
@@ -1675,7 +1703,7 @@ const App: React.FC = () => {
                         </div>
 
                         <div className="rounded-2xl border border-slate-200 p-5">
-                          <h3 className="text-lg font-black text-slate-900 mb-3">Litérature intéressante</h3>
+                          <h3 className="text-lg font-black text-slate-900 mb-3">Lectures recommandées</h3>
                           {canEditResources && (
                             <form onSubmit={addProfessorLiterature} className="space-y-3 mb-4">
                               <input
@@ -1685,6 +1713,12 @@ const App: React.FC = () => {
                                 placeholder="Titre du livre"
                                 className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                 required
+                              />
+                              <textarea
+                                value={literatureCitation}
+                                onChange={(event) => setLiteratureCitation(event.target.value)}
+                                placeholder="Citation"
+                                className="w-full min-h-24 rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                               />
                               <input
                                 type="url"
@@ -1704,27 +1738,39 @@ const App: React.FC = () => {
                             </form>
                           )}
                           <div className="space-y-2">
-                            {professorLiterature.length === 0 && (
-                              <p className="text-slate-500 text-sm">Aucune référence pour ce cours.</p>
+                            {professorLiteratureNotes.length === 0 && (
+                              <p className="text-slate-500 text-sm">Aucune lecture recommandée pour ce cours.</p>
                             )}
-                            {professorLiterature.map((item, index) => (
-                              <div key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2">
-                                <a
-                                  href={item.url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-indigo-600 hover:text-indigo-700 font-semibold text-sm"
-                                >
-                                  {getProfessorItemLabel(item.title)}
-                                </a>
+                            {professorLiteratureNotes.map((note, index) => (
+                              <div key={note.id} className="rounded-xl border border-slate-200 px-3 py-3">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <p className="text-slate-900 font-semibold text-sm">
+                                      {note.title.replace(PROFESSOR_LITERATURE_PREFIX, '').trim()}
+                                    </p>
+                                    {note.content && (
+                                      <p className="text-slate-600 text-sm mt-1 whitespace-pre-line">{note.content}</p>
+                                    )}
+                                    {note.link && (
+                                      <a
+                                        href={note.link}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-2 mt-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                                      >
+                                        <i className="fas fa-up-right-from-square"></i>
+                                        Ouvrir le lien
+                                      </a>
+                                    )}
+                                  </div>
                                 {canEditResources && (
                                   <div className="flex items-center gap-3">
                                     <button
                                       type="button"
                                       onClick={() => {
-                                        void moveContentItem(
-                                          item.courseId,
-                                          item.id,
+                                        void moveNoteItem(
+                                          note.courseId,
+                                          note.id,
                                           'up',
                                           (entry) => entry.title.startsWith(PROFESSOR_LITERATURE_PREFIX),
                                         );
@@ -1738,14 +1784,14 @@ const App: React.FC = () => {
                                     <button
                                       type="button"
                                       onClick={() => {
-                                        void moveContentItem(
-                                          item.courseId,
-                                          item.id,
+                                        void moveNoteItem(
+                                          note.courseId,
+                                          note.id,
                                           'down',
                                           (entry) => entry.title.startsWith(PROFESSOR_LITERATURE_PREFIX),
                                         );
                                       }}
-                                      disabled={index === professorLiterature.length - 1}
+                                      disabled={index === professorLiteratureNotes.length - 1}
                                       className="text-xs font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
                                       title="Descendre"
                                     >
@@ -1753,13 +1799,14 @@ const App: React.FC = () => {
                                     </button>
                                     <button
                                       type="button"
-                                      onClick={() => deleteProfessorItem(item)}
+                                      onClick={() => deleteProfessorLiterature(note.id)}
                                       className="text-xs font-semibold text-rose-600 hover:text-rose-700"
                                     >
                                       Supprimer
                                     </button>
                                   </div>
                                 )}
+                              </div>
                               </div>
                             ))}
                           </div>
