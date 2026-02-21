@@ -343,6 +343,14 @@ const App: React.FC = () => {
       bubble: 'bg-violet-50',
     },
   ];
+  const ctaAccentClasses = [
+    'text-indigo-600',
+    'text-emerald-600',
+    'text-rose-600',
+    'text-amber-600',
+    'text-sky-600',
+    'text-violet-600',
+  ];
   const mainMenuItems = [
     { label: 'Accueil', icon: 'fa-border-all', key: 'ACCUEIL' as const },
     { label: 'Contenu', icon: 'fa-file-lines', key: 'CONTENU' as const },
@@ -1112,6 +1120,11 @@ const App: React.FC = () => {
                           : isInfluenceCourse
                             ? 'bg-[#0b1f5f] text-white'
                             : style.icon;
+                        const topicCtaStyle = isCredibilityCourse
+                          ? 'text-slate-600'
+                          : isInfluenceCourse
+                            ? 'text-[#0b1f5f]'
+                            : ctaAccentClasses[index % ctaAccentClasses.length];
                         return (
                         <div 
                           key={topic.id}
@@ -1129,7 +1142,7 @@ const App: React.FC = () => {
                           <h3 className="relative text-2xl md:text-3xl font-black text-slate-900 mb-3 leading-tight">{topic.title}</h3>
                           <p className="relative text-xl md:text-2xl text-slate-600 leading-relaxed">{topic.description}</p>
                           
-                          <div className="relative mt-8 flex items-center text-indigo-600 font-extrabold text-xl md:text-2xl">
+                          <div className={`relative mt-8 flex items-center ${topicCtaStyle} font-extrabold text-xl md:text-2xl`}>
                             <span>Accéder au cours</span>
                             <i className="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
                           </div>
