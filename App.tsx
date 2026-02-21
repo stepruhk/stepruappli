@@ -1106,6 +1106,12 @@ const App: React.FC = () => {
                       {visibleTopics.map((topic, index) => {
                         const style = cardAccentStyles[index % cardAccentStyles.length];
                         const isCredibilityCourse = topic.id === '5';
+                        const isInfluenceCourse = topic.id === '7';
+                        const topicIconStyle = isCredibilityCourse
+                          ? 'bg-white border border-slate-200'
+                          : isInfluenceCourse
+                            ? 'bg-[#0b1f5f] text-white'
+                            : style.icon;
                         return (
                         <div 
                           key={topic.id}
@@ -1113,7 +1119,7 @@ const App: React.FC = () => {
                           className="relative bg-white rounded-3xl p-8 md:p-10 cursor-pointer border border-slate-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all group overflow-hidden"
                         >
                           <div className={`absolute -top-8 -right-8 w-36 h-36 rounded-full ${style.bubble}`}></div>
-                          <div className={`relative w-16 h-16 rounded-2xl ${isCredibilityCourse ? 'bg-white border border-slate-200' : style.icon} flex items-center justify-center mb-8 overflow-hidden`}>
+                          <div className={`relative w-16 h-16 rounded-2xl ${topicIconStyle} flex items-center justify-center mb-8 overflow-hidden`}>
                             {isCredibilityCourse ? (
                               <img src={ciLogo} alt="" className="w-12 h-12 object-contain" />
                             ) : (
