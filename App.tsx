@@ -1488,6 +1488,119 @@ const App: React.FC = () => {
                     </div>
 
                     <div className="mt-6 bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                      <h2 className="text-2xl font-black text-slate-900 mb-2">Lectures recommandées</h2>
+                      <p className="text-slate-600 mb-6">
+                        Suggestions de lectures pour ce cours.
+                      </p>
+                      {canEditResources && (
+                        <form onSubmit={addProfessorLiterature} className="space-y-3 mb-4">
+                          <input
+                            type="text"
+                            value={literatureTitle}
+                            onChange={(event) => setLiteratureTitle(event.target.value)}
+                            placeholder="Titre du livre"
+                            className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            required
+                          />
+                          <textarea
+                            value={literatureCitation}
+                            onChange={(event) => setLiteratureCitation(event.target.value)}
+                            placeholder="Citation"
+                            className="w-full min-h-24 rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                          <input
+                            type="url"
+                            value={literatureUrl}
+                            onChange={(event) => setLiteratureUrl(event.target.value)}
+                            placeholder="https://..."
+                            className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            required
+                          />
+                          <button
+                            type="submit"
+                            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-white text-sm font-bold hover:bg-indigo-700 transition-colors"
+                          >
+                            <i className="fas fa-plus"></i>
+                            Ajouter
+                          </button>
+                        </form>
+                      )}
+                      <div className="space-y-2">
+                        {professorLiteratureNotes.length === 0 && (
+                          <p className="text-slate-500 text-sm">Aucune lecture recommandée pour ce cours.</p>
+                        )}
+                        {professorLiteratureNotes.map((note, index) => (
+                          <div key={note.id} className="rounded-xl border border-slate-200 px-3 py-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="text-slate-900 font-semibold text-sm">
+                                  {note.title.replace(PROFESSOR_LITERATURE_PREFIX, '').trim()}
+                                </p>
+                                {note.content && (
+                                  <p className="text-slate-600 text-sm mt-1 whitespace-pre-line">{note.content}</p>
+                                )}
+                                {note.link && (
+                                  <a
+                                    href={note.link}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-2 mt-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                                  >
+                                    <i className="fas fa-up-right-from-square"></i>
+                                    Ouvrir le lien
+                                  </a>
+                                )}
+                              </div>
+                              {canEditResources && (
+                                <div className="flex items-center gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      void moveNoteItem(
+                                        note.courseId,
+                                        note.id,
+                                        'up',
+                                        (entry) => entry.title.startsWith(PROFESSOR_LITERATURE_PREFIX),
+                                      );
+                                    }}
+                                    disabled={index === 0}
+                                    className="text-xs font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                                    title="Monter"
+                                  >
+                                    <i className="fas fa-arrow-up"></i>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      void moveNoteItem(
+                                        note.courseId,
+                                        note.id,
+                                        'down',
+                                        (entry) => entry.title.startsWith(PROFESSOR_LITERATURE_PREFIX),
+                                      );
+                                    }}
+                                    disabled={index === professorLiteratureNotes.length - 1}
+                                    className="text-xs font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                                    title="Descendre"
+                                  >
+                                    <i className="fas fa-arrow-down"></i>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteProfessorLiterature(note.id)}
+                                    className="text-xs font-semibold text-rose-600 hover:text-rose-700"
+                                  >
+                                    Supprimer
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="mt-6 bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
                       <h2 className="text-2xl font-black text-slate-900 mb-2">Votre professeur</h2>
                       <p className="text-slate-600 mb-6">
                         Bio, liens de réseaux sociaux et publications pour ce cours.
@@ -1702,115 +1815,6 @@ const App: React.FC = () => {
                           </div>
                         </div>
 
-                        <div className="rounded-2xl border border-slate-200 p-5">
-                          <h3 className="text-lg font-black text-slate-900 mb-3">Lectures recommandées</h3>
-                          {canEditResources && (
-                            <form onSubmit={addProfessorLiterature} className="space-y-3 mb-4">
-                              <input
-                                type="text"
-                                value={literatureTitle}
-                                onChange={(event) => setLiteratureTitle(event.target.value)}
-                                placeholder="Titre du livre"
-                                className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                required
-                              />
-                              <textarea
-                                value={literatureCitation}
-                                onChange={(event) => setLiteratureCitation(event.target.value)}
-                                placeholder="Citation"
-                                className="w-full min-h-24 rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                              />
-                              <input
-                                type="url"
-                                value={literatureUrl}
-                                onChange={(event) => setLiteratureUrl(event.target.value)}
-                                placeholder="https://..."
-                                className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                required
-                              />
-                              <button
-                                type="submit"
-                                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-white text-sm font-bold hover:bg-indigo-700 transition-colors"
-                              >
-                                <i className="fas fa-plus"></i>
-                                Ajouter
-                              </button>
-                            </form>
-                          )}
-                          <div className="space-y-2">
-                            {professorLiteratureNotes.length === 0 && (
-                              <p className="text-slate-500 text-sm">Aucune lecture recommandée pour ce cours.</p>
-                            )}
-                            {professorLiteratureNotes.map((note, index) => (
-                              <div key={note.id} className="rounded-xl border border-slate-200 px-3 py-3">
-                                <div className="flex items-start justify-between gap-3">
-                                  <div>
-                                    <p className="text-slate-900 font-semibold text-sm">
-                                      {note.title.replace(PROFESSOR_LITERATURE_PREFIX, '').trim()}
-                                    </p>
-                                    {note.content && (
-                                      <p className="text-slate-600 text-sm mt-1 whitespace-pre-line">{note.content}</p>
-                                    )}
-                                    {note.link && (
-                                      <a
-                                        href={note.link}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="inline-flex items-center gap-2 mt-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
-                                      >
-                                        <i className="fas fa-up-right-from-square"></i>
-                                        Ouvrir le lien
-                                      </a>
-                                    )}
-                                  </div>
-                                {canEditResources && (
-                                  <div className="flex items-center gap-3">
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        void moveNoteItem(
-                                          note.courseId,
-                                          note.id,
-                                          'up',
-                                          (entry) => entry.title.startsWith(PROFESSOR_LITERATURE_PREFIX),
-                                        );
-                                      }}
-                                      disabled={index === 0}
-                                      className="text-xs font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
-                                      title="Monter"
-                                    >
-                                      <i className="fas fa-arrow-up"></i>
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        void moveNoteItem(
-                                          note.courseId,
-                                          note.id,
-                                          'down',
-                                          (entry) => entry.title.startsWith(PROFESSOR_LITERATURE_PREFIX),
-                                        );
-                                      }}
-                                      disabled={index === professorLiteratureNotes.length - 1}
-                                      className="text-xs font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
-                                      title="Descendre"
-                                    >
-                                      <i className="fas fa-arrow-down"></i>
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => deleteProfessorLiterature(note.id)}
-                                      className="text-xs font-semibold text-rose-600 hover:text-rose-700"
-                                    >
-                                      Supprimer
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
                       </div>
                     </div>
                   </div>
