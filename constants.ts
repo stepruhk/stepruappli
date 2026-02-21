@@ -55,5 +55,13 @@ export const INITIAL_TOPICS: Topic[] = [
     category: 'Communication',
     icon: 'fa-book-open',
     content: ''
+  },
+  {
+    id: '7',
+    title: 'Influence',
+    description: 'Contenu à venir.',
+    category: 'Communication',
+    icon: 'fa-bullhorn',
+    content: ''
   }
 ];
