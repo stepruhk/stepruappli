@@ -24,7 +24,7 @@ export const INITIAL_TOPICS: Topic[] = [
   },
   {
     id: '3',
-    title: 'Théories de communication',
+    title: 'Théories de la communication',
     description: "Analyse approfondie des approches, des modèles et des paradigmes appliqués dans un contexte récent.",
     category: 'Communication',
     icon: 'fa-book-open',
