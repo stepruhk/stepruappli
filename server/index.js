@@ -577,26 +577,24 @@ async function recordAccess(role = "student") {
 }
 
 async function readAccessMetrics() {
-  const startOfDayUtc = new Date();
-  startOfDayUtc.setUTCHours(0, 0, 0, 0);
-  const startOfDayIso = startOfDayUtc.toISOString();
-
   if (hasSupabaseStorage) {
     try {
       const encodedCourseId = encodeURIComponent(ACCESS_ANALYTICS_COURSE_ID);
       const encodedTitle = encodeURIComponent(ACCESS_ANALYTICS_TITLE);
       const encodedStudent = encodeURIComponent("student");
       const encodedProfessor = encodeURIComponent("professor");
-      const encodedDayStart = encodeURIComponent(startOfDayIso);
       const baseFilter = `course_id=eq.${encodedCourseId}&title=eq.${encodedTitle}`;
 
-      const [total, student, professor, today, latestRows] = await Promise.all([
+      const [total, student, professor, latestRows, firstRows] = await Promise.all([
         supabaseCount(`notes?${baseFilter}&select=id`),
         supabaseCount(`notes?${baseFilter}&content=eq.${encodedStudent}&select=id`),
         supabaseCount(`notes?${baseFilter}&content=eq.${encodedProfessor}&select=id`),
-        supabaseCount(`notes?${baseFilter}&created_at=gte.${encodedDayStart}&select=id`),
         supabaseRequest(
           `notes?${baseFilter}&select=created_at&order=created_at.desc&limit=1`,
+          { method: "GET" },
+        ),
+        supabaseRequest(
+          `notes?${baseFilter}&select=created_at&order=created_at.asc&limit=1`,
           { method: "GET" },
         ),
       ]);
@@ -604,12 +602,15 @@ async function readAccessMetrics() {
       const lastAccessAt = Array.isArray(latestRows) && latestRows[0]?.created_at
         ? latestRows[0].created_at
         : null;
+      const firstAccessAt = Array.isArray(firstRows) && firstRows[0]?.created_at
+        ? firstRows[0].created_at
+        : null;
 
       return {
         total,
         student,
         professor,
-        today,
+        firstAccessAt,
         lastAccessAt,
       };
     } catch (error) {
@@ -622,19 +623,22 @@ async function readAccessMetrics() {
     (note) => note.courseId === ACCESS_ANALYTICS_COURSE_ID && note.title === ACCESS_ANALYTICS_TITLE,
   );
 
-  const today = events.filter((note) => new Date(note.createdAt) >= startOfDayUtc).length;
   const student = events.filter((note) => note.content === "student").length;
   const professor = events.filter((note) => note.content === "professor").length;
   const lastAccessAt = events.reduce((latest, note) => {
     if (!latest) return note.createdAt || null;
     return new Date(note.createdAt).getTime() > new Date(latest).getTime() ? note.createdAt : latest;
   }, null);
+  const firstAccessAt = events.reduce((earliest, note) => {
+    if (!earliest) return note.createdAt || null;
+    return new Date(note.createdAt).getTime() < new Date(earliest).getTime() ? note.createdAt : earliest;
+  }, null);
 
   return {
     total: events.length,
     student,
     professor,
-    today,
+    firstAccessAt,
     lastAccessAt,
   };
 }

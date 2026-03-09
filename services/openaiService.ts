@@ -24,7 +24,7 @@ export type AccessMetrics = {
   total: number;
   student: number;
   professor: number;
-  today: number;
+  firstAccessAt: string | null;
   lastAccessAt: string | null;
 };
 export type OrderEntityType = "notes" | "resources";
@@ -256,7 +256,7 @@ export async function getAccessMetrics(): Promise<AccessMetrics> {
     total: Number(response.total || 0),
     student: Number(response.student || 0),
     professor: Number(response.professor || 0),
-    today: Number(response.today || 0),
+    firstAccessAt: response.firstAccessAt || null,
     lastAccessAt: response.lastAccessAt || null,
   };
 }

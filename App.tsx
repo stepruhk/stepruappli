@@ -2678,7 +2678,7 @@ const App: React.FC = () => {
                             Compteur d'accès à l'app
                           </h2>
                           <p className="text-slate-600 mb-6">
-                            Statistiques des connexions réussies (visites).
+                            Statistiques cumulées des connexions réussies (depuis le lancement).
                           </p>
 
                           {accessMetricsLoading && (
@@ -2696,8 +2696,12 @@ const App: React.FC = () => {
                                 <p className="text-3xl font-black text-slate-900">{accessMetrics.total}</p>
                               </div>
                               <div className="rounded-2xl border border-slate-200 p-4 bg-slate-50">
-                                <p className="text-xs uppercase tracking-wider text-slate-500 font-bold">Aujourd'hui</p>
-                                <p className="text-3xl font-black text-slate-900">{accessMetrics.today}</p>
+                                <p className="text-xs uppercase tracking-wider text-slate-500 font-bold">Depuis le lancement</p>
+                                <p className="text-lg font-black text-slate-900">
+                                  {accessMetrics.firstAccessAt
+                                    ? new Date(accessMetrics.firstAccessAt).toLocaleDateString('fr-FR')
+                                    : 'N/A'}
+                                </p>
                               </div>
                               <div className="rounded-2xl border border-slate-200 p-4 bg-slate-50">
                                 <p className="text-xs uppercase tracking-wider text-slate-500 font-bold">Étudiants</p>
