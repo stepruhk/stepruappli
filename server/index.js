@@ -30,6 +30,10 @@ const MAX_TITLE_LENGTH = Number(process.env.MAX_TITLE_LENGTH || 180);
 const MAX_JSON_BODY_LIMIT = String(process.env.MAX_JSON_BODY_LIMIT || "35mb");
 const ACCESS_ANALYTICS_COURSE_ID = "__analytics_access__";
 const ACCESS_ANALYTICS_TITLE = "__ACCESS_EVENT__";
+const ACCESS_METRICS_BASE_TOTAL = Number(process.env.ACCESS_METRICS_BASE_TOTAL || 0);
+const ACCESS_METRICS_BASE_STUDENT = Number(process.env.ACCESS_METRICS_BASE_STUDENT || 0);
+const ACCESS_METRICS_BASE_PROFESSOR = Number(process.env.ACCESS_METRICS_BASE_PROFESSOR || 0);
+const APP_LAUNCH_DATE = String(process.env.APP_LAUNCH_DATE || "").trim();
 const ORDER_META_COURSE_ID = "__ui_order__";
 const ORDER_META_PREFIX = "__ORDER__";
 
@@ -265,6 +269,13 @@ function parseOrderIds(raw) {
   } catch {
     return [];
   }
+}
+
+function parseLaunchDate(input) {
+  if (!input) return null;
+  const parsed = new Date(input);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toISOString();
 }
 
 function applyManualOrder(items, orderedIds) {
@@ -577,6 +588,11 @@ async function recordAccess(role = "student") {
 }
 
 async function readAccessMetrics() {
+  const launchDateIso = parseLaunchDate(APP_LAUNCH_DATE);
+  const baseTotal = Number.isFinite(ACCESS_METRICS_BASE_TOTAL) ? ACCESS_METRICS_BASE_TOTAL : 0;
+  const baseStudent = Number.isFinite(ACCESS_METRICS_BASE_STUDENT) ? ACCESS_METRICS_BASE_STUDENT : 0;
+  const baseProfessor = Number.isFinite(ACCESS_METRICS_BASE_PROFESSOR) ? ACCESS_METRICS_BASE_PROFESSOR : 0;
+
   if (hasSupabaseStorage) {
     try {
       const encodedCourseId = encodeURIComponent(ACCESS_ANALYTICS_COURSE_ID);
@@ -607,10 +623,10 @@ async function readAccessMetrics() {
         : null;
 
       return {
-        total,
-        student,
-        professor,
-        firstAccessAt,
+        total: total + baseTotal,
+        student: student + baseStudent,
+        professor: professor + baseProfessor,
+        firstAccessAt: launchDateIso || firstAccessAt,
         lastAccessAt,
       };
     } catch (error) {
@@ -635,10 +651,10 @@ async function readAccessMetrics() {
   }, null);
 
   return {
-    total: events.length,
-    student,
-    professor,
-    firstAccessAt,
+    total: events.length + baseTotal,
+    student: student + baseStudent,
+    professor: professor + baseProfessor,
+    firstAccessAt: launchDateIso || firstAccessAt,
     lastAccessAt,
   };
 }
