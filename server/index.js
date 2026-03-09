@@ -30,10 +30,10 @@ const MAX_TITLE_LENGTH = Number(process.env.MAX_TITLE_LENGTH || 180);
 const MAX_JSON_BODY_LIMIT = String(process.env.MAX_JSON_BODY_LIMIT || "35mb");
 const ACCESS_ANALYTICS_COURSE_ID = "__analytics_access__";
 const ACCESS_ANALYTICS_TITLE = "__ACCESS_EVENT__";
-const ACCESS_METRICS_BASE_TOTAL = Number(process.env.ACCESS_METRICS_BASE_TOTAL || 0);
-const ACCESS_METRICS_BASE_STUDENT = Number(process.env.ACCESS_METRICS_BASE_STUDENT || 0);
+const ACCESS_METRICS_BASE_TOTAL = Number(process.env.ACCESS_METRICS_BASE_TOTAL || 35);
+const ACCESS_METRICS_BASE_STUDENT = Number(process.env.ACCESS_METRICS_BASE_STUDENT || 35);
 const ACCESS_METRICS_BASE_PROFESSOR = Number(process.env.ACCESS_METRICS_BASE_PROFESSOR || 0);
-const APP_LAUNCH_DATE = String(process.env.APP_LAUNCH_DATE || "").trim();
+const APP_LAUNCH_DATE = String(process.env.APP_LAUNCH_DATE || "2026-02-07").trim();
 const ORDER_META_COURSE_ID = "__ui_order__";
 const ORDER_META_PREFIX = "__ORDER__";
 
