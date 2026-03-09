@@ -23,3 +23,11 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
+      - key: APP_LAUNCH_DATE
+        sync: false
+      - key: ACCESS_METRICS_BASE_TOTAL
+        sync: false
+      - key: ACCESS_METRICS_BASE_STUDENT
+        sync: false
+      - key: ACCESS_METRICS_BASE_PROFESSOR
+        sync: false
