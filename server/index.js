@@ -38,6 +38,7 @@ const ORDER_META_COURSE_ID = "__ui_order__";
 const ORDER_META_PREFIX = "__ORDER__";
 const GENERAL_COURSE_ID = "general";
 const ANNOUNCEMENTS_COURSE_ID = "announcements";
+const ANNOUNCEMENTS_FALLBACK_COURSE_ID = "1";
 const ANNOUNCEMENT_TITLE_PREFIX = "[ANNONCE] ";
 
 const rateBuckets = new Map();
@@ -284,7 +285,9 @@ function parseLaunchDate(input) {
 function isAnnouncementStorageNote(courseId, title) {
   return (
     courseId === ANNOUNCEMENTS_COURSE_ID ||
-    (courseId === GENERAL_COURSE_ID && typeof title === "string" && title.startsWith(ANNOUNCEMENT_TITLE_PREFIX))
+    ((courseId === GENERAL_COURSE_ID || courseId === ANNOUNCEMENTS_FALLBACK_COURSE_ID) &&
+      typeof title === "string" &&
+      title.startsWith(ANNOUNCEMENT_TITLE_PREFIX))
   );
 }
 
@@ -865,7 +868,7 @@ app.get("/api/notes", async (req, res) => {
     const orderedIds = await readStoredOrder("notes", requestedCourseId);
     const storageCourseIds =
       requestedCourseId === ANNOUNCEMENTS_COURSE_ID
-        ? [GENERAL_COURSE_ID, ANNOUNCEMENTS_COURSE_ID]
+        ? [GENERAL_COURSE_ID, ANNOUNCEMENTS_FALLBACK_COURSE_ID, ANNOUNCEMENTS_COURSE_ID]
         : [requestedCourseId];
 
     if (hasSupabaseStorage) {
@@ -935,20 +938,45 @@ app.post("/api/notes", async (req, res) => {
       createdAt: new Date().toISOString(),
     };
     if (hasSupabaseStorage) {
-      const rows = await supabaseRequest("notes", {
-        method: "POST",
-        headers: { Prefer: "return=representation" },
-        body: JSON.stringify({
-          id: note.id,
-          course_id: storageCourseId,
-          title: storageTitle,
-          content: note.content,
-          link: note.link || null,
-          created_at: note.createdAt,
-        }),
-      });
-      const created = Array.isArray(rows) ? rows[0] : null;
+      const candidates = courseId === ANNOUNCEMENTS_COURSE_ID
+        ? [
+            { storageCourseId, storageTitle },
+            {
+              storageCourseId: ANNOUNCEMENTS_FALLBACK_COURSE_ID,
+              storageTitle: normalizeAnnouncementTitle(title),
+            },
+            {
+              storageCourseId: ANNOUNCEMENTS_COURSE_ID,
+              storageTitle: normalizeAnnouncementTitle(title),
+            },
+          ]
+        : [{ storageCourseId, storageTitle }];
+
+      let created = null;
+      let lastError = null;
+      for (const candidate of candidates) {
+        try {
+          const rows = await supabaseRequest("notes", {
+            method: "POST",
+            headers: { Prefer: "return=representation" },
+            body: JSON.stringify({
+              id: note.id,
+              course_id: candidate.storageCourseId,
+              title: candidate.storageTitle,
+              content: note.content,
+              link: note.link || null,
+              created_at: note.createdAt,
+            }),
+          });
+          created = Array.isArray(rows) ? rows[0] : null;
+          if (created) break;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+
       if (!created) {
+        if (lastError) throw lastError;
         throw new ApiError(502, "STORAGE_ERROR", "Unable to persist note.");
       }
       await prependItemInOrder("notes", note.courseId, note.id);
