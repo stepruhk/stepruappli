@@ -505,21 +505,25 @@ async function supabaseCount(pathname) {
 async function readStoredOrder(entityType, courseId) {
   if (!courseId) return [];
   const title = getOrderMetaTitle(entityType, courseId);
+  try {
+    if (hasSupabaseStorage) {
+      const rows = await supabaseRequest(
+        `notes?course_id=eq.${encodeURIComponent(ORDER_META_COURSE_ID)}&title=eq.${encodeURIComponent(title)}&select=content,created_at&order=created_at.desc&limit=1`,
+        { method: "GET" },
+      );
+      const row = Array.isArray(rows) ? rows[0] : null;
+      return parseOrderIds(row?.content);
+    }
 
-  if (hasSupabaseStorage) {
-    const rows = await supabaseRequest(
-      `notes?course_id=eq.${encodeURIComponent(ORDER_META_COURSE_ID)}&title=eq.${encodeURIComponent(title)}&select=content,created_at&order=created_at.desc&limit=1`,
-      { method: "GET" },
-    );
-    const row = Array.isArray(rows) ? rows[0] : null;
+    const store = await ensureStoreLoaded();
+    const row = store.notes
+      .filter((note) => note.courseId === ORDER_META_COURSE_ID && note.title === title)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
     return parseOrderIds(row?.content);
+  } catch (error) {
+    console.warn("Order metadata read failed, fallback to default order.", { entityType, courseId, error });
+    return [];
   }
-
-  const store = await ensureStoreLoaded();
-  const row = store.notes
-    .filter((note) => note.courseId === ORDER_META_COURSE_ID && note.title === title)
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-  return parseOrderIds(row?.content);
 }
 
 async function upsertStoredOrder(entityType, courseId, orderedIds) {
@@ -527,55 +531,58 @@ async function upsertStoredOrder(entityType, courseId, orderedIds) {
   const title = getOrderMetaTitle(entityType, courseId);
   const content = JSON.stringify(normalizedIds);
   const nowIso = new Date().toISOString();
+  try {
+    if (hasSupabaseStorage) {
+      const rows = await supabaseRequest(
+        `notes?course_id=eq.${encodeURIComponent(ORDER_META_COURSE_ID)}&title=eq.${encodeURIComponent(title)}&select=id,created_at&order=created_at.desc`,
+        { method: "GET" },
+      );
+      const first = Array.isArray(rows) ? rows[0] : null;
+      if (first?.id) {
+        await supabaseRequest(`notes?id=eq.${encodeURIComponent(first.id)}`, {
+          method: "PATCH",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({
+            content,
+            created_at: nowIso,
+          }),
+        });
+        return;
+      }
 
-  if (hasSupabaseStorage) {
-    const rows = await supabaseRequest(
-      `notes?course_id=eq.${encodeURIComponent(ORDER_META_COURSE_ID)}&title=eq.${encodeURIComponent(title)}&select=id,created_at&order=created_at.desc`,
-      { method: "GET" },
-    );
-    const first = Array.isArray(rows) ? rows[0] : null;
-    if (first?.id) {
-      await supabaseRequest(`notes?id=eq.${encodeURIComponent(first.id)}`, {
-        method: "PATCH",
+      await supabaseRequest("notes", {
+        method: "POST",
         headers: { Prefer: "return=minimal" },
         body: JSON.stringify({
+          id: crypto.randomUUID(),
+          course_id: ORDER_META_COURSE_ID,
+          title,
           content,
+          link: null,
           created_at: nowIso,
         }),
       });
       return;
     }
 
-    await supabaseRequest("notes", {
-      method: "POST",
-      headers: { Prefer: "return=minimal" },
-      body: JSON.stringify({
+    const store = await ensureStoreLoaded();
+    const existing = store.notes.find((note) => note.courseId === ORDER_META_COURSE_ID && note.title === title);
+    if (existing) {
+      existing.content = content;
+      existing.createdAt = nowIso;
+    } else {
+      store.notes.unshift({
         id: crypto.randomUUID(),
-        course_id: ORDER_META_COURSE_ID,
+        courseId: ORDER_META_COURSE_ID,
         title,
         content,
-        link: null,
-        created_at: nowIso,
-      }),
-    });
-    return;
+        createdAt: nowIso,
+      });
+    }
+    await saveStore();
+  } catch (error) {
+    console.warn("Order metadata write failed, continuing without persistent order.", { entityType, courseId, error });
   }
-
-  const store = await ensureStoreLoaded();
-  const existing = store.notes.find((note) => note.courseId === ORDER_META_COURSE_ID && note.title === title);
-  if (existing) {
-    existing.content = content;
-    existing.createdAt = nowIso;
-  } else {
-    store.notes.unshift({
-      id: crypto.randomUUID(),
-      courseId: ORDER_META_COURSE_ID,
-      title,
-      content,
-      createdAt: nowIso,
-    });
-  }
-  await saveStore();
 }
 
 async function prependItemInOrder(entityType, courseId, itemId) {
