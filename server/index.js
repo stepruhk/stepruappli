@@ -36,6 +36,9 @@ const ACCESS_METRICS_BASE_PROFESSOR = Number(process.env.ACCESS_METRICS_BASE_PRO
 const APP_LAUNCH_DATE = String(process.env.APP_LAUNCH_DATE || "2026-02-07").trim();
 const ORDER_META_COURSE_ID = "__ui_order__";
 const ORDER_META_PREFIX = "__ORDER__";
+const GENERAL_COURSE_ID = "general";
+const ANNOUNCEMENTS_COURSE_ID = "announcements";
+const ANNOUNCEMENT_TITLE_PREFIX = "[ANNONCE] ";
 
 const rateBuckets = new Map();
 const authSessions = new Map();
@@ -276,6 +279,48 @@ function parseLaunchDate(input) {
   const parsed = new Date(input);
   if (Number.isNaN(parsed.getTime())) return null;
   return parsed.toISOString();
+}
+
+function isAnnouncementStorageNote(courseId, title) {
+  return (
+    courseId === ANNOUNCEMENTS_COURSE_ID ||
+    (courseId === GENERAL_COURSE_ID && typeof title === "string" && title.startsWith(ANNOUNCEMENT_TITLE_PREFIX))
+  );
+}
+
+function normalizeAnnouncementTitle(title) {
+  const cleaned = String(title || "").trim();
+  if (!cleaned) return ANNOUNCEMENT_TITLE_PREFIX.trim();
+  if (cleaned.startsWith(ANNOUNCEMENT_TITLE_PREFIX)) {
+    return cleaned;
+  }
+  return `${ANNOUNCEMENT_TITLE_PREFIX}${cleaned}`;
+}
+
+function toStorageNoteInput(courseId, title) {
+  if (courseId === ANNOUNCEMENTS_COURSE_ID) {
+    return {
+      storageCourseId: GENERAL_COURSE_ID,
+      storageTitle: normalizeAnnouncementTitle(title),
+    };
+  }
+  return {
+    storageCourseId: courseId,
+    storageTitle: title,
+  };
+}
+
+function toApiNote(rawNote) {
+  const isAnnouncement = isAnnouncementStorageNote(rawNote.courseId, rawNote.title);
+  const apiTitle =
+    isAnnouncement && typeof rawNote.title === "string" && rawNote.title.startsWith(ANNOUNCEMENT_TITLE_PREFIX)
+      ? rawNote.title.slice(ANNOUNCEMENT_TITLE_PREFIX.length).trimStart()
+      : rawNote.title;
+  return {
+    ...rawNote,
+    courseId: isAnnouncement ? ANNOUNCEMENTS_COURSE_ID : rawNote.courseId,
+    title: apiTitle || "",
+  };
 }
 
 function applyManualOrder(items, orderedIds) {
@@ -813,26 +858,40 @@ app.use("/api", (req, _res, next) => {
 
 app.get("/api/notes", async (req, res) => {
   try {
-    const courseId = String(req.query.courseId || "").trim();
-    if (!courseId) {
+    const requestedCourseId = String(req.query.courseId || "").trim();
+    if (!requestedCourseId) {
       throw new ApiError(400, "INVALID_INPUT", "Query parameter \"courseId\" is required.");
     }
-    const orderedIds = await readStoredOrder("notes", courseId);
+    const orderedIds = await readStoredOrder("notes", requestedCourseId);
+    const storageCourseIds =
+      requestedCourseId === ANNOUNCEMENTS_COURSE_ID
+        ? [GENERAL_COURSE_ID, ANNOUNCEMENTS_COURSE_ID]
+        : [requestedCourseId];
+
     if (hasSupabaseStorage) {
-      const rows = await supabaseRequest(
-        `notes?course_id=eq.${encodeURIComponent(courseId)}&select=id,course_id,title,content,link,created_at&order=created_at.desc`,
-        { method: "GET" },
+      const rowsByCourse = await Promise.all(
+        storageCourseIds.map((courseId) =>
+          supabaseRequest(
+            `notes?course_id=eq.${encodeURIComponent(courseId)}&select=id,course_id,title,content,link,created_at&order=created_at.desc`,
+            { method: "GET" },
+          ),
+        ),
       );
-      const parsedNotes = Array.isArray(rows)
-        ? rows.map((row) => ({
+
+      const parsedNotes = rowsByCourse
+        .flatMap((rows) => (Array.isArray(rows) ? rows : []))
+        .map((row) =>
+          toApiNote({
             id: row.id,
             courseId: row.course_id,
             title: row.title,
             content: row.content || "",
             link: row.link || undefined,
             createdAt: row.created_at,
-          }))
-        : [];
+          }),
+        )
+        .filter((note) => note.courseId === requestedCourseId);
+
       const notes = applyManualOrder(parsedNotes, orderedIds);
       res.json({ notes });
       return;
@@ -840,8 +899,10 @@ app.get("/api/notes", async (req, res) => {
 
     const store = await ensureStoreLoaded();
     const parsedNotes = store.notes
-      .filter((note) => note.courseId === courseId)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      .filter((note) => storageCourseIds.includes(note.courseId))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .map((note) => toApiNote(note))
+      .filter((note) => note.courseId === requestedCourseId);
     const notes = applyManualOrder(parsedNotes, orderedIds);
     res.json({ notes });
   } catch (error) {
@@ -864,6 +925,7 @@ app.post("/api/notes", async (req, res) => {
       throw new ApiError(400, "INVALID_INPUT", "Field \"link\" must be a valid http(s) URL.");
     }
 
+    const { storageCourseId, storageTitle } = toStorageNoteInput(courseId, title);
     const note = {
       id: crypto.randomUUID(),
       courseId,
@@ -878,8 +940,8 @@ app.post("/api/notes", async (req, res) => {
         headers: { Prefer: "return=representation" },
         body: JSON.stringify({
           id: note.id,
-          course_id: note.courseId,
-          title: note.title,
+          course_id: storageCourseId,
+          title: storageTitle,
           content: note.content,
           link: note.link || null,
           created_at: note.createdAt,
@@ -890,25 +952,31 @@ app.post("/api/notes", async (req, res) => {
         throw new ApiError(502, "STORAGE_ERROR", "Unable to persist note.");
       }
       await prependItemInOrder("notes", note.courseId, note.id);
+      const apiNote = toApiNote({
+        id: created.id,
+        courseId: created.course_id,
+        title: created.title,
+        content: created.content || "",
+        link: created.link || undefined,
+        createdAt: created.created_at,
+      });
       res.status(201).json({
-        note: {
-          id: created.id,
-          courseId: created.course_id,
-          title: created.title,
-          content: created.content || "",
-          link: created.link || undefined,
-          createdAt: created.created_at,
-        },
+        note: apiNote,
       });
       return;
     }
 
     const store = await ensureStoreLoaded();
-    store.notes.unshift(note);
+    const storedNote = {
+      ...note,
+      courseId: storageCourseId,
+      title: storageTitle,
+    };
+    store.notes.unshift(storedNote);
     await saveStore();
     await prependItemInOrder("notes", note.courseId, note.id);
 
-    res.status(201).json({ note });
+    res.status(201).json({ note: toApiNote(storedNote) });
   } catch (error) {
     sendError(res, error);
   }
@@ -934,11 +1002,24 @@ app.put("/api/notes/:id", async (req, res) => {
     }
 
     if (hasSupabaseStorage) {
+      const existingRows = await supabaseRequest(
+        `notes?id=eq.${encodeURIComponent(id)}&select=id,course_id,title&limit=1`,
+        { method: "GET" },
+      );
+      const existing = Array.isArray(existingRows) ? existingRows[0] : null;
+      if (!existing) {
+        throw new ApiError(404, "NOT_FOUND", "Note not found.");
+      }
+
+      const nextStorageTitle = isAnnouncementStorageNote(existing.course_id, existing.title || "")
+        ? normalizeAnnouncementTitle(title)
+        : title;
+
       const rows = await supabaseRequest(`notes?id=eq.${encodeURIComponent(id)}`, {
         method: "PATCH",
         headers: { Prefer: "return=representation" },
         body: JSON.stringify({
-          title,
+          title: nextStorageTitle,
           content,
           link: link || null,
         }),
@@ -947,15 +1028,16 @@ app.put("/api/notes/:id", async (req, res) => {
       if (!updated) {
         throw new ApiError(404, "NOT_FOUND", "Note not found.");
       }
+      const apiNote = toApiNote({
+        id: updated.id,
+        courseId: updated.course_id,
+        title: updated.title,
+        content: updated.content || "",
+        link: updated.link || undefined,
+        createdAt: updated.created_at,
+      });
       res.json({
-        note: {
-          id: updated.id,
-          courseId: updated.course_id,
-          title: updated.title,
-          content: updated.content || "",
-          link: updated.link || undefined,
-          createdAt: updated.created_at,
-        },
+        note: apiNote,
       });
       return;
     }
@@ -965,11 +1047,13 @@ app.put("/api/notes/:id", async (req, res) => {
     if (!note) {
       throw new ApiError(404, "NOT_FOUND", "Note not found.");
     }
-    note.title = title;
+    note.title = isAnnouncementStorageNote(note.courseId, note.title || "")
+      ? normalizeAnnouncementTitle(title)
+      : title;
     note.content = content;
     note.link = link || undefined;
     await saveStore();
-    res.json({ note });
+    res.json({ note: toApiNote(note) });
   } catch (error) {
     sendError(res, error);
   }
@@ -985,15 +1069,19 @@ app.delete("/api/notes/:id", async (req, res) => {
 
     if (hasSupabaseStorage) {
       const existingRows = await supabaseRequest(
-        `notes?id=eq.${encodeURIComponent(id)}&select=id,course_id&limit=1`,
+        `notes?id=eq.${encodeURIComponent(id)}&select=id,course_id,title&limit=1`,
         { method: "GET" },
       );
       const existing = Array.isArray(existingRows) ? existingRows[0] : null;
       await supabaseRequest(`notes?id=eq.${encodeURIComponent(id)}`, {
         method: "DELETE",
       });
-      if (existing?.course_id) {
-        await removeItemFromOrder("notes", existing.course_id, id);
+      if (existing) {
+        if (isAnnouncementStorageNote(existing.course_id, existing.title || "")) {
+          await removeItemFromOrder("notes", ANNOUNCEMENTS_COURSE_ID, id);
+        } else if (existing.course_id) {
+          await removeItemFromOrder("notes", existing.course_id, id);
+        }
       }
       res.json({ ok: true });
       return;
@@ -1007,8 +1095,12 @@ app.delete("/api/notes/:id", async (req, res) => {
       throw new ApiError(404, "NOT_FOUND", "Note not found.");
     }
     await saveStore();
-    if (deletedNote?.courseId) {
-      await removeItemFromOrder("notes", deletedNote.courseId, id);
+    if (deletedNote) {
+      if (isAnnouncementStorageNote(deletedNote.courseId, deletedNote.title || "")) {
+        await removeItemFromOrder("notes", ANNOUNCEMENTS_COURSE_ID, id);
+      } else if (deletedNote.courseId) {
+        await removeItemFromOrder("notes", deletedNote.courseId, id);
+      }
     }
     res.json({ ok: true });
   } catch (error) {
