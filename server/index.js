@@ -40,6 +40,8 @@ const GENERAL_COURSE_ID = "general";
 const ANNOUNCEMENTS_COURSE_ID = "announcements";
 const ANNOUNCEMENTS_FALLBACK_COURSE_ID = "1";
 const ANNOUNCEMENT_TITLE_PREFIX = "[ANNONCE] ";
+const GENERAL_NOTE_TITLE_PREFIX = "[NOTE_GENERALE] ";
+const GENERAL_RESOURCE_TITLE_PREFIX = "[CONTENU_GENERAL] ";
 
 const rateBuckets = new Map();
 const authSessions = new Map();
@@ -77,12 +79,17 @@ function normalizeError(error) {
     };
   }
 
+  const fallbackMessage =
+    error && typeof error === "object" && typeof error.message === "string" && error.message.trim()
+      ? error.message
+      : "Unexpected server error.";
+
   return {
     status: 500,
     body: {
       error: {
         code: "INTERNAL_ERROR",
-        message: "Unexpected server error.",
+        message: fallbackMessage,
         details: null,
         requestId: null,
       },
@@ -91,6 +98,9 @@ function normalizeError(error) {
 }
 
 function sendError(res, error) {
+  if (!(error instanceof ApiError)) {
+    console.error("Unhandled server error:", error);
+  }
   const normalized = normalizeError(error);
   res.status(normalized.status).json(normalized.body);
 }
@@ -291,6 +301,15 @@ function isAnnouncementStorageNote(courseId, title) {
   );
 }
 
+function isGeneralStorageNote(courseId, title) {
+  if (courseId === GENERAL_COURSE_ID && !isAnnouncementStorageNote(courseId, title)) return true;
+  return (
+    courseId === ANNOUNCEMENTS_FALLBACK_COURSE_ID &&
+    typeof title === "string" &&
+    title.startsWith(GENERAL_NOTE_TITLE_PREFIX)
+  );
+}
+
 function normalizeAnnouncementTitle(title) {
   const cleaned = String(title || "").trim();
   if (!cleaned) return ANNOUNCEMENT_TITLE_PREFIX.trim();
@@ -300,28 +319,88 @@ function normalizeAnnouncementTitle(title) {
   return `${ANNOUNCEMENT_TITLE_PREFIX}${cleaned}`;
 }
 
-function toStorageNoteInput(courseId, title) {
-  if (courseId === ANNOUNCEMENTS_COURSE_ID) {
-    return {
-      storageCourseId: GENERAL_COURSE_ID,
-      storageTitle: normalizeAnnouncementTitle(title),
-    };
+function normalizeGeneralNoteTitle(title) {
+  const cleaned = String(title || "").trim();
+  if (!cleaned) return GENERAL_NOTE_TITLE_PREFIX.trim();
+  if (cleaned.startsWith(GENERAL_NOTE_TITLE_PREFIX)) {
+    return cleaned;
   }
-  return {
-    storageCourseId: courseId,
-    storageTitle: title,
-  };
+  return `${GENERAL_NOTE_TITLE_PREFIX}${cleaned}`;
+}
+
+function toStorageNoteCandidates(courseId, title) {
+  if (courseId === ANNOUNCEMENTS_COURSE_ID) {
+    const normalized = normalizeAnnouncementTitle(title);
+    return [
+      { storageCourseId: ANNOUNCEMENTS_COURSE_ID, storageTitle: normalized },
+      { storageCourseId: GENERAL_COURSE_ID, storageTitle: normalized },
+      { storageCourseId: ANNOUNCEMENTS_FALLBACK_COURSE_ID, storageTitle: normalized },
+    ];
+  }
+  if (courseId === GENERAL_COURSE_ID) {
+    const normalized = normalizeGeneralNoteTitle(title);
+    return [
+      { storageCourseId: GENERAL_COURSE_ID, storageTitle: normalized },
+      { storageCourseId: ANNOUNCEMENTS_FALLBACK_COURSE_ID, storageTitle: normalized },
+    ];
+  }
+  return [{ storageCourseId: courseId, storageTitle: title }];
 }
 
 function toApiNote(rawNote) {
-  const isAnnouncement = isAnnouncementStorageNote(rawNote.courseId, rawNote.title);
-  const apiTitle =
-    isAnnouncement && typeof rawNote.title === "string" && rawNote.title.startsWith(ANNOUNCEMENT_TITLE_PREFIX)
-      ? rawNote.title.slice(ANNOUNCEMENT_TITLE_PREFIX.length).trimStart()
-      : rawNote.title;
+  const isAnnouncement = isAnnouncementStorageNote(rawNote.courseId, rawNote.title || "");
+  const isGeneral = !isAnnouncement && isGeneralStorageNote(rawNote.courseId, rawNote.title || "");
+  let apiTitle = rawNote.title || "";
+  if (isAnnouncement && apiTitle.startsWith(ANNOUNCEMENT_TITLE_PREFIX)) {
+    apiTitle = apiTitle.slice(ANNOUNCEMENT_TITLE_PREFIX.length).trimStart();
+  } else if (isGeneral && apiTitle.startsWith(GENERAL_NOTE_TITLE_PREFIX)) {
+    apiTitle = apiTitle.slice(GENERAL_NOTE_TITLE_PREFIX.length).trimStart();
+  }
   return {
     ...rawNote,
-    courseId: isAnnouncement ? ANNOUNCEMENTS_COURSE_ID : rawNote.courseId,
+    courseId: isAnnouncement ? ANNOUNCEMENTS_COURSE_ID : (isGeneral ? GENERAL_COURSE_ID : rawNote.courseId),
+    title: apiTitle || "",
+  };
+}
+
+function isGeneralStorageResource(courseId, title) {
+  if (courseId === GENERAL_COURSE_ID) return true;
+  return (
+    courseId === ANNOUNCEMENTS_FALLBACK_COURSE_ID &&
+    typeof title === "string" &&
+    title.startsWith(GENERAL_RESOURCE_TITLE_PREFIX)
+  );
+}
+
+function normalizeGeneralResourceTitle(title) {
+  const cleaned = String(title || "").trim();
+  if (!cleaned) return GENERAL_RESOURCE_TITLE_PREFIX.trim();
+  if (cleaned.startsWith(GENERAL_RESOURCE_TITLE_PREFIX)) {
+    return cleaned;
+  }
+  return `${GENERAL_RESOURCE_TITLE_PREFIX}${cleaned}`;
+}
+
+function toStorageResourceCandidates(courseId, title) {
+  if (courseId === GENERAL_COURSE_ID) {
+    const normalized = normalizeGeneralResourceTitle(title);
+    return [
+      { storageCourseId: GENERAL_COURSE_ID, storageTitle: normalized },
+      { storageCourseId: ANNOUNCEMENTS_FALLBACK_COURSE_ID, storageTitle: normalized },
+    ];
+  }
+  return [{ storageCourseId: courseId, storageTitle: title }];
+}
+
+function toApiResource(rawResource) {
+  const isGeneral = isGeneralStorageResource(rawResource.courseId, rawResource.title || "");
+  let apiTitle = rawResource.title || "";
+  if (isGeneral && apiTitle.startsWith(GENERAL_RESOURCE_TITLE_PREFIX)) {
+    apiTitle = apiTitle.slice(GENERAL_RESOURCE_TITLE_PREFIX.length).trimStart();
+  }
+  return {
+    ...rawResource,
+    courseId: isGeneral ? GENERAL_COURSE_ID : rawResource.courseId,
     title: apiTitle || "",
   };
 }
@@ -873,9 +952,10 @@ app.get("/api/notes", async (req, res) => {
       throw new ApiError(400, "INVALID_INPUT", "Query parameter \"courseId\" is required.");
     }
     const orderedIds = await readStoredOrder("notes", requestedCourseId);
-    const storageCourseIds =
-      requestedCourseId === ANNOUNCEMENTS_COURSE_ID
-        ? [GENERAL_COURSE_ID, ANNOUNCEMENTS_FALLBACK_COURSE_ID, ANNOUNCEMENTS_COURSE_ID]
+    const storageCourseIds = requestedCourseId === ANNOUNCEMENTS_COURSE_ID
+      ? [ANNOUNCEMENTS_COURSE_ID, GENERAL_COURSE_ID, ANNOUNCEMENTS_FALLBACK_COURSE_ID]
+      : requestedCourseId === GENERAL_COURSE_ID
+        ? [GENERAL_COURSE_ID, ANNOUNCEMENTS_FALLBACK_COURSE_ID]
         : [requestedCourseId];
 
     if (hasSupabaseStorage) {
@@ -935,7 +1015,7 @@ app.post("/api/notes", async (req, res) => {
       throw new ApiError(400, "INVALID_INPUT", "Field \"link\" must be a valid http(s) URL.");
     }
 
-    const { storageCourseId, storageTitle } = toStorageNoteInput(courseId, title);
+    const candidates = toStorageNoteCandidates(courseId, title);
     const note = {
       id: crypto.randomUUID(),
       courseId,
@@ -945,20 +1025,6 @@ app.post("/api/notes", async (req, res) => {
       createdAt: new Date().toISOString(),
     };
     if (hasSupabaseStorage) {
-      const candidates = courseId === ANNOUNCEMENTS_COURSE_ID
-        ? [
-            { storageCourseId, storageTitle },
-            {
-              storageCourseId: ANNOUNCEMENTS_FALLBACK_COURSE_ID,
-              storageTitle: normalizeAnnouncementTitle(title),
-            },
-            {
-              storageCourseId: ANNOUNCEMENTS_COURSE_ID,
-              storageTitle: normalizeAnnouncementTitle(title),
-            },
-          ]
-        : [{ storageCourseId, storageTitle }];
-
       let created = null;
       let lastError = null;
       for (const candidate of candidates) {
@@ -1002,10 +1068,11 @@ app.post("/api/notes", async (req, res) => {
     }
 
     const store = await ensureStoreLoaded();
+    const selectedCandidate = candidates[0];
     const storedNote = {
       ...note,
-      courseId: storageCourseId,
-      title: storageTitle,
+      courseId: selectedCandidate.storageCourseId,
+      title: selectedCandidate.storageTitle,
     };
     store.notes.unshift(storedNote);
     await saveStore();
@@ -1048,6 +1115,8 @@ app.put("/api/notes/:id", async (req, res) => {
 
       const nextStorageTitle = isAnnouncementStorageNote(existing.course_id, existing.title || "")
         ? normalizeAnnouncementTitle(title)
+        : isGeneralStorageNote(existing.course_id, existing.title || "")
+          ? normalizeGeneralNoteTitle(title)
         : title;
 
       const rows = await supabaseRequest(`notes?id=eq.${encodeURIComponent(id)}`, {
@@ -1084,6 +1153,8 @@ app.put("/api/notes/:id", async (req, res) => {
     }
     note.title = isAnnouncementStorageNote(note.courseId, note.title || "")
       ? normalizeAnnouncementTitle(title)
+      : isGeneralStorageNote(note.courseId, note.title || "")
+        ? normalizeGeneralNoteTitle(title)
       : title;
     note.content = content;
     note.link = link || undefined;
@@ -1114,6 +1185,8 @@ app.delete("/api/notes/:id", async (req, res) => {
       if (existing) {
         if (isAnnouncementStorageNote(existing.course_id, existing.title || "")) {
           await removeItemFromOrder("notes", ANNOUNCEMENTS_COURSE_ID, id);
+        } else if (isGeneralStorageNote(existing.course_id, existing.title || "")) {
+          await removeItemFromOrder("notes", GENERAL_COURSE_ID, id);
         } else if (existing.course_id) {
           await removeItemFromOrder("notes", existing.course_id, id);
         }
@@ -1133,6 +1206,8 @@ app.delete("/api/notes/:id", async (req, res) => {
     if (deletedNote) {
       if (isAnnouncementStorageNote(deletedNote.courseId, deletedNote.title || "")) {
         await removeItemFromOrder("notes", ANNOUNCEMENTS_COURSE_ID, id);
+      } else if (isGeneralStorageNote(deletedNote.courseId, deletedNote.title || "")) {
+        await removeItemFromOrder("notes", GENERAL_COURSE_ID, id);
       } else if (deletedNote.courseId) {
         await removeItemFromOrder("notes", deletedNote.courseId, id);
       }
@@ -1145,18 +1220,27 @@ app.delete("/api/notes/:id", async (req, res) => {
 
 app.get("/api/resources", async (req, res) => {
   try {
-    const courseId = String(req.query.courseId || "").trim();
-    if (!courseId) {
+    const requestedCourseId = String(req.query.courseId || "").trim();
+    if (!requestedCourseId) {
       throw new ApiError(400, "INVALID_INPUT", "Query parameter \"courseId\" is required.");
     }
-    const orderedIds = await readStoredOrder("resources", courseId);
+    const orderedIds = await readStoredOrder("resources", requestedCourseId);
+    const storageCourseIds = requestedCourseId === GENERAL_COURSE_ID
+      ? [GENERAL_COURSE_ID, ANNOUNCEMENTS_FALLBACK_COURSE_ID]
+      : [requestedCourseId];
+
     if (hasSupabaseStorage) {
-      const rows = await supabaseRequest(
-        `resources?course_id=eq.${encodeURIComponent(courseId)}&select=id,course_id,type,title,url,created_at&order=created_at.desc`,
-        { method: "GET" },
+      const rowsByCourse = await Promise.all(
+        storageCourseIds.map((courseId) =>
+          supabaseRequest(
+            `resources?course_id=eq.${encodeURIComponent(courseId)}&select=id,course_id,type,title,url,created_at&order=created_at.desc`,
+            { method: "GET" },
+          ),
+        ),
       );
-      const parsedResources = Array.isArray(rows)
-        ? rows.map((row) => ({
+      const parsedResources = rowsByCourse
+        .flatMap((rows) => (Array.isArray(rows) ? rows : []))
+        .map((row) => toApiResource({
             id: row.id,
             courseId: row.course_id,
             type: row.type,
@@ -1164,7 +1248,7 @@ app.get("/api/resources", async (req, res) => {
             url: row.url,
             createdAt: row.created_at,
           }))
-        : [];
+        .filter((item) => item.courseId === requestedCourseId);
       const resources = applyManualOrder(parsedResources, orderedIds);
       res.json({ resources });
       return;
@@ -1172,8 +1256,10 @@ app.get("/api/resources", async (req, res) => {
 
     const store = await ensureStoreLoaded();
     const parsedResources = store.resources
-      .filter((item) => item.courseId === courseId)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      .filter((item) => storageCourseIds.includes(item.courseId))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .map((item) => toApiResource(item))
+      .filter((item) => item.courseId === requestedCourseId);
     const resources = applyManualOrder(parsedResources, orderedIds);
     res.json({ resources });
   } catch (error) {
@@ -1209,43 +1295,63 @@ app.post("/api/resources", async (req, res) => {
       url,
       createdAt: new Date().toISOString(),
     };
+
+    const candidates = toStorageResourceCandidates(courseId, title);
     if (hasSupabaseStorage) {
-      const rows = await supabaseRequest("resources", {
-        method: "POST",
-        headers: { Prefer: "return=representation" },
-        body: JSON.stringify({
-          id: resource.id,
-          course_id: resource.courseId,
-          type: resource.type,
-          title: resource.title,
-          url: resource.url,
-          created_at: resource.createdAt,
-        }),
-      });
-      const created = Array.isArray(rows) ? rows[0] : null;
+      let created = null;
+      let lastError = null;
+      for (const candidate of candidates) {
+        try {
+          const rows = await supabaseRequest("resources", {
+            method: "POST",
+            headers: { Prefer: "return=representation" },
+            body: JSON.stringify({
+              id: resource.id,
+              course_id: candidate.storageCourseId,
+              type: resource.type,
+              title: candidate.storageTitle,
+              url: resource.url,
+              created_at: resource.createdAt,
+            }),
+          });
+          created = Array.isArray(rows) ? rows[0] : null;
+          if (created) break;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+
       if (!created) {
+        if (lastError) throw lastError;
         throw new ApiError(502, "STORAGE_ERROR", "Unable to persist resource.");
       }
       await prependItemInOrder("resources", resource.courseId, resource.id);
+      const apiResource = toApiResource({
+        id: created.id,
+        courseId: created.course_id,
+        type: created.type,
+        title: created.title,
+        url: created.url,
+        createdAt: created.created_at,
+      });
       res.status(201).json({
-        resource: {
-          id: created.id,
-          courseId: created.course_id,
-          type: created.type,
-          title: created.title,
-          url: created.url,
-          createdAt: created.created_at,
-        },
+        resource: apiResource,
       });
       return;
     }
 
     const store = await ensureStoreLoaded();
-    store.resources.unshift(resource);
+    const selectedCandidate = candidates[0];
+    const storedResource = {
+      ...resource,
+      courseId: selectedCandidate.storageCourseId,
+      title: selectedCandidate.storageTitle,
+    };
+    store.resources.unshift(storedResource);
     await saveStore();
     await prependItemInOrder("resources", resource.courseId, resource.id);
 
-    res.status(201).json({ resource });
+    res.status(201).json({ resource: toApiResource(storedResource) });
   } catch (error) {
     sendError(res, error);
   }
@@ -1274,11 +1380,24 @@ app.put("/api/resources/:id", async (req, res) => {
     }
 
     if (hasSupabaseStorage) {
+      const existingRows = await supabaseRequest(
+        `resources?id=eq.${encodeURIComponent(id)}&select=id,course_id,title&limit=1`,
+        { method: "GET" },
+      );
+      const existing = Array.isArray(existingRows) ? existingRows[0] : null;
+      if (!existing) {
+        throw new ApiError(404, "NOT_FOUND", "Resource not found.");
+      }
+
+      const nextStorageTitle = isGeneralStorageResource(existing.course_id, existing.title || "")
+        ? normalizeGeneralResourceTitle(title)
+        : title;
+
       const rows = await supabaseRequest(`resources?id=eq.${encodeURIComponent(id)}`, {
         method: "PATCH",
         headers: { Prefer: "return=representation" },
         body: JSON.stringify({
-          title,
+          title: nextStorageTitle,
           type,
           url,
         }),
@@ -1287,15 +1406,16 @@ app.put("/api/resources/:id", async (req, res) => {
       if (!updated) {
         throw new ApiError(404, "NOT_FOUND", "Resource not found.");
       }
+      const apiResource = toApiResource({
+        id: updated.id,
+        courseId: updated.course_id,
+        type: updated.type,
+        title: updated.title,
+        url: updated.url,
+        createdAt: updated.created_at,
+      });
       res.json({
-        resource: {
-          id: updated.id,
-          courseId: updated.course_id,
-          type: updated.type,
-          title: updated.title,
-          url: updated.url,
-          createdAt: updated.created_at,
-        },
+        resource: apiResource,
       });
       return;
     }
@@ -1305,11 +1425,13 @@ app.put("/api/resources/:id", async (req, res) => {
     if (!resource) {
       throw new ApiError(404, "NOT_FOUND", "Resource not found.");
     }
-    resource.title = title;
+    resource.title = isGeneralStorageResource(resource.courseId, resource.title || "")
+      ? normalizeGeneralResourceTitle(title)
+      : title;
     resource.type = type;
     resource.url = url;
     await saveStore();
-    res.json({ resource });
+    res.json({ resource: toApiResource(resource) });
   } catch (error) {
     sendError(res, error);
   }
@@ -1325,15 +1447,19 @@ app.delete("/api/resources/:id", async (req, res) => {
 
     if (hasSupabaseStorage) {
       const existingRows = await supabaseRequest(
-        `resources?id=eq.${encodeURIComponent(id)}&select=id,course_id&limit=1`,
+        `resources?id=eq.${encodeURIComponent(id)}&select=id,course_id,title&limit=1`,
         { method: "GET" },
       );
       const existing = Array.isArray(existingRows) ? existingRows[0] : null;
       await supabaseRequest(`resources?id=eq.${encodeURIComponent(id)}`, {
         method: "DELETE",
       });
-      if (existing?.course_id) {
-        await removeItemFromOrder("resources", existing.course_id, id);
+      if (existing) {
+        if (isGeneralStorageResource(existing.course_id, existing.title || "")) {
+          await removeItemFromOrder("resources", GENERAL_COURSE_ID, id);
+        } else if (existing.course_id) {
+          await removeItemFromOrder("resources", existing.course_id, id);
+        }
       }
       res.json({ ok: true });
       return;
@@ -1347,8 +1473,12 @@ app.delete("/api/resources/:id", async (req, res) => {
       throw new ApiError(404, "NOT_FOUND", "Resource not found.");
     }
     await saveStore();
-    if (deletedResource?.courseId) {
-      await removeItemFromOrder("resources", deletedResource.courseId, id);
+    if (deletedResource) {
+      if (isGeneralStorageResource(deletedResource.courseId, deletedResource.title || "")) {
+        await removeItemFromOrder("resources", GENERAL_COURSE_ID, id);
+      } else if (deletedResource.courseId) {
+        await removeItemFromOrder("resources", deletedResource.courseId, id);
+      }
     }
     res.json({ ok: true });
   } catch (error) {
