@@ -1089,9 +1089,9 @@ const App: React.FC = () => {
     }
   };
 
-  const ensureCourseSession = async (courseId: string) => {
+  const ensureCourseSession = async (courseId: string): Promise<Flashcard[]> => {
     const topic = visibleTopics.find((item) => item.id === courseId);
-    if (!topic) return;
+    if (!topic) return [];
     setLoading("Chargement des cartes mémo...");
     try {
       const flashcards = await listCourseFlashcards(courseId);
@@ -1100,10 +1100,26 @@ const App: React.FC = () => {
         ...prev,
         [courseId]: { topicId: courseId, summary: '', flashcards },
       }));
+      return flashcards;
     } catch (error) {
       handleAuthError(error);
+      return [];
     } finally {
       setLoading(null);
+    }
+  };
+
+  const openFlashcardReview = async () => {
+    if (!resourceCourseId) return;
+    const existingCards = sessionData[resourceCourseId]?.flashcards || [];
+    if (existingCards.length) {
+      setShowFlashcards(true);
+      return;
+    }
+
+    const loadedCards = await ensureCourseSession(resourceCourseId);
+    if (loadedCards.length) {
+      setShowFlashcards(true);
     }
   };
 
@@ -2846,8 +2862,8 @@ const App: React.FC = () => {
                         </button>
                         <button
                           type="button"
-                          disabled={!sessionData[resourceCourseId]?.flashcards?.length}
-                          onClick={() => setShowFlashcards(true)}
+                          disabled={!courseFlashcards.length && !sessionData[resourceCourseId]?.flashcards?.length}
+                          onClick={() => { void openFlashcardReview(); }}
                           className="inline-flex items-center gap-2 rounded-xl border-2 border-indigo-600 px-5 py-3 text-indigo-600 font-bold hover:bg-indigo-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           Réviser en mode flashcards
@@ -2864,7 +2880,7 @@ const App: React.FC = () => {
                           Aucune carte mémo pour ce cours pour le moment.
                         </div>
                       )}
-                      {courseFlashcards.map((card) => (
+                      {canEditResources ? courseFlashcards.map((card) => (
                         <article key={card.id} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
                           {editingFlashcardId === card.id ? (
                             <div className="space-y-4">
@@ -2997,7 +3013,16 @@ const App: React.FC = () => {
                             </>
                           )}
                         </article>
-                      ))}
+                      )) : (
+                        <div className="bg-white rounded-2xl border border-slate-200 p-6 text-slate-600">
+                          <p className="font-semibold text-slate-800">
+                            {courseFlashcards.length} cartes sont prêtes pour ce cours.
+                          </p>
+                          <p className="mt-2">
+                            Clique sur <span className="font-semibold">Charger les cartes du cours</span>, puis sur <span className="font-semibold">Réviser en mode flashcards</span> pour commencer la révision.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
