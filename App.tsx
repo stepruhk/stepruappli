@@ -17,6 +17,7 @@ import {
   removeEvernoteNote,
   saveCourseOrder,
   summarizeContent,
+  unlockCourseWithPassword,
   updateCourseContent,
   updateEvernoteNote,
   type AccessMetrics,
@@ -58,6 +59,12 @@ const App: React.FC = () => {
   const [authChecked, setAuthChecked] = useState(false);
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
+  const [lockedCourseIds, setLockedCourseIds] = useState<string[]>([]);
+  const [unlockedCourseIds, setUnlockedCourseIds] = useState<string[]>([]);
+  const [coursePasswordTopic, setCoursePasswordTopic] = useState<Topic | null>(null);
+  const [coursePasswordValue, setCoursePasswordValue] = useState('');
+  const [coursePasswordError, setCoursePasswordError] = useState<string | null>(null);
+  const [coursePasswordLoading, setCoursePasswordLoading] = useState(false);
   const [noteTitle, setNoteTitle] = useState('');
   const [noteContent, setNoteContent] = useState('');
   const [noteLink, setNoteLink] = useState('');
@@ -108,9 +115,13 @@ const App: React.FC = () => {
         const auth = await checkAuthStatus();
         setIsAuthenticated(auth.authenticated);
         setUserRole(auth.role);
+        setUnlockedCourseIds(auth.unlockedCourseIds);
+        setLockedCourseIds(auth.lockedCourseIds);
       } catch (_error) {
         setIsAuthenticated(false);
         setUserRole('student');
+        setUnlockedCourseIds([]);
+        setLockedCourseIds([]);
       } finally {
         setAuthChecked(true);
       }
@@ -234,6 +245,7 @@ const App: React.FC = () => {
     const message = error instanceof Error ? error.message : String(error);
     if (message.includes('UNAUTHORIZED') || message.includes('INVALID_CREDENTIALS')) {
       setIsAuthenticated(false);
+      setUnlockedCourseIds([]);
       setAuthError('Session expirée ou mot de passe incorrect.');
       return;
     }
@@ -270,16 +282,18 @@ const App: React.FC = () => {
       setIsAuthenticated(true);
       setUserRole(role);
       setPassword('');
+      setUnlockedCourseIds([]);
     } catch (error) {
       console.error(error);
       logout();
       setIsAuthenticated(false);
       setUserRole('student');
+      setUnlockedCourseIds([]);
       setAuthError('Mot de passe incorrect. Réessayez.');
     }
   };
 
-  const startTopic = async (topic: Topic) => {
+  const openTopic = (topic: Topic) => {
     setMenuSection('ACCUEIL');
     setResourceCourseId(topic.id);
     setSelectedTopic(topic);
@@ -290,6 +304,38 @@ const App: React.FC = () => {
       ...prev,
       [topic.id]: { topicId: topic.id, summary: '', flashcards: [] },
     }));
+  };
+
+  const startTopic = async (topic: Topic) => {
+    if (userRole === 'professor' || !lockedCourseIds.includes(topic.id) || unlockedCourseIds.includes(topic.id)) {
+      openTopic(topic);
+      return;
+    }
+
+    setCoursePasswordTopic(topic);
+    setCoursePasswordValue('');
+    setCoursePasswordError(null);
+  };
+
+  const handleCourseUnlock = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!coursePasswordTopic) return;
+
+    setCoursePasswordError(null);
+    setCoursePasswordLoading(true);
+    try {
+      const unlockedIds = await unlockCourseWithPassword(coursePasswordTopic.id, coursePasswordValue);
+      setUnlockedCourseIds(unlockedIds);
+      const topicToOpen = coursePasswordTopic;
+      setCoursePasswordTopic(null);
+      setCoursePasswordValue('');
+      openTopic(topicToOpen);
+    } catch (error) {
+      console.error(error);
+      setCoursePasswordError('Mot de passe du cours incorrect. Réessayez.');
+    } finally {
+      setCoursePasswordLoading(false);
+    }
   };
 
   const currentSession = selectedTopic ? sessionData[selectedTopic.id] : null;
@@ -1100,6 +1146,7 @@ const App: React.FC = () => {
                           logout();
                           setIsAuthenticated(false);
                           setUserRole('student');
+                          setUnlockedCourseIds([]);
                           setLoginRole('student');
                           setView(AppView.DASHBOARD);
                           setSelectedTopic(null);
@@ -1141,6 +1188,12 @@ const App: React.FC = () => {
                           </div>
                           <h3 className="relative text-2xl md:text-3xl font-black text-slate-900 mb-3 leading-tight">{topic.title}</h3>
                           <p className="relative text-xl md:text-2xl text-slate-600 leading-relaxed">{topic.description}</p>
+                          {userRole === 'student' && lockedCourseIds.includes(topic.id) && (
+                            <div className="relative mt-4 inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600">
+                              <i className="fas fa-lock text-xs"></i>
+                              Mot de passe du cours requis
+                            </div>
+                          )}
                           
                           <div className={`relative mt-8 flex items-center ${topicCtaStyle} font-extrabold text-xl md:text-2xl`}>
                             <span>Accéder au cours</span>
@@ -2744,6 +2797,59 @@ const App: React.FC = () => {
           cards={flashcardsForModal} 
           onClose={() => setShowFlashcards(false)} 
         />
+      )}
+
+      {coursePasswordTopic && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4">
+          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl">
+            <div className="mb-6">
+              <p className="text-sm font-bold uppercase tracking-[0.2em] text-indigo-500">Cours protégé</p>
+              <h2 className="mt-2 text-3xl font-black text-slate-900">{coursePasswordTopic.title}</h2>
+              <p className="mt-3 text-slate-600">
+                Entre le mot de passe de ce cours pour continuer en mode étudiant.
+              </p>
+            </div>
+
+            <form onSubmit={handleCourseUnlock} className="space-y-4">
+              <label className="block">
+                <span className="text-sm font-semibold text-slate-700">Mot de passe du cours</span>
+                <input
+                  type="password"
+                  value={coursePasswordValue}
+                  onChange={(event) => setCoursePasswordValue(event.target.value)}
+                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="Entrez le mot de passe"
+                  autoFocus
+                />
+              </label>
+
+              {coursePasswordError && (
+                <p className="text-sm font-medium text-rose-600">{coursePasswordError}</p>
+              )}
+
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <button
+                  type="submit"
+                  disabled={coursePasswordLoading}
+                  className="inline-flex flex-1 items-center justify-center rounded-xl bg-indigo-600 px-5 py-3 text-white font-bold hover:bg-indigo-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {coursePasswordLoading ? 'Vérification...' : 'Déverrouiller le cours'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCoursePasswordTopic(null);
+                    setCoursePasswordValue('');
+                    setCoursePasswordError(null);
+                  }}
+                  className="inline-flex flex-1 items-center justify-center rounded-xl border border-slate-300 px-5 py-3 text-slate-700 font-bold hover:bg-slate-100 transition-colors"
+                >
+                  Annuler
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

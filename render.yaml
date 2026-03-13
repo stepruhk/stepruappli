@@ -17,6 +17,22 @@ services:
         sync: false
       - key: PROF_PASSWORD
         sync: false
+      - key: COURSE_PASSWORD_1
+        sync: false
+      - key: COURSE_PASSWORD_2
+        sync: false
+      - key: COURSE_PASSWORD_3
+        sync: false
+      - key: COURSE_PASSWORD_8
+        sync: false
+      - key: COURSE_PASSWORD_4
+        sync: false
+      - key: COURSE_PASSWORD_5
+        sync: false
+      - key: COURSE_PASSWORD_6
+        sync: false
+      - key: COURSE_PASSWORD_7
+        sync: false
       - key: PODCAST_RSS_URL
         sync: false
       - key: SUPABASE_URL

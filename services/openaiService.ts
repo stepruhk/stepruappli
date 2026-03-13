@@ -28,6 +28,12 @@ export type AccessMetrics = {
   lastAccessAt: string | null;
 };
 export type OrderEntityType = "notes" | "resources";
+export type AuthStatus = {
+  authenticated: boolean;
+  role: UserRole;
+  unlockedCourseIds: string[];
+  lockedCourseIds: string[];
+};
 
 type ApiErrorShape = {
   error?: {
@@ -151,12 +157,26 @@ export async function loginWithPassword(password: string, role: UserRole = "stud
   return response.role || role;
 }
 
-export async function checkAuthStatus(): Promise<{ authenticated: boolean; role: UserRole }> {
-  const response = await getJson<{ authenticated?: boolean; role?: UserRole }>("/api/auth/status");
+export async function checkAuthStatus(): Promise<AuthStatus> {
+  const response = await getJson<{
+    authenticated?: boolean;
+    role?: UserRole;
+    unlockedCourseIds?: string[];
+    lockedCourseIds?: string[];
+  }>("/api/auth/status");
   return {
     authenticated: Boolean(response?.authenticated),
     role: response?.role || "student",
+    unlockedCourseIds: Array.isArray(response?.unlockedCourseIds) ? response.unlockedCourseIds : [],
+    lockedCourseIds: Array.isArray(response?.lockedCourseIds) ? response.lockedCourseIds : [],
   };
+}
+
+export async function unlockCourseWithPassword(courseId: string, password: string): Promise<string[]> {
+  if (!courseId.trim()) throw new Error("Cours introuvable.");
+  if (!password.trim()) throw new Error("Mot de passe du cours requis.");
+  const response = await postJson<{ unlockedCourseIds?: string[] }>("/api/auth/course-login", { courseId, password });
+  return Array.isArray(response?.unlockedCourseIds) ? response.unlockedCourseIds : [];
 }
 
 export function logout() {

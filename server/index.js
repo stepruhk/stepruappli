@@ -14,6 +14,7 @@ const port = Number(process.env.PORT || 8787);
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const APP_PASSWORD = (process.env.APP_PASSWORD || "").trim();
 const PROF_PASSWORD = (process.env.PROF_PASSWORD || "").trim();
+const COURSE_PASSWORD_PREFIX = "COURSE_PASSWORD_";
 const SUPABASE_URL = (process.env.SUPABASE_URL || "").trim().replace(/\/+$/, "");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 const SESSION_TTL_MS = Number(process.env.SESSION_TTL_MS || 12 * 60 * 60 * 1000);
@@ -38,6 +39,7 @@ const ORDER_META_COURSE_ID = "__ui_order__";
 const ORDER_META_PREFIX = "__ORDER__";
 const GENERAL_COURSE_ID = "general";
 const ANNOUNCEMENTS_COURSE_ID = "announcements";
+const PROFESSOR_PROFILE_PREFIX = "professor-profile:";
 const ANNOUNCEMENTS_FALLBACK_COURSE_ID = "1";
 const ANNOUNCEMENT_TITLE_PREFIX = "[ANNONCE] ";
 const GENERAL_NOTE_TITLE_PREFIX = "[NOTE_GENERALE] ";
@@ -173,7 +175,11 @@ function readRequiredTextField(body, fieldName, maxLength) {
 
 function createSessionToken(role = "student") {
   const token = crypto.randomBytes(32).toString("hex");
-  authSessions.set(token, { expiresAt: Date.now() + SESSION_TTL_MS, role });
+  authSessions.set(token, {
+    expiresAt: Date.now() + SESSION_TTL_MS,
+    role,
+    unlockedCourseIds: [],
+  });
   return token;
 }
 
@@ -184,22 +190,40 @@ function getBearerToken(req) {
   return token || null;
 }
 
-function hasValidSession(token) {
-  if (!token) return false;
+function getValidSession(token) {
+  if (!token) return null;
   const session = authSessions.get(token);
-  if (!session) return false;
+  if (!session) return null;
   if (session.expiresAt <= Date.now()) {
     authSessions.delete(token);
-    return false;
+    return null;
   }
-  return true;
+  return session;
+}
+
+function hasValidSession(token) {
+  return Boolean(getValidSession(token));
 }
 
 function getSessionRole(token) {
-  if (!token) return "student";
-  const session = authSessions.get(token);
+  const session = getValidSession(token);
   if (!session) return "student";
   return session.role || "student";
+}
+
+function getSessionUnlockedCourseIds(token) {
+  const session = getValidSession(token);
+  if (!session || !Array.isArray(session.unlockedCourseIds)) return [];
+  return normalizeOrderIds(session.unlockedCourseIds);
+}
+
+function unlockCourseForSession(token, courseId) {
+  const session = getValidSession(token);
+  if (!session) return [];
+  const nextUnlockedCourseIds = normalizeOrderIds([...(session.unlockedCourseIds || []), courseId]);
+  session.unlockedCourseIds = nextUnlockedCourseIds;
+  authSessions.set(token, session);
+  return nextUnlockedCourseIds;
 }
 
 function requireAuth(req, _res, next) {
@@ -227,6 +251,65 @@ function requireProfessor(req) {
   if (role !== "professor") {
     throw new ApiError(403, "FORBIDDEN", "Action réservée au professeur.");
   }
+}
+
+function normalizeCoursePasswordKey(courseId) {
+  return String(courseId || "")
+    .trim()
+    .replace(/[^a-zA-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .toUpperCase();
+}
+
+function getCanonicalCourseId(courseId) {
+  const normalized = String(courseId || "").trim();
+  if (!normalized) return "";
+  if (normalized.startsWith(PROFESSOR_PROFILE_PREFIX)) {
+    return normalized.slice(PROFESSOR_PROFILE_PREFIX.length).trim();
+  }
+  return normalized;
+}
+
+function getCoursePassword(courseId) {
+  const canonicalCourseId = getCanonicalCourseId(courseId);
+  if (!canonicalCourseId) return "";
+  const envKey = `${COURSE_PASSWORD_PREFIX}${normalizeCoursePasswordKey(canonicalCourseId)}`;
+  return String(process.env[envKey] || "").trim();
+}
+
+function getConfiguredLockedCourseIds() {
+  return Object.entries(process.env)
+    .filter(([key, value]) => key.startsWith(COURSE_PASSWORD_PREFIX) && String(value || "").trim())
+    .map(([key]) => key.slice(COURSE_PASSWORD_PREFIX.length))
+    .map((suffix) => suffix.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function courseRequiresPassword(courseId) {
+  const canonicalCourseId = getCanonicalCourseId(courseId);
+  if (!canonicalCourseId) return false;
+  if (
+    canonicalCourseId === GENERAL_COURSE_ID ||
+    canonicalCourseId === ANNOUNCEMENTS_COURSE_ID ||
+    canonicalCourseId === ORDER_META_COURSE_ID ||
+    canonicalCourseId === ACCESS_ANALYTICS_COURSE_ID
+  ) {
+    return false;
+  }
+  return Boolean(getCoursePassword(canonicalCourseId));
+}
+
+function requireCourseAccess(req, courseId) {
+  const canonicalCourseId = getCanonicalCourseId(courseId);
+  if (!canonicalCourseId) return;
+  if (!courseRequiresPassword(canonicalCourseId)) return;
+  if (getCurrentSessionRole(req) === "professor") return;
+
+  const token = getBearerToken(req);
+  const unlockedCourseIds = getSessionUnlockedCourseIds(token);
+  if (unlockedCourseIds.includes(canonicalCourseId)) return;
+
+  throw new ApiError(403, "COURSE_PASSWORD_REQUIRED", "Mot de passe du cours requis.");
 }
 
 function isValidHttpUrl(value) {
@@ -885,6 +968,7 @@ app.post("/api/auth/login", (req, res) => {
     res.json({
       token,
       role: "student",
+      unlockedCourseIds: [],
       expiresInMs: SESSION_TTL_MS,
     });
   } catch (error) {
@@ -913,6 +997,7 @@ app.post("/api/auth/prof-login", (req, res) => {
     res.json({
       token,
       role: "professor",
+      unlockedCourseIds: [],
       expiresInMs: SESSION_TTL_MS,
     });
   } catch (error) {
@@ -934,7 +1019,48 @@ app.get("/api/auth/status", (req, res) => {
     authEnabled: true,
     authenticated: hasValidSession(token),
     role: hasValidSession(token) ? getSessionRole(token) : "student",
+    unlockedCourseIds: hasValidSession(token) ? getSessionUnlockedCourseIds(token) : [],
+    lockedCourseIds: getConfiguredLockedCourseIds(),
   });
+});
+
+app.post("/api/auth/course-login", (req, res) => {
+  try {
+    const token = getBearerToken(req);
+    if (!hasValidSession(token)) {
+      throw new ApiError(401, "UNAUTHORIZED", "Mot de passe requis ou session expirée.");
+    }
+
+    const courseId = readRequiredTextField(req.body, "courseId", 128);
+    const canonicalCourseId = getCanonicalCourseId(courseId);
+
+    if (!canonicalCourseId) {
+      throw new ApiError(400, "INVALID_INPUT", "Course id invalide.");
+    }
+
+    if (getSessionRole(token) === "professor" || !courseRequiresPassword(canonicalCourseId)) {
+      res.json({
+        ok: true,
+        unlockedCourseIds: getSessionUnlockedCourseIds(token),
+      });
+      return;
+    }
+
+    const password = readRequiredTextField(req.body, "password", MAX_PASSWORD_LENGTH);
+    const expectedPassword = getCoursePassword(canonicalCourseId);
+
+    if (password !== expectedPassword) {
+      throw new ApiError(401, "INVALID_CREDENTIALS", "Mot de passe du cours incorrect.");
+    }
+
+    const unlockedCourseIds = unlockCourseForSession(token, canonicalCourseId);
+    res.json({
+      ok: true,
+      unlockedCourseIds,
+    });
+  } catch (error) {
+    sendError(res, error);
+  }
 });
 
 app.use("/api", (req, _res, next) => {
@@ -951,6 +1077,7 @@ app.get("/api/notes", async (req, res) => {
     if (!requestedCourseId) {
       throw new ApiError(400, "INVALID_INPUT", "Query parameter \"courseId\" is required.");
     }
+    requireCourseAccess(req, requestedCourseId);
     const orderedIds = await readStoredOrder("notes", requestedCourseId);
     const storageCourseIds = requestedCourseId === ANNOUNCEMENTS_COURSE_ID
       ? [ANNOUNCEMENTS_COURSE_ID, GENERAL_COURSE_ID, ANNOUNCEMENTS_FALLBACK_COURSE_ID]
@@ -1224,6 +1351,7 @@ app.get("/api/resources", async (req, res) => {
     if (!requestedCourseId) {
       throw new ApiError(400, "INVALID_INPUT", "Query parameter \"courseId\" is required.");
     }
+    requireCourseAccess(req, requestedCourseId);
     const orderedIds = await readStoredOrder("resources", requestedCourseId);
     const storageCourseIds = requestedCourseId === GENERAL_COURSE_ID
       ? [GENERAL_COURSE_ID, ANNOUNCEMENTS_FALLBACK_COURSE_ID]
