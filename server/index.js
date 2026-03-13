@@ -1479,7 +1479,7 @@ app.get("/api/flashcards", async (req, res) => {
   }
 });
 
-app.post("/api/flashcards/ai", async (req, res) => {
+app.post("/api/flashcards", async (req, res) => {
   try {
     requireProfessor(req);
     const courseId = readRequiredTextField(req.body, "courseId", 128);
@@ -1894,7 +1894,7 @@ app.post("/api/summarize", async (req, res) => {
   }
 });
 
-app.post("/api/flashcards", async (req, res) => {
+app.post("/api/flashcards/ai", async (req, res) => {
   try {
     const content = readRequiredTextField(req.body, "content", MAX_CONTENT_LENGTH);
 
