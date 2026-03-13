@@ -40,6 +40,7 @@ const ORDER_META_PREFIX = "__ORDER__";
 const GENERAL_COURSE_ID = "general";
 const ANNOUNCEMENTS_COURSE_ID = "announcements";
 const PROFESSOR_PROFILE_PREFIX = "professor-profile:";
+const FLASHCARD_COURSE_PREFIX = "flashcards:";
 const ANNOUNCEMENTS_FALLBACK_COURSE_ID = "1";
 const ANNOUNCEMENT_TITLE_PREFIX = "[ANNONCE] ";
 const GENERAL_NOTE_TITLE_PREFIX = "[NOTE_GENERALE] ";
@@ -264,10 +265,46 @@ function normalizeCoursePasswordKey(courseId) {
 function getCanonicalCourseId(courseId) {
   const normalized = String(courseId || "").trim();
   if (!normalized) return "";
+  if (normalized.startsWith(FLASHCARD_COURSE_PREFIX)) {
+    return normalized.slice(FLASHCARD_COURSE_PREFIX.length).trim();
+  }
   if (normalized.startsWith(PROFESSOR_PROFILE_PREFIX)) {
     return normalized.slice(PROFESSOR_PROFILE_PREFIX.length).trim();
   }
   return normalized;
+}
+
+function getFlashcardStorageCourseId(courseId) {
+  const canonicalCourseId = getCanonicalCourseId(courseId);
+  if (!canonicalCourseId) return "";
+  return `${FLASHCARD_COURSE_PREFIX}${canonicalCourseId}`;
+}
+
+function toFlashcardPayload(rawNote) {
+  let parsedContent = {};
+  if (typeof rawNote.content === "string" && rawNote.content.trim()) {
+    try {
+      parsedContent = JSON.parse(rawNote.content);
+    } catch {
+      parsedContent = { answer: rawNote.content };
+    }
+  }
+
+  return {
+    id: rawNote.id,
+    courseId: getCanonicalCourseId(rawNote.courseId),
+    question: rawNote.title || "",
+    answer: typeof parsedContent.answer === "string" ? parsedContent.answer : "",
+    justification: typeof parsedContent.justification === "string" ? parsedContent.justification : "",
+    createdAt: rawNote.createdAt,
+  };
+}
+
+function serializeFlashcardContent(answer, justification) {
+  return JSON.stringify({
+    answer: String(answer || "").trim(),
+    justification: String(justification || "").trim(),
+  });
 }
 
 function getCoursePassword(courseId) {
@@ -1390,6 +1427,202 @@ app.get("/api/resources", async (req, res) => {
       .filter((item) => item.courseId === requestedCourseId);
     const resources = applyManualOrder(parsedResources, orderedIds);
     res.json({ resources });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.get("/api/flashcards", async (req, res) => {
+  try {
+    const requestedCourseId = String(req.query.courseId || "").trim();
+    if (!requestedCourseId) {
+      throw new ApiError(400, "INVALID_INPUT", "Query parameter \"courseId\" is required.");
+    }
+
+    requireCourseAccess(req, requestedCourseId);
+    const storageCourseId = getFlashcardStorageCourseId(requestedCourseId);
+    const orderedIds = await readStoredOrder("notes", storageCourseId);
+
+    if (hasSupabaseStorage) {
+      const rows = await supabaseRequest(
+        `notes?course_id=eq.${encodeURIComponent(storageCourseId)}&select=id,course_id,title,content,created_at&order=created_at.desc`,
+        { method: "GET" },
+      );
+      const flashcards = applyManualOrder(
+        (Array.isArray(rows) ? rows : []).map((row) =>
+          toFlashcardPayload({
+            id: row.id,
+            courseId: row.course_id,
+            title: row.title,
+            content: row.content || "",
+            createdAt: row.created_at,
+          }),
+        ),
+        orderedIds,
+      );
+      res.json({ flashcards });
+      return;
+    }
+
+    const store = await ensureStoreLoaded();
+    const flashcards = applyManualOrder(
+      store.notes
+        .filter((note) => note.courseId === storageCourseId)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .map((note) => toFlashcardPayload(note)),
+      orderedIds,
+    );
+
+    res.json({ flashcards });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.post("/api/flashcards/ai", async (req, res) => {
+  try {
+    requireProfessor(req);
+    const courseId = readRequiredTextField(req.body, "courseId", 128);
+    const question = readRequiredTextField(req.body, "question", MAX_CONTENT_LENGTH);
+    const answer = readRequiredTextField(req.body, "answer", MAX_CONTENT_LENGTH);
+    const justification = readOptionalTextField(req.body, "justification", MAX_CONTENT_LENGTH);
+    const storageCourseId = getFlashcardStorageCourseId(courseId);
+    const createdAt = new Date().toISOString();
+    const id = crypto.randomUUID();
+
+    if (hasSupabaseStorage) {
+      const rows = await supabaseRequest("notes", {
+        method: "POST",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify({
+          id,
+          course_id: storageCourseId,
+          title: question,
+          content: serializeFlashcardContent(answer, justification),
+          link: null,
+          created_at: createdAt,
+        }),
+      });
+      const created = Array.isArray(rows) ? rows[0] : null;
+      if (!created) {
+        throw new ApiError(502, "STORAGE_ERROR", "Unable to persist flashcard.");
+      }
+      await prependItemInOrder("notes", storageCourseId, id);
+      res.status(201).json({
+        flashcard: toFlashcardPayload({
+          id: created.id,
+          courseId: created.course_id,
+          title: created.title,
+          content: created.content || "",
+          createdAt: created.created_at,
+        }),
+      });
+      return;
+    }
+
+    const store = await ensureStoreLoaded();
+    const storedFlashcard = {
+      id,
+      courseId: storageCourseId,
+      title: question,
+      content: serializeFlashcardContent(answer, justification),
+      createdAt,
+    };
+    store.notes.unshift(storedFlashcard);
+    await saveStore();
+    await prependItemInOrder("notes", storageCourseId, id);
+    res.status(201).json({ flashcard: toFlashcardPayload(storedFlashcard) });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.put("/api/flashcards/:id", async (req, res) => {
+  try {
+    requireProfessor(req);
+    const id = String(req.params.id || "").trim();
+    if (!id) {
+      throw new ApiError(400, "INVALID_INPUT", "Missing flashcard id.");
+    }
+    const question = readRequiredTextField(req.body, "question", MAX_CONTENT_LENGTH);
+    const answer = readRequiredTextField(req.body, "answer", MAX_CONTENT_LENGTH);
+    const justification = readOptionalTextField(req.body, "justification", MAX_CONTENT_LENGTH);
+
+    if (hasSupabaseStorage) {
+      const rows = await supabaseRequest(`notes?id=eq.${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify({
+          title: question,
+          content: serializeFlashcardContent(answer, justification),
+        }),
+      });
+      const updated = Array.isArray(rows) ? rows[0] : null;
+      if (!updated) {
+        throw new ApiError(404, "NOT_FOUND", "Flashcard not found.");
+      }
+      res.json({
+        flashcard: toFlashcardPayload({
+          id: updated.id,
+          courseId: updated.course_id,
+          title: updated.title,
+          content: updated.content || "",
+          createdAt: updated.created_at,
+        }),
+      });
+      return;
+    }
+
+    const store = await ensureStoreLoaded();
+    const note = store.notes.find((entry) => entry.id === id && String(entry.courseId || "").startsWith(FLASHCARD_COURSE_PREFIX));
+    if (!note) {
+      throw new ApiError(404, "NOT_FOUND", "Flashcard not found.");
+    }
+    note.title = question;
+    note.content = serializeFlashcardContent(answer, justification);
+    await saveStore();
+    res.json({ flashcard: toFlashcardPayload(note) });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.delete("/api/flashcards/:id", async (req, res) => {
+  try {
+    requireProfessor(req);
+    const id = String(req.params.id || "").trim();
+    if (!id) {
+      throw new ApiError(400, "INVALID_INPUT", "Missing flashcard id.");
+    }
+
+    if (hasSupabaseStorage) {
+      const existingRows = await supabaseRequest(
+        `notes?id=eq.${encodeURIComponent(id)}&select=id,course_id&limit=1`,
+        { method: "GET" },
+      );
+      const existing = Array.isArray(existingRows) ? existingRows[0] : null;
+      await supabaseRequest(`notes?id=eq.${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      if (existing?.course_id) {
+        await removeItemFromOrder("notes", existing.course_id, id);
+      }
+      res.json({ ok: true });
+      return;
+    }
+
+    const store = await ensureStoreLoaded();
+    const existing = store.notes.find((entry) => entry.id === id);
+    const before = store.notes.length;
+    store.notes = store.notes.filter((entry) => entry.id !== id);
+    if (store.notes.length === before) {
+      throw new ApiError(404, "NOT_FOUND", "Flashcard not found.");
+    }
+    await saveStore();
+    if (existing?.courseId) {
+      await removeItemFromOrder("notes", existing.courseId, id);
+    }
+    res.json({ ok: true });
   } catch (error) {
     sendError(res, error);
   }

@@ -1,23 +1,25 @@
 
 import React, { useEffect, useState } from 'react';
-import { Topic, AppView, StudySession } from './types.ts';
+import { Topic, AppView, StudySession, Flashcard } from './types.ts';
 import { INITIAL_TOPICS } from './constants.ts';
 import ciLogo from './assets/ci-logo.png';
 import {
   checkAuthStatus,
+  createCourseFlashcard,
   createCourseContent,
   createEvernoteNote,
-  generateFlashcards,
   getAccessMetrics,
+  listCourseFlashcards,
   listCourseContent,
   listEvernoteNotes,
   loginWithPassword,
   logout,
+  removeCourseFlashcard,
   removeCourseContent,
   removeEvernoteNote,
   saveCourseOrder,
-  summarizeContent,
   unlockCourseWithPassword,
+  updateCourseFlashcard,
   updateCourseContent,
   updateEvernoteNote,
   type AccessMetrics,
@@ -65,6 +67,14 @@ const App: React.FC = () => {
   const [coursePasswordValue, setCoursePasswordValue] = useState('');
   const [coursePasswordError, setCoursePasswordError] = useState<string | null>(null);
   const [coursePasswordLoading, setCoursePasswordLoading] = useState(false);
+  const [flashcardsByCourse, setFlashcardsByCourse] = useState<Record<string, Flashcard[]>>({});
+  const [flashcardQuestion, setFlashcardQuestion] = useState('');
+  const [flashcardAnswer, setFlashcardAnswer] = useState('');
+  const [flashcardJustification, setFlashcardJustification] = useState('');
+  const [editingFlashcardId, setEditingFlashcardId] = useState<string | null>(null);
+  const [editFlashcardQuestion, setEditFlashcardQuestion] = useState('');
+  const [editFlashcardAnswer, setEditFlashcardAnswer] = useState('');
+  const [editFlashcardJustification, setEditFlashcardJustification] = useState('');
   const [noteTitle, setNoteTitle] = useState('');
   const [noteContent, setNoteContent] = useState('');
   const [noteLink, setNoteLink] = useState('');
@@ -179,6 +189,22 @@ const App: React.FC = () => {
 
     void loadProfessorSection();
   }, [authChecked, isAuthenticated, selectedTopic]);
+
+  useEffect(() => {
+    const isTopicCourse = visibleTopics.some((topic) => topic.id === resourceCourseId);
+    if (!authChecked || !isAuthenticated || !resourceCourseId || !isTopicCourse) return;
+
+    const loadFlashcards = async () => {
+      try {
+        const flashcards = await listCourseFlashcards(resourceCourseId);
+        setFlashcardsByCourse((prev) => ({ ...prev, [resourceCourseId]: flashcards }));
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    void loadFlashcards();
+  }, [authChecked, isAuthenticated, resourceCourseId, visibleTopics]);
 
   useEffect(() => {
     if (!selectedTopic) {
@@ -353,6 +379,7 @@ const App: React.FC = () => {
   const selectedTopicContentItems = selectedTopic
     ? (contentItemsByCourse[selectedTopic.id] || [])
     : [];
+  const courseFlashcards = flashcardsByCourse[resourceCourseId] || [];
   const professorProfileCourseId = selectedTopic ? `${PROFESSOR_PROFILE_PREFIX}${selectedTopic.id}` : '';
   const professorProfileNotes = professorProfileCourseId ? (evernoteNotesByCourse[professorProfileCourseId] || []) : [];
   const professorBioNote = professorProfileNotes.find((note) => note.title === PROFESSOR_BIO_TITLE) || null;
@@ -719,6 +746,112 @@ const App: React.FC = () => {
     }
   };
 
+  const addCourseFlashcard = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!resourceCourseId) return;
+    const question = flashcardQuestion.trim();
+    const answer = flashcardAnswer.trim();
+    const justification = flashcardJustification.trim();
+    if (!question || !answer) return;
+
+    try {
+      const created = await createCourseFlashcard({
+        courseId: resourceCourseId,
+        question,
+        answer,
+        justification: justification || undefined,
+      });
+      const nextCards = [created, ...(flashcardsByCourse[resourceCourseId] || [])];
+      setFlashcardsByCourse((prev) => ({
+        ...prev,
+        [resourceCourseId]: nextCards,
+      }));
+      setSessionData((prev) => ({
+        ...prev,
+        [resourceCourseId]: prev[resourceCourseId]
+          ? { ...prev[resourceCourseId], flashcards: nextCards }
+          : prev[resourceCourseId],
+      }));
+      setFlashcardQuestion('');
+      setFlashcardAnswer('');
+      setFlashcardJustification('');
+    } catch (error) {
+      console.error(error);
+      handleAuthError(error);
+      alert(`Impossible d'ajouter la carte. ${getErrorMessage(error)}`);
+    }
+  };
+
+  const startEditFlashcard = (card: Flashcard) => {
+    setEditingFlashcardId(card.id);
+    setEditFlashcardQuestion(card.question);
+    setEditFlashcardAnswer(card.answer);
+    setEditFlashcardJustification(card.justification || '');
+  };
+
+  const cancelEditFlashcard = () => {
+    setEditingFlashcardId(null);
+    setEditFlashcardQuestion('');
+    setEditFlashcardAnswer('');
+    setEditFlashcardJustification('');
+  };
+
+  const saveEditFlashcard = async (card: Flashcard) => {
+    const question = editFlashcardQuestion.trim();
+    const answer = editFlashcardAnswer.trim();
+    const justification = editFlashcardJustification.trim();
+    if (!question || !answer || !resourceCourseId) return;
+
+    try {
+      const updated = await updateCourseFlashcard(card.id, {
+        question,
+        answer,
+        justification: justification || undefined,
+      });
+      setFlashcardsByCourse((prev) => ({
+        ...prev,
+        [resourceCourseId]: (prev[resourceCourseId] || []).map((entry) => (entry.id === card.id ? updated : entry)),
+      }));
+      setSessionData((prev) => ({
+        ...prev,
+        [resourceCourseId]: prev[resourceCourseId]
+          ? {
+              ...prev[resourceCourseId],
+              flashcards: (prev[resourceCourseId].flashcards || []).map((entry) => (entry.id === card.id ? updated : entry)),
+            }
+          : prev[resourceCourseId],
+      }));
+      cancelEditFlashcard();
+    } catch (error) {
+      console.error(error);
+      handleAuthError(error);
+      alert(`Impossible de modifier la carte. ${getErrorMessage(error)}`);
+    }
+  };
+
+  const deleteCourseFlashcard = async (cardId: string) => {
+    if (!resourceCourseId) return;
+    try {
+      await removeCourseFlashcard(cardId);
+      setFlashcardsByCourse((prev) => ({
+        ...prev,
+        [resourceCourseId]: (prev[resourceCourseId] || []).filter((card) => card.id !== cardId),
+      }));
+      setSessionData((prev) => ({
+        ...prev,
+        [resourceCourseId]: prev[resourceCourseId]
+          ? {
+              ...prev[resourceCourseId],
+              flashcards: (prev[resourceCourseId].flashcards || []).filter((card) => card.id !== cardId),
+            }
+          : prev[resourceCourseId],
+      }));
+    } catch (error) {
+      console.error(error);
+      alert("Impossible de supprimer cette carte.");
+    }
+  };
+
   const getProfessorItemLabel = (title: string) =>
     title
       .replace(PROFESSOR_SOCIAL_PREFIX, '')
@@ -901,23 +1034,13 @@ const App: React.FC = () => {
     const topic = visibleTopics.find((item) => item.id === courseId);
     if (!topic) return;
     if (sessionData[courseId]?.flashcards?.length) return;
-    if (!topic.content.trim()) {
-      setSessionData((prev) => ({
-        ...prev,
-        [courseId]: { topicId: courseId, summary: '', flashcards: [] },
-      }));
-      return;
-    }
-
-    setLoading("Préparation de vos cartes mémo...");
+    setLoading("Chargement des cartes mémo...");
     try {
-      const [summary, flashcards] = await Promise.all([
-        summarizeContent(topic.content),
-        generateFlashcards(topic.content),
-      ]);
+      const flashcards = await listCourseFlashcards(courseId);
+      setFlashcardsByCourse((prev) => ({ ...prev, [courseId]: flashcards }));
       setSessionData((prev) => ({
         ...prev,
-        [courseId]: { topicId: courseId, summary, flashcards },
+        [courseId]: { topicId: courseId, summary: '', flashcards },
       }));
     } catch (error) {
       handleAuthError(error);
@@ -2566,8 +2689,8 @@ const App: React.FC = () => {
                       <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">Cartes mémo</h1>
                       <p className="text-slate-600 text-lg">
                         {canEditResources
-                          ? 'Génère et révise les flashcards par cours.'
-                          : 'Flashcards générées par le professeur pour ce cours.'}
+                          ? 'Rédige les cartes mémo officielles de chaque cours.'
+                          : 'Cartes mémo préparées par le professeur pour ce cours.'}
                       </p>
                       <div className="mt-5 max-w-md">
                         <label className="block">
@@ -2585,6 +2708,58 @@ const App: React.FC = () => {
                       </div>
                     </div>
 
+                    {canEditResources && (
+                      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                        <h2 className="text-2xl font-black text-slate-900 mb-2">Ajouter une carte mémo</h2>
+                        <p className="text-slate-600 mb-6">
+                          Ajoute une question, la bonne réponse et une justification expliquant pourquoi cette réponse est la bonne.
+                        </p>
+
+                        <form onSubmit={addCourseFlashcard} className="space-y-4">
+                          <label className="block">
+                            <span className="text-sm font-semibold text-slate-700">Question</span>
+                            <input
+                              type="text"
+                              value={flashcardQuestion}
+                              onChange={(event) => setFlashcardQuestion(event.target.value)}
+                              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              placeholder="Ex: Quelle est la différence entre relations médias et relations de presse?"
+                            />
+                          </label>
+
+                          <label className="block">
+                            <span className="text-sm font-semibold text-slate-700">Réponse</span>
+                            <textarea
+                              value={flashcardAnswer}
+                              onChange={(event) => setFlashcardAnswer(event.target.value)}
+                              rows={3}
+                              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              placeholder="Écris ici la bonne réponse."
+                            />
+                          </label>
+
+                          <label className="block">
+                            <span className="text-sm font-semibold text-slate-700">Justification</span>
+                            <textarea
+                              value={flashcardJustification}
+                              onChange={(event) => setFlashcardJustification(event.target.value)}
+                              rows={4}
+                              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              placeholder="Explique pourquoi cette réponse est correcte et pourquoi les autres réponses ne le seraient pas."
+                            />
+                          </label>
+
+                          <button
+                            type="submit"
+                            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-white font-bold hover:bg-indigo-700 transition-colors"
+                          >
+                            <i className="fas fa-plus"></i>
+                            Ajouter la carte
+                          </button>
+                        </form>
+                      </div>
+                    )}
+
                     <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
                       <div className="flex flex-wrap items-center gap-4">
                         <button
@@ -2595,7 +2770,7 @@ const App: React.FC = () => {
                           className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-white font-bold hover:bg-indigo-700 transition-colors"
                         >
                           <i className="fas fa-bolt"></i>
-                          Générer les cartes du cours
+                          Charger les cartes du cours
                         </button>
                         <button
                           type="button"
@@ -2610,20 +2785,101 @@ const App: React.FC = () => {
 
                     <div className="space-y-4">
                       <h2 className="text-2xl font-black text-slate-900">
-                        Cartes du cours - {resourceCourse?.title || 'Cours'} ({sessionData[resourceCourseId]?.flashcards?.length || 0})
+                        Cartes du cours - {resourceCourse?.title || 'Cours'} ({courseFlashcards.length})
                       </h2>
-                      {!sessionData[resourceCourseId]?.flashcards?.length && (
+                      {!courseFlashcards.length && (
                         <div className="bg-white rounded-2xl border border-slate-200 p-6 text-slate-500">
-                          Aucune carte mémo pour ce cours. Clique sur "Générer les cartes du cours".
+                          Aucune carte mémo pour ce cours pour le moment.
                         </div>
                       )}
-                      {(sessionData[resourceCourseId]?.flashcards || []).map((card) => (
+                      {courseFlashcards.map((card) => (
                         <article key={card.id} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                          <p className="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-2">Question</p>
-                          <h3 className="text-xl font-black text-slate-900">{card.question}</h3>
-                          <hr className="my-4 border-slate-100" />
-                          <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-2">Réponse</p>
-                          <p className="text-slate-700">{card.answer}</p>
+                          {editingFlashcardId === card.id ? (
+                            <div className="space-y-4">
+                              <label className="block">
+                                <span className="text-sm font-semibold text-slate-700">Question</span>
+                                <input
+                                  type="text"
+                                  value={editFlashcardQuestion}
+                                  onChange={(event) => setEditFlashcardQuestion(event.target.value)}
+                                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                />
+                              </label>
+
+                              <label className="block">
+                                <span className="text-sm font-semibold text-slate-700">Réponse</span>
+                                <textarea
+                                  value={editFlashcardAnswer}
+                                  onChange={(event) => setEditFlashcardAnswer(event.target.value)}
+                                  rows={3}
+                                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                />
+                              </label>
+
+                              <label className="block">
+                                <span className="text-sm font-semibold text-slate-700">Justification</span>
+                                <textarea
+                                  value={editFlashcardJustification}
+                                  onChange={(event) => setEditFlashcardJustification(event.target.value)}
+                                  rows={4}
+                                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                />
+                              </label>
+
+                              <div className="flex flex-wrap gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => void saveEditFlashcard(card)}
+                                  className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-white font-bold hover:bg-indigo-700 transition-colors"
+                                >
+                                  Enregistrer
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={cancelEditFlashcard}
+                                  className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-slate-700 font-bold hover:bg-slate-100 transition-colors"
+                                >
+                                  Annuler
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <p className="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-2">Question</p>
+                              <h3 className="text-xl font-black text-slate-900">{card.question}</h3>
+                              <hr className="my-4 border-slate-100" />
+                              <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-2">Réponse</p>
+                              <p className="text-slate-700 whitespace-pre-line">{card.answer}</p>
+                              {!!card.justification && (
+                                <>
+                                  <hr className="my-4 border-slate-100" />
+                                  <p className="text-xs font-bold text-amber-600 uppercase tracking-wider mb-2">Justification</p>
+                                  <p className="text-slate-700 whitespace-pre-line">{card.justification}</p>
+                                </>
+                              )}
+
+                              {canEditResources && (
+                                <div className="mt-5 flex flex-wrap gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => startEditFlashcard(card)}
+                                    className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-slate-700 font-bold hover:bg-slate-100 transition-colors"
+                                  >
+                                    <i className="fas fa-pen"></i>
+                                    Modifier
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => void deleteCourseFlashcard(card.id)}
+                                    className="inline-flex items-center gap-2 rounded-xl border border-rose-200 px-4 py-2 text-rose-600 font-bold hover:bg-rose-50 transition-colors"
+                                  >
+                                    <i className="fas fa-trash"></i>
+                                    Supprimer
+                                  </button>
+                                </div>
+                              )}
+                            </>
+                          )}
                         </article>
                       ))}
                     </div>

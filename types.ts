@@ -1,8 +1,11 @@
 
 export interface Flashcard {
   id: string;
+  courseId?: string;
   question: string;
   answer: string;
+  justification?: string;
+  createdAt?: string;
 }
 
 export interface Topic {

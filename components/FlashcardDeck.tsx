@@ -52,7 +52,15 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ cards, onClose }) => {
 
             <div className="flashcard-face flashcard-back absolute inset-0 w-full h-full bg-indigo-600 rounded-2xl p-8 flex flex-col items-center justify-center text-center text-white">
               <span className="absolute top-4 left-6 text-xs font-bold text-indigo-200 uppercase tracking-widest">Réponse</span>
-              <p className="text-xl leading-relaxed">{currentCard.answer}</p>
+              <div className="max-h-full overflow-y-auto px-2">
+                <p className="text-xl leading-relaxed whitespace-pre-line">{currentCard.answer}</p>
+                {currentCard.justification && (
+                  <div className="mt-6 rounded-2xl bg-white/10 p-4 text-left">
+                    <p className="text-xs font-bold uppercase tracking-widest text-indigo-100">Justification</p>
+                    <p className="mt-2 text-sm leading-relaxed text-white/90 whitespace-pre-line">{currentCard.justification}</p>
+                  </div>
+                )}
+              </div>
               <p className="absolute bottom-4 text-xs text-indigo-200">Cliquez pour revenir à la question</p>
             </div>
           </div>

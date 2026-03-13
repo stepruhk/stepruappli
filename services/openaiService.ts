@@ -179,6 +179,39 @@ export async function unlockCourseWithPassword(courseId: string, password: strin
   return Array.isArray(response?.unlockedCourseIds) ? response.unlockedCourseIds : [];
 }
 
+export async function listCourseFlashcards(courseId: string): Promise<Flashcard[]> {
+  const response = await getJson<{ flashcards?: Flashcard[] }>(`/api/flashcards?courseId=${encodeURIComponent(courseId)}`);
+  return response.flashcards || [];
+}
+
+export async function createCourseFlashcard(payload: {
+  courseId: string;
+  question: string;
+  answer: string;
+  justification?: string;
+}): Promise<Flashcard> {
+  const response = await postJson<{ flashcard?: Flashcard }>("/api/flashcards", payload);
+  if (!response.flashcard) throw new Error("Impossible de créer la carte.");
+  return response.flashcard;
+}
+
+export async function updateCourseFlashcard(
+  id: string,
+  payload: {
+    question: string;
+    answer: string;
+    justification?: string;
+  },
+): Promise<Flashcard> {
+  const response = await putJson<{ flashcard?: Flashcard }>(`/api/flashcards/${encodeURIComponent(id)}`, payload);
+  if (!response.flashcard) throw new Error("Impossible de modifier la carte.");
+  return response.flashcard;
+}
+
+export async function removeCourseFlashcard(id: string): Promise<void> {
+  await deleteJson<{ ok: boolean }>(`/api/flashcards/${encodeURIComponent(id)}`);
+}
+
 export function logout() {
   localStorage.removeItem(AUTH_TOKEN_KEY);
   localStorage.removeItem(AUTH_ROLE_KEY);
@@ -195,7 +228,7 @@ export const summarizeContent = async (content: string): Promise<string> => {
 
 export const generateFlashcards = async (content: string): Promise<Flashcard[]> => {
   try {
-    const response = await postJson<{ flashcards?: Flashcard[] }>("/api/flashcards", { content });
+    const response = await postJson<{ flashcards?: Flashcard[] }>("/api/flashcards/ai", { content });
     return response.flashcards || fallbackFlashcards(content);
   } catch {
     return fallbackFlashcards(content);
