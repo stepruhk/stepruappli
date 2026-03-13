@@ -189,6 +189,7 @@ export async function createCourseFlashcard(payload: {
   question: string;
   answer: string;
   justification?: string;
+  commonMistakes?: { answer: string; explanation: string }[];
 }): Promise<Flashcard> {
   const response = await postJson<{ flashcard?: Flashcard }>("/api/flashcards", payload);
   if (!response.flashcard) throw new Error("Impossible de créer la carte.");
@@ -201,6 +202,7 @@ export async function updateCourseFlashcard(
     question: string;
     answer: string;
     justification?: string;
+    commonMistakes?: { answer: string; explanation: string }[];
   },
 ): Promise<Flashcard> {
   const response = await putJson<{ flashcard?: Flashcard }>(`/api/flashcards/${encodeURIComponent(id)}`, payload);

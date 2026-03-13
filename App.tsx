@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Topic, AppView, StudySession, Flashcard } from './types.ts';
+import { Topic, AppView, StudySession, Flashcard, FlashcardCommonMistake } from './types.ts';
 import { INITIAL_TOPICS } from './constants.ts';
 import ciLogo from './assets/ci-logo.png';
 import {
@@ -71,10 +71,12 @@ const App: React.FC = () => {
   const [flashcardQuestion, setFlashcardQuestion] = useState('');
   const [flashcardAnswer, setFlashcardAnswer] = useState('');
   const [flashcardJustification, setFlashcardJustification] = useState('');
+  const [flashcardCommonMistakesText, setFlashcardCommonMistakesText] = useState('');
   const [editingFlashcardId, setEditingFlashcardId] = useState<string | null>(null);
   const [editFlashcardQuestion, setEditFlashcardQuestion] = useState('');
   const [editFlashcardAnswer, setEditFlashcardAnswer] = useState('');
   const [editFlashcardJustification, setEditFlashcardJustification] = useState('');
+  const [editFlashcardCommonMistakesText, setEditFlashcardCommonMistakesText] = useState('');
   const [noteTitle, setNoteTitle] = useState('');
   const [noteContent, setNoteContent] = useState('');
   const [noteLink, setNoteLink] = useState('');
@@ -436,6 +438,23 @@ const App: React.FC = () => {
   ];
   const canEditResources = userRole === 'professor';
 
+  const parseCommonMistakesText = (value: string): FlashcardCommonMistake[] =>
+    value
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const [answerPart, ...explanationParts] = line.split('::');
+        return {
+          answer: (answerPart || '').trim(),
+          explanation: explanationParts.join('::').trim(),
+        };
+      })
+      .filter((entry) => entry.answer && entry.explanation);
+
+  const formatCommonMistakesText = (items: FlashcardCommonMistake[] = []) =>
+    items.map((item) => `${item.answer} :: ${item.explanation}`).join('\n');
+
   const persistOrder = async (entityType: OrderEntityType, courseId: string, orderedIds: string[]) => {
     await saveCourseOrder(entityType, courseId, orderedIds);
   };
@@ -499,6 +518,39 @@ const App: React.FC = () => {
       setContentItemsByCourse((prev) => ({ ...prev, [courseId]: current }));
       handleAuthError(error);
       alert(`Impossible de changer l'ordre des contenus. ${getErrorMessage(error)}`);
+    }
+  };
+
+  const moveFlashcardItem = async (
+    courseId: string,
+    cardId: string,
+    direction: 'up' | 'down',
+  ) => {
+    const current = flashcardsByCourse[courseId] || [];
+    const index = current.findIndex((item) => item.id === cardId);
+    if (index === -1) return;
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= current.length) return;
+
+    const next = [...current];
+    [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+    setFlashcardsByCourse((prev) => ({ ...prev, [courseId]: next }));
+    setSessionData((prev) => ({
+      ...prev,
+      [courseId]: prev[courseId] ? { ...prev[courseId], flashcards: next } : prev[courseId],
+    }));
+
+    try {
+      await persistOrder('notes', `flashcards:${courseId}`, next.map((item) => item.id));
+    } catch (error) {
+      console.error(error);
+      setFlashcardsByCourse((prev) => ({ ...prev, [courseId]: current }));
+      setSessionData((prev) => ({
+        ...prev,
+        [courseId]: prev[courseId] ? { ...prev[courseId], flashcards: current } : prev[courseId],
+      }));
+      handleAuthError(error);
+      alert(`Impossible de changer l'ordre des cartes. ${getErrorMessage(error)}`);
     }
   };
 
@@ -752,6 +804,7 @@ const App: React.FC = () => {
     const question = flashcardQuestion.trim();
     const answer = flashcardAnswer.trim();
     const justification = flashcardJustification.trim();
+    const commonMistakes = parseCommonMistakesText(flashcardCommonMistakesText);
     if (!question || !answer) return;
 
     try {
@@ -760,6 +813,7 @@ const App: React.FC = () => {
         question,
         answer,
         justification: justification || undefined,
+        commonMistakes,
       });
       const nextCards = [created, ...(flashcardsByCourse[resourceCourseId] || [])];
       setFlashcardsByCourse((prev) => ({
@@ -775,6 +829,7 @@ const App: React.FC = () => {
       setFlashcardQuestion('');
       setFlashcardAnswer('');
       setFlashcardJustification('');
+      setFlashcardCommonMistakesText('');
     } catch (error) {
       console.error(error);
       handleAuthError(error);
@@ -787,6 +842,7 @@ const App: React.FC = () => {
     setEditFlashcardQuestion(card.question);
     setEditFlashcardAnswer(card.answer);
     setEditFlashcardJustification(card.justification || '');
+    setEditFlashcardCommonMistakesText(formatCommonMistakesText(card.commonMistakes || []));
   };
 
   const cancelEditFlashcard = () => {
@@ -794,12 +850,14 @@ const App: React.FC = () => {
     setEditFlashcardQuestion('');
     setEditFlashcardAnswer('');
     setEditFlashcardJustification('');
+    setEditFlashcardCommonMistakesText('');
   };
 
   const saveEditFlashcard = async (card: Flashcard) => {
     const question = editFlashcardQuestion.trim();
     const answer = editFlashcardAnswer.trim();
     const justification = editFlashcardJustification.trim();
+    const commonMistakes = parseCommonMistakesText(editFlashcardCommonMistakesText);
     if (!question || !answer || !resourceCourseId) return;
 
     try {
@@ -807,6 +865,7 @@ const App: React.FC = () => {
         question,
         answer,
         justification: justification || undefined,
+        commonMistakes,
       });
       setFlashcardsByCourse((prev) => ({
         ...prev,
@@ -1033,7 +1092,6 @@ const App: React.FC = () => {
   const ensureCourseSession = async (courseId: string) => {
     const topic = visibleTopics.find((item) => item.id === courseId);
     if (!topic) return;
-    if (sessionData[courseId]?.flashcards?.length) return;
     setLoading("Chargement des cartes mémo...");
     try {
       const flashcards = await listCourseFlashcards(courseId);
@@ -2749,6 +2807,20 @@ const App: React.FC = () => {
                             />
                           </label>
 
+                          <label className="block">
+                            <span className="text-sm font-semibold text-slate-700">Mauvaises réponses fréquentes</span>
+                            <textarea
+                              value={flashcardCommonMistakesText}
+                              onChange={(event) => setFlashcardCommonMistakesText(event.target.value)}
+                              rows={4}
+                              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              placeholder={"Une ligne par réponse fréquente.\nExemple :\nRelations médias :: Trop large, ce n'est pas la relation avec la presse uniquement\nPublicité :: Ce n'est pas de l'achat média, mais une relation avec les journalistes"}
+                            />
+                            <p className="mt-2 text-sm text-slate-500">
+                              Format conseillé: <span className="font-semibold">mauvaise réponse :: pourquoi ce n&apos;est pas la bonne réponse</span>
+                            </p>
+                          </label>
+
                           <button
                             type="submit"
                             className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-white font-bold hover:bg-indigo-700 transition-colors"
@@ -2826,6 +2898,16 @@ const App: React.FC = () => {
                                 />
                               </label>
 
+                              <label className="block">
+                                <span className="text-sm font-semibold text-slate-700">Mauvaises réponses fréquentes</span>
+                                <textarea
+                                  value={editFlashcardCommonMistakesText}
+                                  onChange={(event) => setEditFlashcardCommonMistakesText(event.target.value)}
+                                  rows={4}
+                                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                />
+                              </label>
+
                               <div className="flex flex-wrap gap-3">
                                 <button
                                   type="button"
@@ -2848,18 +2930,52 @@ const App: React.FC = () => {
                               <p className="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-2">Question</p>
                               <h3 className="text-xl font-black text-slate-900">{card.question}</h3>
                               <hr className="my-4 border-slate-100" />
-                              <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-2">Réponse</p>
-                              <p className="text-slate-700 whitespace-pre-line">{card.answer}</p>
+                              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                                <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-2">Bonne réponse</p>
+                                <p className="text-slate-800 whitespace-pre-line">{card.answer}</p>
+                              </div>
                               {!!card.justification && (
                                 <>
-                                  <hr className="my-4 border-slate-100" />
-                                  <p className="text-xs font-bold text-amber-600 uppercase tracking-wider mb-2">Justification</p>
-                                  <p className="text-slate-700 whitespace-pre-line">{card.justification}</p>
+                                  <div className="mt-4 rounded-2xl border border-indigo-200 bg-indigo-50 p-4">
+                                    <p className="text-xs font-bold text-indigo-700 uppercase tracking-wider mb-2">Pourquoi c&apos;est la bonne réponse</p>
+                                    <p className="text-slate-800 whitespace-pre-line">{card.justification}</p>
+                                  </div>
                                 </>
+                              )}
+                              {!!card.commonMistakes?.length && (
+                                <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4">
+                                  <p className="text-xs font-bold text-rose-700 uppercase tracking-wider mb-3">Mauvaises réponses fréquentes</p>
+                                  <div className="space-y-3">
+                                    {card.commonMistakes.map((mistake, mistakeIndex) => (
+                                      <div key={`${card.id}-mistake-${mistakeIndex}`} className="rounded-xl bg-white/80 p-3 border border-rose-100">
+                                        <p className="font-bold text-slate-900">{mistake.answer}</p>
+                                        <p className="mt-1 text-sm text-slate-700 whitespace-pre-line">{mistake.explanation}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
                               )}
 
                               {canEditResources && (
                                 <div className="mt-5 flex flex-wrap gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => { void moveFlashcardItem(resourceCourseId, card.id, 'up'); }}
+                                    disabled={courseFlashcards[0]?.id === card.id}
+                                    className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-slate-700 font-bold hover:bg-slate-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                  >
+                                    <i className="fas fa-arrow-up"></i>
+                                    Monter
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => { void moveFlashcardItem(resourceCourseId, card.id, 'down'); }}
+                                    disabled={courseFlashcards[courseFlashcards.length - 1]?.id === card.id}
+                                    className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-slate-700 font-bold hover:bg-slate-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                  >
+                                    <i className="fas fa-arrow-down"></i>
+                                    Descendre
+                                  </button>
                                   <button
                                     type="button"
                                     onClick={() => startEditFlashcard(card)}

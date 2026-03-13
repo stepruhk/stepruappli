@@ -1,10 +1,16 @@
 
+export interface FlashcardCommonMistake {
+  answer: string;
+  explanation: string;
+}
+
 export interface Flashcard {
   id: string;
   courseId?: string;
   question: string;
   answer: string;
   justification?: string;
+  commonMistakes?: FlashcardCommonMistake[];
   createdAt?: string;
 }
 

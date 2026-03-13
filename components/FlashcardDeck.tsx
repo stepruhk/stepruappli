@@ -52,12 +52,28 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ cards, onClose }) => {
 
             <div className="flashcard-face flashcard-back absolute inset-0 w-full h-full bg-indigo-600 rounded-2xl p-8 flex flex-col items-center justify-center text-center text-white">
               <span className="absolute top-4 left-6 text-xs font-bold text-indigo-200 uppercase tracking-widest">Réponse</span>
-              <div className="max-h-full overflow-y-auto px-2">
-                <p className="text-xl leading-relaxed whitespace-pre-line">{currentCard.answer}</p>
+              <div className="max-h-full w-full overflow-y-auto px-2 text-left">
+                <div className="rounded-2xl bg-emerald-400/20 p-4 border border-emerald-200/30">
+                  <p className="text-xs font-bold uppercase tracking-widest text-emerald-100">Bonne réponse</p>
+                  <p className="mt-2 text-xl leading-relaxed whitespace-pre-line">{currentCard.answer}</p>
+                </div>
                 {currentCard.justification && (
-                  <div className="mt-6 rounded-2xl bg-white/10 p-4 text-left">
-                    <p className="text-xs font-bold uppercase tracking-widest text-indigo-100">Justification</p>
+                  <div className="mt-4 rounded-2xl bg-white/10 p-4 text-left">
+                    <p className="text-xs font-bold uppercase tracking-widest text-indigo-100">Pourquoi c&apos;est la bonne réponse</p>
                     <p className="mt-2 text-sm leading-relaxed text-white/90 whitespace-pre-line">{currentCard.justification}</p>
+                  </div>
+                )}
+                {!!currentCard.commonMistakes?.length && (
+                  <div className="mt-4 rounded-2xl bg-rose-500/15 p-4 text-left border border-rose-200/20">
+                    <p className="text-xs font-bold uppercase tracking-widest text-rose-100">Mauvaises réponses fréquentes</p>
+                    <div className="mt-3 space-y-3">
+                      {currentCard.commonMistakes.map((mistake, index) => (
+                        <div key={`${currentCard.id}-mistake-${index}`} className="rounded-xl bg-white/10 p-3">
+                          <p className="font-bold text-white">{mistake.answer}</p>
+                          <p className="mt-1 text-sm leading-relaxed text-white/85 whitespace-pre-line">{mistake.explanation}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
