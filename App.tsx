@@ -2827,6 +2827,16 @@ const App: React.FC = () => {
                 <p className="text-sm font-medium text-rose-600">{coursePasswordError}</p>
               )}
 
+              <a
+                href={contactUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+              >
+                <i className="fas fa-circle-question text-xs"></i>
+                Vous n&apos;avez pas ce mot de passe ?
+              </a>
+
               <div className="flex flex-col gap-3 sm:flex-row">
                 <button
                   type="submit"
