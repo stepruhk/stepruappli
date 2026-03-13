@@ -390,7 +390,7 @@ const App: React.FC = () => {
   const professorSocialLinks = professorSectionItems.filter((item) => item.title.startsWith(PROFESSOR_SOCIAL_PREFIX));
   const professorPublications = professorSectionItems.filter((item) => item.title.startsWith(PROFESSOR_PUBLICATION_PREFIX));
   const flashcardsForModal = menuSection === 'MEMO'
-    ? (sessionData[resourceCourseId]?.flashcards || [])
+    ? ((sessionData[resourceCourseId]?.flashcards?.length ? sessionData[resourceCourseId]?.flashcards : courseFlashcards) || [])
     : (currentSession?.flashcards || []);
   const cardAccentStyles = [
     {
@@ -1111,6 +1111,14 @@ const App: React.FC = () => {
 
   const openFlashcardReview = async () => {
     if (!resourceCourseId) return;
+    if (courseFlashcards.length) {
+      setSessionData((prev) => ({
+        ...prev,
+        [resourceCourseId]: { topicId: resourceCourseId, summary: '', flashcards: courseFlashcards },
+      }));
+      setShowFlashcards(true);
+      return;
+    }
     const existingCards = sessionData[resourceCourseId]?.flashcards || [];
     if (existingCards.length) {
       setShowFlashcards(true);
