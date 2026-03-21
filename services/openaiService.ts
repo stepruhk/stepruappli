@@ -27,6 +27,16 @@ export type AccessMetrics = {
   firstAccessAt: string | null;
   lastAccessAt: string | null;
 };
+export type AnalyticsSummary = {
+  pageViews: { section: string; count: number }[];
+  courseViews: { courseId: string; count: number }[];
+  podcastOpens: number;
+  externalClicks: {
+    blog: number;
+    contact: number;
+    zoom: number;
+  };
+};
 export type OrderEntityType = "notes" | "resources";
 export type AuthStatus = {
   authenticated: boolean;
@@ -313,6 +323,34 @@ export async function getAccessMetrics(): Promise<AccessMetrics> {
     professor: Number(response.professor || 0),
     firstAccessAt: response.firstAccessAt || null,
     lastAccessAt: response.lastAccessAt || null,
+  };
+}
+
+export async function trackAnalyticsEvent(payload: {
+  type: string;
+  section?: string;
+  courseId?: string;
+  target?: string;
+  label?: string;
+}): Promise<void> {
+  try {
+    await postJson<{ ok?: boolean }>("/api/analytics/event", payload);
+  } catch (_error) {
+    // Analytics should never block the app.
+  }
+}
+
+export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
+  const response = await getJson<Partial<AnalyticsSummary>>("/api/analytics-summary");
+  return {
+    pageViews: Array.isArray(response.pageViews) ? response.pageViews : [],
+    courseViews: Array.isArray(response.courseViews) ? response.courseViews : [],
+    podcastOpens: Number(response.podcastOpens || 0),
+    externalClicks: {
+      blog: Number(response.externalClicks?.blog || 0),
+      contact: Number(response.externalClicks?.contact || 0),
+      zoom: Number(response.externalClicks?.zoom || 0),
+    },
   };
 }
 

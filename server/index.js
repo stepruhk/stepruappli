@@ -31,6 +31,8 @@ const MAX_TITLE_LENGTH = Number(process.env.MAX_TITLE_LENGTH || 180);
 const MAX_JSON_BODY_LIMIT = String(process.env.MAX_JSON_BODY_LIMIT || "35mb");
 const ACCESS_ANALYTICS_COURSE_ID = "__analytics_access__";
 const ACCESS_ANALYTICS_TITLE = "__ACCESS_EVENT__";
+const APP_ANALYTICS_COURSE_ID = "__analytics_app__";
+const APP_ANALYTICS_TITLE_PREFIX = "__APP_EVENT__:";
 const ACCESS_METRICS_BASE_TOTAL = Number(process.env.ACCESS_METRICS_BASE_TOTAL || 35);
 const ACCESS_METRICS_BASE_STUDENT = Number(process.env.ACCESS_METRICS_BASE_STUDENT || 35);
 const ACCESS_METRICS_BASE_PROFESSOR = Number(process.env.ACCESS_METRICS_BASE_PROFESSOR || 0);
@@ -437,6 +439,30 @@ function parseLaunchDate(input) {
   const parsed = new Date(input);
   if (Number.isNaN(parsed.getTime())) return null;
   return parsed.toISOString();
+}
+
+function getAppAnalyticsTitle(eventType) {
+  return `${APP_ANALYTICS_TITLE_PREFIX}${String(eventType || "").trim()}`;
+}
+
+function parseAppAnalyticsEvent(rawNote) {
+  const title = String(rawNote?.title || "");
+  const eventType = title.startsWith(APP_ANALYTICS_TITLE_PREFIX)
+    ? title.slice(APP_ANALYTICS_TITLE_PREFIX.length)
+    : "";
+  let payload = {};
+  if (typeof rawNote?.content === "string" && rawNote.content.trim()) {
+    try {
+      payload = JSON.parse(rawNote.content);
+    } catch {
+      payload = { raw: rawNote.content };
+    }
+  }
+  return {
+    type: eventType,
+    payload,
+    createdAt: rawNote?.createdAt || rawNote?.created_at || null,
+  };
 }
 
 function isAnnouncementStorageNote(courseId, title) {
@@ -937,6 +963,127 @@ async function readAccessMetrics() {
     professor: professor + baseProfessor,
     firstAccessAt: launchDateIso || firstAccessAt,
     lastAccessAt,
+  };
+}
+
+async function recordAppAnalyticsEvent(eventType, payload = {}) {
+  const normalizedEventType = String(eventType || "").trim().toLowerCase();
+  if (!normalizedEventType) return;
+
+  const entry = {
+    id: crypto.randomUUID(),
+    courseId: APP_ANALYTICS_COURSE_ID,
+    title: getAppAnalyticsTitle(normalizedEventType),
+    content: JSON.stringify(payload || {}),
+    link: null,
+    createdAt: new Date().toISOString(),
+  };
+
+  if (hasSupabaseStorage) {
+    await supabaseRequest("notes", {
+      method: "POST",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({
+        id: entry.id,
+        course_id: entry.courseId,
+        title: entry.title,
+        content: entry.content,
+        link: entry.link,
+        created_at: entry.createdAt,
+      }),
+    });
+    return;
+  }
+
+  const store = await ensureStoreLoaded();
+  store.notes.unshift({
+    id: entry.id,
+    courseId: entry.courseId,
+    title: entry.title,
+    content: entry.content,
+    createdAt: entry.createdAt,
+  });
+  await saveStore();
+}
+
+function createSortedSummaryEntries(sourceMap, keyFieldName) {
+  return Array.from(sourceMap.entries())
+    .map(([key, count]) => ({ [keyFieldName]: key, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
+async function readAppAnalyticsSummary() {
+  let rawEvents = [];
+
+  if (hasSupabaseStorage) {
+    const rows = await supabaseRequest(
+      `notes?course_id=eq.${encodeURIComponent(APP_ANALYTICS_COURSE_ID)}&select=title,content,created_at&order=created_at.desc`,
+      { method: "GET" },
+    );
+    rawEvents = (Array.isArray(rows) ? rows : []).map((row) => ({
+      title: row.title,
+      content: row.content,
+      created_at: row.created_at,
+    }));
+  } else {
+    const store = await ensureStoreLoaded();
+    rawEvents = store.notes
+      .filter((note) => note.courseId === APP_ANALYTICS_COURSE_ID)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .map((note) => ({
+        title: note.title,
+        content: note.content,
+        createdAt: note.createdAt,
+      }));
+  }
+
+  const events = rawEvents
+    .map((entry) => parseAppAnalyticsEvent(entry))
+    .filter((entry) => entry.type);
+
+  const pageViews = new Map();
+  const courseViews = new Map();
+  const externalClicks = {
+    blog: 0,
+    contact: 0,
+    zoom: 0,
+  };
+  let podcastOpens = 0;
+
+  for (const event of events) {
+    const payload = event.payload && typeof event.payload === "object" ? event.payload : {};
+
+    if (event.type === "page_view") {
+      const section = typeof payload.section === "string" ? payload.section.trim() : "";
+      if (section) {
+        pageViews.set(section, (pageViews.get(section) || 0) + 1);
+      }
+    }
+
+    if (event.type === "course_view") {
+      const courseId = typeof payload.courseId === "string" ? payload.courseId.trim() : "";
+      if (courseId) {
+        courseViews.set(courseId, (courseViews.get(courseId) || 0) + 1);
+      }
+    }
+
+    if (event.type === "balado_open") {
+      podcastOpens += 1;
+    }
+
+    if (event.type === "external_click") {
+      const target = typeof payload.target === "string" ? payload.target.trim().toLowerCase() : "";
+      if (target === "blog" || target === "contact" || target === "zoom") {
+        externalClicks[target] += 1;
+      }
+    }
+  }
+
+  return {
+    pageViews: createSortedSummaryEntries(pageViews, "section"),
+    courseViews: createSortedSummaryEntries(courseViews, "courseId"),
+    podcastOpens,
+    externalClicks,
   };
 }
 
@@ -2088,6 +2235,38 @@ app.get("/api/access-metrics", async (req, res) => {
     requireProfessor(req);
     const metrics = await readAccessMetrics();
     res.json(metrics);
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.post("/api/analytics/event", async (req, res) => {
+  try {
+    const eventType = readRequiredTextField(req.body, "type", 64).toLowerCase();
+    const section = readOptionalTextField(req.body, "section", 64);
+    const courseId = readOptionalTextField(req.body, "courseId", 128);
+    const target = readOptionalTextField(req.body, "target", 64);
+    const label = readOptionalTextField(req.body, "label", 160);
+
+    await recordAppAnalyticsEvent(eventType, {
+      section: section || undefined,
+      courseId: courseId || undefined,
+      target: target || undefined,
+      label: label || undefined,
+      role: getCurrentSessionRole(req),
+    });
+
+    res.status(201).json({ ok: true });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.get("/api/analytics-summary", async (req, res) => {
+  try {
+    requireProfessor(req);
+    const summary = await readAppAnalyticsSummary();
+    res.json(summary);
   } catch (error) {
     sendError(res, error);
   }

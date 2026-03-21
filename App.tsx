@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Topic, AppView, StudySession, Flashcard, FlashcardCommonMistake } from './types.ts';
 import { INITIAL_TOPICS } from './constants.ts';
 import ciLogo from './assets/ci-logo.png';
@@ -9,6 +9,7 @@ import {
   createCourseContent,
   createEvernoteNote,
   getAccessMetrics,
+  getAnalyticsSummary,
   listCourseFlashcards,
   listCourseContent,
   listEvernoteNotes,
@@ -18,11 +19,13 @@ import {
   removeCourseContent,
   removeEvernoteNote,
   saveCourseOrder,
+  trackAnalyticsEvent,
   unlockCourseWithPassword,
   updateCourseFlashcard,
   updateCourseContent,
   updateEvernoteNote,
   type AccessMetrics,
+  type AnalyticsSummary,
   type EvernoteNote,
   type LearningContentItem,
   type OrderEntityType,
@@ -38,6 +41,41 @@ type PodcastEpisode = {
   description?: string;
   audioUrl?: string;
 };
+type AnnouncementMeta = {
+  message: string;
+  targetCourseId?: string;
+  expiresAt?: string;
+  important?: boolean;
+  pinned?: boolean;
+};
+type AnnouncementItem = EvernoteNote & AnnouncementMeta;
+type FavoriteKind = 'resource' | 'note' | 'literature';
+type FavoriteItem = {
+  id: string;
+  kind: FavoriteKind;
+  courseId: string;
+  title: string;
+  url?: string;
+};
+type StudentCourseProgress = {
+  lastVisitedAt: string | null;
+  viewedDocumentIds: string[];
+  reviewedFlashcards: number;
+};
+type SearchResultItem = {
+  id: string;
+  kind: 'content' | 'note' | 'announcement' | 'literature';
+  courseId: string;
+  title: string;
+  description: string;
+  url?: string;
+  createdAt: string;
+};
+type DuplicateModalState =
+  | { kind: 'content'; item: LearningContentItem }
+  | { kind: 'flashcard'; item: Flashcard }
+  | null;
+
 const GENERAL_COURSE_ID = 'general';
 const ANNOUNCEMENTS_COURSE_ID = 'announcements';
 const PROFESSOR_PROFILE_PREFIX = 'professor-profile:';
@@ -45,6 +83,69 @@ const PROFESSOR_BIO_TITLE = '__PROF_BIO__';
 const PROFESSOR_SOCIAL_PREFIX = '[SOCIAL] ';
 const PROFESSOR_PUBLICATION_PREFIX = '[PUBLICATION] ';
 const PROFESSOR_LITERATURE_PREFIX = '[LITERATURE] ';
+const ARCHIVED_RESOURCE_PREFIX = '[ARCHIVED] ';
+const FAVORITES_STORAGE_KEY = 'eduboost_favorites_v1';
+const STUDENT_PROGRESS_STORAGE_KEY = 'eduboost_student_progress_v1';
+const ONBOARDING_STORAGE_KEY = 'eduboost_onboarding_seen_v1';
+const NEW_ITEM_WINDOW_DAYS = 7;
+
+const isRecentDate = (value?: string, days = NEW_ITEM_WINDOW_DAYS) => {
+  if (!value) return false;
+  const timestamp = new Date(value).getTime();
+  if (Number.isNaN(timestamp)) return false;
+  return Date.now() - timestamp <= days * 24 * 60 * 60 * 1000;
+};
+
+const readLocalObject = <T,>(key: string, fallback: T): T => {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    return JSON.parse(raw) as T;
+  } catch (_error) {
+    return fallback;
+  }
+};
+
+const writeLocalObject = <T,>(key: string, value: T) => {
+  localStorage.setItem(key, JSON.stringify(value));
+};
+
+const parseAnnouncementMeta = (note: EvernoteNote): AnnouncementItem => {
+  let parsed: Partial<AnnouncementMeta> = {};
+  if (note.content) {
+    try {
+      parsed = JSON.parse(note.content) as Partial<AnnouncementMeta>;
+    } catch (_error) {
+      parsed = {};
+    }
+  }
+  const hasStructuredMessage = typeof parsed.message === 'string';
+  return {
+    ...note,
+    message: hasStructuredMessage ? parsed.message || '' : note.content || '',
+    targetCourseId: typeof parsed.targetCourseId === 'string' ? parsed.targetCourseId : '',
+    expiresAt: typeof parsed.expiresAt === 'string' ? parsed.expiresAt : '',
+    important: Boolean(parsed.important),
+    pinned: Boolean(parsed.pinned),
+  };
+};
+
+const serializeAnnouncementMeta = (input: AnnouncementMeta) =>
+  JSON.stringify({
+    message: input.message,
+    targetCourseId: input.targetCourseId || '',
+    expiresAt: input.expiresAt || '',
+    important: Boolean(input.important),
+    pinned: Boolean(input.pinned),
+  });
+
+const isArchivedResource = (item: LearningContentItem) => item.title.startsWith(ARCHIVED_RESOURCE_PREFIX);
+const stripArchivedResourceTitle = (title: string) =>
+  title.startsWith(ARCHIVED_RESOURCE_PREFIX) ? title.slice(ARCHIVED_RESOURCE_PREFIX.length).trimStart() : title;
+const toArchivedResourceTitle = (title: string, archived: boolean) => {
+  const clean = stripArchivedResourceTitle(title);
+  return archived ? `${ARCHIVED_RESOURCE_PREFIX}${clean}` : clean;
+};
 
 const App: React.FC = () => {
   const visibleTopics = INITIAL_TOPICS;
@@ -120,6 +221,43 @@ const App: React.FC = () => {
   const [accessMetrics, setAccessMetrics] = useState<AccessMetrics | null>(null);
   const [accessMetricsLoading, setAccessMetricsLoading] = useState(false);
   const [accessMetricsError, setAccessMetricsError] = useState<string | null>(null);
+  const [analyticsSummary, setAnalyticsSummary] = useState<AnalyticsSummary | null>(null);
+  const [analyticsSummaryLoading, setAnalyticsSummaryLoading] = useState(false);
+  const [analyticsSummaryError, setAnalyticsSummaryError] = useState<string | null>(null);
+  const [previewAsStudent, setPreviewAsStudent] = useState(false);
+  const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
+  const [studentProgressByCourse, setStudentProgressByCourse] = useState<Record<string, StudentCourseProgress>>({});
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [announcementTitle, setAnnouncementTitle] = useState('');
+  const [announcementMessage, setAnnouncementMessage] = useState('');
+  const [announcementLink, setAnnouncementLink] = useState('');
+  const [announcementTargetCourseId, setAnnouncementTargetCourseId] = useState('');
+  const [announcementExpiresAt, setAnnouncementExpiresAt] = useState('');
+  const [announcementImportant, setAnnouncementImportant] = useState(false);
+  const [announcementPinned, setAnnouncementPinned] = useState(false);
+  const [editingAnnouncementId, setEditingAnnouncementId] = useState<string | null>(null);
+  const [editAnnouncementTitle, setEditAnnouncementTitle] = useState('');
+  const [editAnnouncementMessage, setEditAnnouncementMessage] = useState('');
+  const [editAnnouncementLink, setEditAnnouncementLink] = useState('');
+  const [editAnnouncementTargetCourseId, setEditAnnouncementTargetCourseId] = useState('');
+  const [editAnnouncementExpiresAt, setEditAnnouncementExpiresAt] = useState('');
+  const [editAnnouncementImportant, setEditAnnouncementImportant] = useState(false);
+  const [editAnnouncementPinned, setEditAnnouncementPinned] = useState(false);
+  const [announcementFilter, setAnnouncementFilter] = useState<'ALL' | 'GENERAL' | 'CURRENT' | string>('ALL');
+  const [duplicateState, setDuplicateState] = useState<DuplicateModalState>(null);
+  const [duplicateTargetCourseId, setDuplicateTargetCourseId] = useState('');
+  const lastTrackedViewRef = useRef<string>('');
+  const effectiveUserRole: UserRole = previewAsStudent ? 'student' : userRole;
+  const isProfessor = userRole === 'professor';
+  const canEditResources = isProfessor && !previewAsStudent;
+  const accessibleTopicIds = useMemo(
+    () =>
+      visibleTopics
+        .filter((topic) => isProfessor || !lockedCourseIds.includes(topic.id) || unlockedCourseIds.includes(topic.id))
+        .map((topic) => topic.id),
+    [visibleTopics, isProfessor, lockedCourseIds, unlockedCourseIds],
+  );
 
   useEffect(() => {
     const initAuth = async () => {
@@ -140,6 +278,11 @@ const App: React.FC = () => {
     };
 
     void initAuth();
+  }, []);
+
+  useEffect(() => {
+    setFavorites(readLocalObject<FavoriteItem[]>(FAVORITES_STORAGE_KEY, []));
+    setStudentProgressByCourse(readLocalObject<Record<string, StudentCourseProgress>>(STUDENT_PROGRESS_STORAGE_KEY, {}));
   }, []);
 
   useEffect(() => {
@@ -221,7 +364,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const loadPodcastEpisodes = async () => {
       if (!authChecked || !isAuthenticated) return;
-      if (menuSection !== 'BALADO') return;
+      if (menuSection !== 'BALADO' && menuSection !== 'ACCUEIL') return;
 
       setPodcastLoading(true);
       setPodcastError(null);
@@ -249,7 +392,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const loadAccessMetrics = async () => {
-      if (!authChecked || !isAuthenticated || userRole !== 'professor') return;
+      if (!authChecked || !isAuthenticated || !isProfessor) return;
       if (menuSection !== 'CONTACT') return;
 
       setAccessMetricsLoading(true);
@@ -266,7 +409,110 @@ const App: React.FC = () => {
     };
 
     void loadAccessMetrics();
-  }, [authChecked, isAuthenticated, menuSection, userRole]);
+  }, [authChecked, isAuthenticated, menuSection, isProfessor]);
+
+  useEffect(() => {
+    const loadAnalyticsSummary = async () => {
+      if (!authChecked || !isAuthenticated || !isProfessor) return;
+      if (menuSection !== 'CONTACT') return;
+
+      setAnalyticsSummaryLoading(true);
+      setAnalyticsSummaryError(null);
+      try {
+        const summary = await getAnalyticsSummary();
+        setAnalyticsSummary(summary);
+      } catch (error) {
+        console.error(error);
+        setAnalyticsSummaryError('Impossible de charger les statistiques détaillées pour le moment.');
+      } finally {
+        setAnalyticsSummaryLoading(false);
+      }
+    };
+
+    void loadAnalyticsSummary();
+  }, [authChecked, isAuthenticated, menuSection, isProfessor]);
+
+  useEffect(() => {
+    const preloadDashboardData = async () => {
+      if (!authChecked || !isAuthenticated) return;
+      const generalCourseIds = [GENERAL_COURSE_ID, ANNOUNCEMENTS_COURSE_ID, ...accessibleTopicIds];
+      const profileCourseIds = isProfessor
+        ? accessibleTopicIds.map((courseId) => `${PROFESSOR_PROFILE_PREFIX}${courseId}`)
+        : [];
+
+      try {
+        const [noteSets, resourceSets, flashcardSets, profileNoteSets, profileResourceSets] = await Promise.all([
+          Promise.all(generalCourseIds.map((courseId) => listEvernoteNotes(courseId).catch(() => []))),
+          Promise.all(generalCourseIds.map((courseId) => listCourseContent(courseId).catch(() => []))),
+          Promise.all(accessibleTopicIds.map((courseId) => listCourseFlashcards(courseId).catch(() => []))),
+          Promise.all(profileCourseIds.map((courseId) => listEvernoteNotes(courseId).catch(() => []))),
+          Promise.all(profileCourseIds.map((courseId) => listCourseContent(courseId).catch(() => []))),
+        ]);
+
+        setEvernoteNotesByCourse((prev) => {
+          const next = { ...prev };
+          generalCourseIds.forEach((courseId, index) => {
+            next[courseId] = noteSets[index] as EvernoteNote[];
+          });
+          profileCourseIds.forEach((courseId, index) => {
+            next[courseId] = profileNoteSets[index] as EvernoteNote[];
+          });
+          return next;
+        });
+
+        setContentItemsByCourse((prev) => {
+          const next = { ...prev };
+          generalCourseIds.forEach((courseId, index) => {
+            next[courseId] = resourceSets[index] as LearningContentItem[];
+          });
+          profileCourseIds.forEach((courseId, index) => {
+            next[courseId] = profileResourceSets[index] as LearningContentItem[];
+          });
+          return next;
+        });
+
+        setFlashcardsByCourse((prev) => {
+          const next = { ...prev };
+          accessibleTopicIds.forEach((courseId, index) => {
+            next[courseId] = flashcardSets[index] as Flashcard[];
+          });
+          return next;
+        });
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    void preloadDashboardData();
+  }, [authChecked, isAuthenticated, accessibleTopicIds, isProfessor]);
+
+  useEffect(() => {
+    if (!authChecked || !isAuthenticated || effectiveUserRole !== 'student') return;
+    if (readLocalObject<boolean>(ONBOARDING_STORAGE_KEY, false)) return;
+    setShowOnboarding(true);
+  }, [authChecked, isAuthenticated, effectiveUserRole]);
+
+  useEffect(() => {
+    if (!authChecked || !isAuthenticated) return;
+    const trackingKey = `${menuSection}:${view}:${selectedTopic?.id || resourceCourseId || 'global'}`;
+    if (lastTrackedViewRef.current === trackingKey) return;
+    lastTrackedViewRef.current = trackingKey;
+
+    trackAppEvent({
+      type: 'page_view',
+      section: menuSection === 'ACCUEIL' && view === AppView.TOPIC_DETAIL ? 'COURS' : menuSection,
+      courseId: selectedTopic?.id || resourceCourseId || undefined,
+      label: selectedTopic?.title || resourceCourse?.title || menuSection,
+    });
+
+    if (menuSection === 'BALADO') {
+      trackAppEvent({
+        type: 'balado_open',
+        section: 'BALADO',
+        label: 'Page balado',
+      });
+    }
+  }, [authChecked, isAuthenticated, menuSection, view, selectedTopic, resourceCourseId]);
 
   const handleAuthError = (error: unknown) => {
     console.error(error);
@@ -301,6 +547,80 @@ const App: React.FC = () => {
     return message || 'Erreur inconnue.';
   };
 
+  const saveFavorites = (next: FavoriteItem[]) => {
+    setFavorites(next);
+    writeLocalObject(FAVORITES_STORAGE_KEY, next);
+  };
+
+  const toggleFavorite = (item: FavoriteItem) => {
+    setFavorites((current) => {
+      const exists = current.some((entry) => entry.id === item.id && entry.kind === item.kind);
+      const next = exists
+        ? current.filter((entry) => !(entry.id === item.id && entry.kind === item.kind))
+        : [item, ...current];
+      writeLocalObject(FAVORITES_STORAGE_KEY, next);
+      return next;
+    });
+  };
+
+  const isFavorite = (id: string, kind: FavoriteKind) =>
+    favorites.some((entry) => entry.id === id && entry.kind === kind);
+
+  const updateStudentProgress = (courseId: string, updater: (current: StudentCourseProgress) => StudentCourseProgress) => {
+    setStudentProgressByCourse((current) => {
+      const existing = current[courseId] || {
+        lastVisitedAt: null,
+        viewedDocumentIds: [],
+        reviewedFlashcards: 0,
+      };
+      const next = {
+        ...current,
+        [courseId]: updater(existing),
+      };
+      writeLocalObject(STUDENT_PROGRESS_STORAGE_KEY, next);
+      return next;
+    });
+  };
+
+  const markCourseVisited = (courseId: string) => {
+    updateStudentProgress(courseId, (current) => ({
+      ...current,
+      lastVisitedAt: new Date().toISOString(),
+    }));
+  };
+
+  const markDocumentViewed = (courseId: string, documentId: string) => {
+    updateStudentProgress(courseId, (current) => ({
+      ...current,
+      lastVisitedAt: new Date().toISOString(),
+      viewedDocumentIds: Array.from(new Set([...(current.viewedDocumentIds || []), documentId])),
+      reviewedFlashcards: current.reviewedFlashcards || 0,
+    }));
+  };
+
+  const recordFlashcardReview = (courseId: string, count: number) => {
+    updateStudentProgress(courseId, (current) => ({
+      ...current,
+      lastVisitedAt: new Date().toISOString(),
+      viewedDocumentIds: current.viewedDocumentIds || [],
+      reviewedFlashcards: Math.max(current.reviewedFlashcards || 0, count),
+    }));
+  };
+
+  const trackAppEvent = (payload: Parameters<typeof trackAnalyticsEvent>[0]) => {
+    void trackAnalyticsEvent(payload);
+  };
+
+  const trackExternalClick = (target: 'blog' | 'contact' | 'zoom' | 'spotify' | 'assistant', label?: string) => {
+    trackAppEvent({
+      type: 'external_click',
+      section: menuSection,
+      courseId: selectedTopic?.id || resourceCourseId,
+      target,
+      label,
+    });
+  };
+
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
     setAuthError(null);
@@ -326,6 +646,13 @@ const App: React.FC = () => {
     setResourceCourseId(topic.id);
     setSelectedTopic(topic);
     setView(AppView.TOPIC_DETAIL);
+    markCourseVisited(topic.id);
+    trackAppEvent({
+      type: 'course_view',
+      section: 'COURS',
+      courseId: topic.id,
+      label: topic.title,
+    });
 
     if (sessionData[topic.id]) return;
     setSessionData((prev) => ({
@@ -378,6 +705,13 @@ const App: React.FC = () => {
     ? (evernoteNotesByCourse[selectedTopic.id] || [])
     : [];
   const announcementNotes = evernoteNotesByCourse[ANNOUNCEMENTS_COURSE_ID] || [];
+  const parsedAnnouncements = announcementNotes
+    .map((note) => parseAnnouncementMeta(note))
+    .sort((a, b) => {
+      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+      if (a.important !== b.important) return a.important ? -1 : 1;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
   const selectedTopicContentItems = selectedTopic
     ? (contentItemsByCourse[selectedTopic.id] || [])
     : [];
@@ -389,6 +723,10 @@ const App: React.FC = () => {
   const professorSectionItems = professorProfileCourseId ? (contentItemsByCourse[professorProfileCourseId] || []) : [];
   const professorSocialLinks = professorSectionItems.filter((item) => item.title.startsWith(PROFESSOR_SOCIAL_PREFIX));
   const professorPublications = professorSectionItems.filter((item) => item.title.startsWith(PROFESSOR_PUBLICATION_PREFIX));
+  const activeGeneralContentItems = filteredContentItems.filter((item) => !isArchivedResource(item));
+  const archivedGeneralContentItems = filteredContentItems.filter((item) => isArchivedResource(item));
+  const activeSelectedTopicContentItems = selectedTopicContentItems.filter((item) => !isArchivedResource(item));
+  const archivedSelectedTopicContentItems = selectedTopicContentItems.filter((item) => isArchivedResource(item));
   const flashcardsForModal = menuSection === 'MEMO'
     ? ((sessionData[resourceCourseId]?.flashcards?.length ? sessionData[resourceCourseId]?.flashcards : courseFlashcards) || [])
     : (currentSession?.flashcards || []);
@@ -436,7 +774,203 @@ const App: React.FC = () => {
     { label: 'Annonces', icon: 'fa-bullhorn', key: 'ANNONCES' as const },
     { label: 'Contact', icon: 'fa-envelope', key: 'CONTACT' as const },
   ];
-  const canEditResources = userRole === 'professor';
+  const getMenuBadgeCount = (key: typeof mainMenuItems[number]['key']) => {
+    if (key === 'ANNONCES') return recentAnnouncementCount;
+    if (key === 'CONTENU') return recentGeneralContentCount;
+    return 0;
+  };
+  const recentAnnouncementCount = parsedAnnouncements.filter(
+    (announcement) => isRecentDate(announcement.createdAt) && (!announcement.expiresAt || new Date(announcement.expiresAt).getTime() >= Date.now()),
+  ).length;
+  const recentGeneralContentCount = activeGeneralContentItems.filter((item) => isRecentDate(item.createdAt)).length;
+
+  const filteredAnnouncements = parsedAnnouncements.filter((announcement) => {
+    if (effectiveUserRole === 'student' && announcement.expiresAt && new Date(announcement.expiresAt).getTime() < Date.now()) {
+      return false;
+    }
+    if (announcementFilter === 'ALL') return true;
+    if (announcementFilter === 'GENERAL') return !announcement.targetCourseId;
+    if (announcementFilter === 'CURRENT') {
+      return !announcement.targetCourseId || announcement.targetCourseId === resourceCourseId || announcement.targetCourseId === selectedTopic?.id;
+    }
+    return announcement.targetCourseId === announcementFilter;
+  });
+
+  const courseUpdateMeta = visibleTopics.map((topic) => {
+    const notes = evernoteNotesByCourse[topic.id] || [];
+    const resources = (contentItemsByCourse[topic.id] || []).filter((item) => !isArchivedResource(item));
+    const flashcards = flashcardsByCourse[topic.id] || [];
+    const literatureNotes = (evernoteNotesByCourse[`${PROFESSOR_PROFILE_PREFIX}${topic.id}`] || []).filter((note) =>
+      note.title.startsWith(PROFESSOR_LITERATURE_PREFIX),
+    );
+    const latestTimestamps = [
+      ...notes.map((entry) => entry.createdAt),
+      ...resources.map((entry) => entry.createdAt),
+      ...flashcards.map((entry) => entry.createdAt || ''),
+      ...literatureNotes.map((entry) => entry.createdAt),
+    ].filter(Boolean);
+    const latestAt = latestTimestamps.length
+      ? latestTimestamps.sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0]
+      : '';
+    const newItemsCount =
+      notes.filter((entry) => isRecentDate(entry.createdAt)).length +
+      resources.filter((entry) => isRecentDate(entry.createdAt)).length +
+      flashcards.filter((entry) => isRecentDate(entry.createdAt)).length;
+    return {
+      topic,
+      latestAt,
+      newItemsCount,
+      isNew: newItemsCount > 0,
+    };
+  });
+
+  const recentUpdatedCourses = [...courseUpdateMeta]
+    .filter((entry) => entry.latestAt)
+    .sort((a, b) => new Date(b.latestAt).getTime() - new Date(a.latestAt).getTime())
+    .slice(0, 4);
+
+  const latestContentItems = [
+    ...activeGeneralContentItems.map((item) => ({ ...item, label: 'Général' })),
+    ...visibleTopics.flatMap((topic) =>
+      ((contentItemsByCourse[topic.id] || []).filter((item) => !isArchivedResource(item))).map((item) => ({
+        ...item,
+        label: topic.title,
+      })),
+    ),
+  ]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 5);
+
+  const searchResults: SearchResultItem[] = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (query.length < 2) return [];
+    const courseTitleFor = (courseId: string) => visibleTopics.find((topic) => topic.id === courseId)?.title || 'Général';
+
+    const contentResults = Object.values(contentItemsByCourse)
+      .flat()
+      .filter((item) => !isArchivedResource(item))
+      .map((item) => ({
+        id: item.id,
+        kind: 'content' as const,
+        courseId: item.courseId,
+        title: stripArchivedResourceTitle(item.title),
+        description: `${item.type} • ${courseTitleFor(item.courseId)}`,
+        url: item.url,
+        createdAt: item.createdAt,
+      }));
+
+    const noteResults = Object.values(evernoteNotesByCourse)
+      .flat()
+      .filter((note) => !note.title.startsWith(PROFESSOR_BIO_TITLE) && !note.title.startsWith(PROFESSOR_LITERATURE_PREFIX))
+      .map((note) => ({
+        id: note.id,
+        kind: 'note' as const,
+        courseId: note.courseId,
+        title: note.title,
+        description: `${courseTitleFor(note.courseId)} • ${note.content || note.link || ''}`,
+        url: note.link,
+        createdAt: note.createdAt,
+      }));
+
+    const announcementResults = parsedAnnouncements.map((announcement) => ({
+      id: announcement.id,
+      kind: 'announcement' as const,
+      courseId: announcement.targetCourseId || ANNOUNCEMENTS_COURSE_ID,
+      title: announcement.title,
+      description: announcement.message,
+      url: announcement.link,
+      createdAt: announcement.createdAt,
+    }));
+
+    const literatureResults = visibleTopics.flatMap((topic) =>
+      ((evernoteNotesByCourse[`${PROFESSOR_PROFILE_PREFIX}${topic.id}`] || [])
+        .filter((note) => note.title.startsWith(PROFESSOR_LITERATURE_PREFIX))
+        .map((note) => ({
+          id: note.id,
+          kind: 'literature' as const,
+          courseId: topic.id,
+          title: note.title.replace(PROFESSOR_LITERATURE_PREFIX, '').trim(),
+          description: note.content || '',
+          url: note.link,
+          createdAt: note.createdAt,
+        }))),
+    );
+
+    return [...contentResults, ...noteResults, ...announcementResults, ...literatureResults]
+      .filter((entry) =>
+        `${entry.title} ${entry.description}`.toLowerCase().includes(query),
+      )
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 12);
+  }, [searchQuery, contentItemsByCourse, evernoteNotesByCourse, parsedAnnouncements, visibleTopics]);
+
+  const favoriteLookup = favorites.reduce<Record<string, FavoriteItem>>((acc, entry) => {
+    acc[`${entry.kind}:${entry.id}`] = entry;
+    return acc;
+  }, {});
+
+  const getCourseProgress = (courseId: string) => {
+    const resources = (contentItemsByCourse[courseId] || []).filter((item) => !isArchivedResource(item));
+    const flashcards = flashcardsByCourse[courseId] || [];
+    const progress = studentProgressByCourse[courseId] || {
+      lastVisitedAt: null,
+      viewedDocumentIds: [],
+      reviewedFlashcards: 0,
+    };
+    const resourceProgress = resources.length
+      ? Math.min(1, (progress.viewedDocumentIds || []).length / resources.length)
+      : 1;
+    const flashcardProgress = flashcards.length
+      ? Math.min(1, (progress.reviewedFlashcards || 0) / flashcards.length)
+      : 1;
+    const overall = Math.round(((resourceProgress + flashcardProgress) / 2) * 100);
+    return {
+      percentage: overall,
+      viewedDocuments: (progress.viewedDocumentIds || []).length,
+      reviewedFlashcards: progress.reviewedFlashcards || 0,
+      lastVisitedAt: progress.lastVisitedAt,
+    };
+  };
+
+  const todoItems = [
+    latestContentItems[0]
+      ? {
+          id: `todo-content-${latestContentItems[0].id}`,
+          title: 'Document à lire',
+          description: latestContentItems[0].title,
+          action: () => { void openContentItem(latestContentItems[0]); },
+        }
+      : null,
+    podcastEpisodes[0]
+      ? {
+          id: 'todo-podcast',
+          title: 'Épisode à écouter',
+          description: podcastEpisodes[0].title,
+          action: () => {
+            navigateToMenuSection('BALADO');
+          },
+        }
+      : null,
+    visibleTopics.find((topic) => (flashcardsByCourse[topic.id] || []).length > 0)
+      ? {
+          id: 'todo-flashcards',
+          title: 'Cartes à réviser',
+          description: visibleTopics.find((topic) => (flashcardsByCourse[topic.id] || []).length > 0)?.title || '',
+          action: () => {
+            const topic = visibleTopics.find((entry) => (flashcardsByCourse[entry.id] || []).length > 0);
+            if (!topic) return;
+            setResourceCourseId(topic.id);
+            navigateToMenuSection('MEMO');
+          },
+        }
+      : null,
+    {
+      id: 'todo-blog',
+      title: 'Article à consulter',
+      description: 'Consulter le blog du prof',
+      action: () => navigateToMenuSection('BLOG'),
+    },
+  ].filter(Boolean) as { id: string; title: string; description: string; action: () => void }[];
 
   const parseCommonMistakesText = (value: string): FlashcardCommonMistake[] =>
     value
@@ -711,6 +1245,156 @@ const App: React.FC = () => {
     } catch (error) {
       console.error(error);
       alert("Impossible de supprimer ce contenu.");
+    }
+  };
+
+  const toggleArchiveContentItem = async (item: LearningContentItem) => {
+    try {
+      const updated = await updateCourseContent(item.id, {
+        type: item.type,
+        title: toArchivedResourceTitle(item.title, !isArchivedResource(item)),
+        url: item.url,
+      });
+      setContentItemsByCourse((prev) => ({
+        ...prev,
+        [item.courseId]: (prev[item.courseId] || []).map((entry) => (entry.id === item.id ? updated : entry)),
+      }));
+    } catch (error) {
+      console.error(error);
+      alert(`Impossible de modifier l'état d'archive. ${getErrorMessage(error)}`);
+    }
+  };
+
+  const startDuplicateItem = (item: LearningContentItem | Flashcard, kind: 'content' | 'flashcard') => {
+    setDuplicateTargetCourseId('');
+    setDuplicateState({ kind, item } as DuplicateModalState);
+  };
+
+  const confirmDuplicate = async () => {
+    if (!duplicateState || !duplicateTargetCourseId) return;
+
+    try {
+      if (duplicateState.kind === 'content') {
+        const item = duplicateState.item as LearningContentItem;
+        const created = await createCourseContent({
+          courseId: duplicateTargetCourseId,
+          type: item.type,
+          title: stripArchivedResourceTitle(item.title),
+          url: item.url,
+        });
+        setContentItemsByCourse((prev) => ({
+          ...prev,
+          [duplicateTargetCourseId]: [created, ...(prev[duplicateTargetCourseId] || [])],
+        }));
+      } else {
+        const item = duplicateState.item as Flashcard;
+        const created = await createCourseFlashcard({
+          courseId: duplicateTargetCourseId,
+          question: item.question,
+          answer: item.answer,
+          justification: item.justification || undefined,
+          commonMistakes: item.commonMistakes || [],
+        });
+        setFlashcardsByCourse((prev) => ({
+          ...prev,
+          [duplicateTargetCourseId]: [created, ...(prev[duplicateTargetCourseId] || [])],
+        }));
+      }
+
+      setDuplicateState(null);
+      setDuplicateTargetCourseId('');
+    } catch (error) {
+      console.error(error);
+      alert(`Impossible de dupliquer cet élément. ${getErrorMessage(error)}`);
+    }
+  };
+
+  const addAnnouncement = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const title = announcementTitle.trim();
+    const message = announcementMessage.trim();
+    const rawLink = announcementLink.trim();
+    if (!title || !message) return;
+
+    try {
+      const created = await createEvernoteNote({
+        courseId: ANNOUNCEMENTS_COURSE_ID,
+        title,
+        content: serializeAnnouncementMeta({
+          message,
+          targetCourseId: announcementTargetCourseId || undefined,
+          expiresAt: announcementExpiresAt || undefined,
+          important: announcementImportant,
+          pinned: announcementPinned,
+        }),
+        link: rawLink || undefined,
+      });
+      setEvernoteNotesByCourse((prev) => ({
+        ...prev,
+        [ANNOUNCEMENTS_COURSE_ID]: [created, ...(prev[ANNOUNCEMENTS_COURSE_ID] || [])],
+      }));
+      setAnnouncementTitle('');
+      setAnnouncementMessage('');
+      setAnnouncementLink('');
+      setAnnouncementTargetCourseId('');
+      setAnnouncementExpiresAt('');
+      setAnnouncementImportant(false);
+      setAnnouncementPinned(false);
+    } catch (error) {
+      console.error(error);
+      alert(`Impossible de publier l'annonce. ${getErrorMessage(error)}`);
+    }
+  };
+
+  const startEditAnnouncement = (note: AnnouncementItem) => {
+    setEditingAnnouncementId(note.id);
+    setEditAnnouncementTitle(note.title);
+    setEditAnnouncementMessage(note.message || '');
+    setEditAnnouncementLink(note.link || '');
+    setEditAnnouncementTargetCourseId(note.targetCourseId || '');
+    setEditAnnouncementExpiresAt(note.expiresAt || '');
+    setEditAnnouncementImportant(Boolean(note.important));
+    setEditAnnouncementPinned(Boolean(note.pinned));
+  };
+
+  const cancelEditAnnouncement = () => {
+    setEditingAnnouncementId(null);
+    setEditAnnouncementTitle('');
+    setEditAnnouncementMessage('');
+    setEditAnnouncementLink('');
+    setEditAnnouncementTargetCourseId('');
+    setEditAnnouncementExpiresAt('');
+    setEditAnnouncementImportant(false);
+    setEditAnnouncementPinned(false);
+  };
+
+  const saveEditAnnouncement = async (note: AnnouncementItem) => {
+    const title = editAnnouncementTitle.trim();
+    const message = editAnnouncementMessage.trim();
+    if (!title || !message) return;
+
+    try {
+      const updated = await updateEvernoteNote(note.id, {
+        title,
+        content: serializeAnnouncementMeta({
+          message,
+          targetCourseId: editAnnouncementTargetCourseId || undefined,
+          expiresAt: editAnnouncementExpiresAt || undefined,
+          important: editAnnouncementImportant,
+          pinned: editAnnouncementPinned,
+        }),
+        link: editAnnouncementLink.trim() || undefined,
+      });
+      setEvernoteNotesByCourse((prev) => ({
+        ...prev,
+        [ANNOUNCEMENTS_COURSE_ID]: (prev[ANNOUNCEMENTS_COURSE_ID] || []).map((entry) =>
+          entry.id === updated.id ? updated : entry,
+        ),
+      }));
+      cancelEditAnnouncement();
+    } catch (error) {
+      console.error(error);
+      alert(`Impossible de modifier l'annonce. ${getErrorMessage(error)}`);
     }
   };
 
@@ -1072,6 +1756,13 @@ const App: React.FC = () => {
   };
 
   const openContentItem = async (item: LearningContentItem) => {
+    markDocumentViewed(item.courseId, item.id);
+    trackAppEvent({
+      type: 'content_open',
+      section: menuSection,
+      courseId: item.courseId,
+      label: item.title,
+    });
     if (item.type === 'LIEN') {
       window.open(item.url, '_blank', 'noopener,noreferrer');
       return;
@@ -1087,6 +1778,54 @@ const App: React.FC = () => {
       console.error(error);
       alert("Impossible d'ouvrir ce PDF pour le moment.");
     }
+  };
+
+  const openNoteLink = (note: EvernoteNote) => {
+    if (!note.link) return;
+    trackAppEvent({
+      type: 'note_open',
+      section: menuSection,
+      courseId: note.courseId,
+      label: note.title,
+    });
+    window.open(note.link, '_blank', 'noopener,noreferrer');
+  };
+
+  const openSearchResult = (result: SearchResultItem) => {
+    if (result.kind === 'announcement') {
+      setAnnouncementFilter(result.courseId && result.courseId !== ANNOUNCEMENTS_COURSE_ID ? result.courseId : 'ALL');
+      navigateToMenuSection('ANNONCES');
+      return;
+    }
+    if (result.kind === 'literature') {
+      const topic = visibleTopics.find((entry) => entry.id === result.courseId);
+      if (topic) {
+        openTopic(topic);
+      }
+      return;
+    }
+    if (result.kind === 'content') {
+      const item = Object.values(contentItemsByCourse).flat().find((entry) => entry.id === result.id);
+      if (item) {
+        void openContentItem(item);
+      }
+      return;
+    }
+    if (result.url) {
+      window.open(result.url, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    if (result.courseId && result.courseId !== GENERAL_COURSE_ID) {
+      const topic = visibleTopics.find((entry) => entry.id === result.courseId);
+      if (topic) openTopic(topic);
+    } else {
+      navigateToMenuSection('CONTENU');
+    }
+  };
+
+  const dismissOnboarding = () => {
+    writeLocalObject(ONBOARDING_STORAGE_KEY, true);
+    setShowOnboarding(false);
   };
 
   const ensureCourseSession = async (courseId: string): Promise<Flashcard[]> => {
@@ -1112,6 +1851,7 @@ const App: React.FC = () => {
   const openFlashcardReview = async () => {
     if (!resourceCourseId) return;
     if (courseFlashcards.length) {
+      recordFlashcardReview(resourceCourseId, courseFlashcards.length);
       setSessionData((prev) => ({
         ...prev,
         [resourceCourseId]: { topicId: resourceCourseId, summary: '', flashcards: courseFlashcards },
@@ -1121,12 +1861,14 @@ const App: React.FC = () => {
     }
     const existingCards = sessionData[resourceCourseId]?.flashcards || [];
     if (existingCards.length) {
+      recordFlashcardReview(resourceCourseId, existingCards.length);
       setShowFlashcards(true);
       return;
     }
 
     const loadedCards = await ensureCourseSession(resourceCourseId);
     if (loadedCards.length) {
+      recordFlashcardReview(resourceCourseId, loadedCards.length);
       setShowFlashcards(true);
     }
   };
@@ -1262,21 +2004,29 @@ const App: React.FC = () => {
 
             <div className="md:hidden mb-5 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
               <div className="flex gap-2 overflow-x-auto pb-2">
-                {mainMenuItems.map((item) => (
-                  <button
-                    key={`mobile-${item.label}`}
-                    type="button"
-                    onClick={() => navigateToMenuSection(item.key)}
-                    className={`shrink-0 inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-bold border transition-colors ${
-                      menuSection === item.key
-                        ? 'bg-indigo-600 text-white border-indigo-600'
-                        : 'bg-white text-slate-700 border-slate-300'
-                    }`}
-                  >
-                    <i className={`fas ${item.icon} text-xs`}></i>
-                    <span>{item.label}</span>
-                  </button>
-                ))}
+                {mainMenuItems.map((item) => {
+                  const badgeCount = getMenuBadgeCount(item.key);
+                  return (
+                    <button
+                      key={`mobile-${item.label}`}
+                      type="button"
+                      onClick={() => navigateToMenuSection(item.key)}
+                      className={`shrink-0 inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-bold border transition-colors ${
+                        menuSection === item.key
+                          ? 'bg-indigo-600 text-white border-indigo-600'
+                          : 'bg-white text-slate-700 border-slate-300'
+                      }`}
+                    >
+                      <i className={`fas ${item.icon} text-xs`}></i>
+                      <span>{item.label}</span>
+                      {badgeCount > 0 && (
+                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700">
+                          {badgeCount}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
               <button
                 type="button"
@@ -1301,21 +2051,29 @@ const App: React.FC = () => {
                   <p className="text-xs tracking-[0.24em] font-extrabold uppercase text-slate-500 mb-4">Menu principal</p>
 
                   <nav className="space-y-2">
-                    {mainMenuItems.map((item) => (
-                      <button
-                        key={item.label}
-                        type="button"
-                        onClick={() => navigateToMenuSection(item.key)}
-                        className={`w-full flex items-center gap-3 px-4 py-4 rounded-2xl text-left font-extrabold text-xl transition-colors ${
-                          item.key && menuSection === item.key
-                            ? 'bg-indigo-600 text-white'
-                            : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/70'
-                        }`}
-                      >
-                        <i className={`fas ${item.icon} text-lg`}></i>
-                        <span>{item.label}</span>
-                      </button>
-                    ))}
+                    {mainMenuItems.map((item) => {
+                      const badgeCount = getMenuBadgeCount(item.key);
+                      return (
+                        <button
+                          key={item.label}
+                          type="button"
+                          onClick={() => navigateToMenuSection(item.key)}
+                          className={`w-full flex items-center gap-3 px-4 py-4 rounded-2xl text-left font-extrabold text-xl transition-colors ${
+                            item.key && menuSection === item.key
+                              ? 'bg-indigo-600 text-white'
+                              : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/70'
+                          }`}
+                        >
+                          <i className={`fas ${item.icon} text-lg`}></i>
+                          <span>{item.label}</span>
+                          {badgeCount > 0 && (
+                            <span className="ml-auto rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">
+                              {badgeCount}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </nav>
 
                   <div className="mt-auto pt-6">
@@ -1338,28 +2096,284 @@ const App: React.FC = () => {
               <section className="flex-1">
                 {menuSection === 'ACCUEIL' && view === AppView.DASHBOARD && (
                   <div>
-                    <div className="mb-12 text-center">
-                      <h1 className="text-4xl md:text-6xl font-black text-slate-900 mb-4 leading-tight">
-                        Bienvenue dans votre appli d'étudiant(e)s en communication
-                      </h1>
-                      <p className="text-xl md:text-2xl text-slate-600 font-medium">
-                        Veuillez sélectionner un cours pour accéder à vos ressources personnalisées.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          logout();
-                          setIsAuthenticated(false);
-                          setUserRole('student');
-                          setUnlockedCourseIds([]);
-                          setLoginRole('student');
-                          setView(AppView.DASHBOARD);
-                          setSelectedTopic(null);
-                        }}
-                        className="mt-6 inline-flex items-center rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100"
-                      >
-                        Déconnexion
-                      </button>
+                    <div className="mb-8 bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                        <div>
+                          <h1 className="text-4xl md:text-5xl font-black text-slate-900 mb-3 leading-tight">
+                            Bienvenue dans votre espace d’apprentissage
+                          </h1>
+                          <p className="text-lg md:text-xl text-slate-600 font-medium">
+                            Sélectionne un cours, découvre les nouveautés et reprends rapidement là où tu t’étais arrêté(e).
+                          </p>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-3">
+                          {isProfessor && (
+                            <button
+                              type="button"
+                              onClick={() => setPreviewAsStudent((current) => !current)}
+                              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-colors ${
+                                previewAsStudent
+                                  ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                  : 'bg-slate-100 text-slate-700 border border-slate-200'
+                              }`}
+                            >
+                              <i className="fas fa-eye"></i>
+                              {previewAsStudent ? 'Aperçu étudiant actif' : 'Prévisualiser comme étudiant'}
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              logout();
+                              setIsAuthenticated(false);
+                              setUserRole('student');
+                              setPreviewAsStudent(false);
+                              setUnlockedCourseIds([]);
+                              setLoginRole('student');
+                              setView(AppView.DASHBOARD);
+                              setSelectedTopic(null);
+                            }}
+                            className="inline-flex items-center rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100"
+                          >
+                            Déconnexion
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="mt-6">
+                        <label className="block">
+                          <span className="text-sm font-semibold text-slate-700">Recherche rapide</span>
+                          <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(event) => setSearchQuery(event.target.value)}
+                            placeholder="Chercher dans les contenus, notes, annonces, lectures recommandées, littérature intéressante..."
+                            className="mt-2 w-full rounded-2xl border border-slate-300 px-5 py-4 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </label>
+                      </div>
+                    </div>
+
+                    {searchQuery.trim().length >= 2 && (
+                      <div className="mb-8 bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                        <div className="flex items-center justify-between gap-4 mb-6">
+                          <div>
+                            <h2 className="text-2xl font-black text-slate-900">Résultats de recherche</h2>
+                            <p className="text-slate-600">Recherche dans les contenus, notes, annonces et lectures.</p>
+                          </div>
+                          <span className="rounded-full bg-indigo-50 px-3 py-1 text-sm font-bold text-indigo-600">
+                            {searchResults.length} résultat{searchResults.length > 1 ? 's' : ''}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                          {searchResults.map((result) => (
+                            <button
+                              key={`${result.kind}-${result.id}`}
+                              type="button"
+                              onClick={() => openSearchResult(result)}
+                              className="text-left rounded-2xl border border-slate-200 p-5 hover:border-indigo-300 hover:shadow-sm transition-all"
+                            >
+                              <p className="text-xs uppercase tracking-wider font-bold text-indigo-500">{result.kind}</p>
+                              <h3 className="mt-2 text-lg font-black text-slate-900">{result.title}</h3>
+                              <p className="mt-2 text-sm text-slate-600 line-clamp-3">{result.description}</p>
+                            </button>
+                          ))}
+                          {searchResults.length === 0 && (
+                            <div className="rounded-2xl border border-slate-200 p-5 text-slate-500">
+                              Aucun résultat pour cette recherche.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
+                      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                        <h2 className="text-2xl font-black text-slate-900 mb-4">Dernières annonces</h2>
+                        <div className="space-y-3">
+                          {filteredAnnouncements.slice(0, 3).map((announcement) => (
+                            <article key={announcement.id} className="rounded-2xl border border-slate-200 p-4">
+                              <div className="flex flex-wrap items-center gap-2">
+                                {announcement.pinned && <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">Épinglée</span>}
+                                {announcement.important && <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-700">Important</span>}
+                                {isRecentDate(announcement.createdAt) && <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">Nouveau</span>}
+                              </div>
+                              <h3 className="mt-3 text-lg font-black text-slate-900">{announcement.title}</h3>
+                              <p className="mt-2 text-sm text-slate-600">{announcement.message}</p>
+                            </article>
+                          ))}
+                          {!filteredAnnouncements.length && (
+                            <div className="rounded-2xl border border-slate-200 p-4 text-slate-500">Aucune annonce active pour le moment.</div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                        <h2 className="text-2xl font-black text-slate-900 mb-4">Nouveaux contenus ajoutés</h2>
+                        <div className="space-y-3">
+                          {latestContentItems.map((item) => (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => { void openContentItem(item); }}
+                              className="w-full text-left rounded-2xl border border-slate-200 p-4 hover:border-indigo-300 hover:shadow-sm transition-all"
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <div>
+                                  <p className="text-xs font-bold uppercase tracking-wider text-indigo-500">{item.label}</p>
+                                  <h3 className="mt-1 text-lg font-black text-slate-900">{stripArchivedResourceTitle(item.title)}</h3>
+                                </div>
+                                {isRecentDate(item.createdAt) && (
+                                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+                                    Nouveau
+                                  </span>
+                                )}
+                              </div>
+                            </button>
+                          ))}
+                          {!latestContentItems.length && (
+                            <div className="rounded-2xl border border-slate-200 p-4 text-slate-500">Aucun nouveau contenu pour le moment.</div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                        <h2 className="text-2xl font-black text-slate-900 mb-4">Favoris / enregistrés pour plus tard</h2>
+                        <div className="space-y-3">
+                          {favorites.slice(0, 5).map((favorite) => (
+                            <button
+                              key={`${favorite.kind}-${favorite.id}`}
+                              type="button"
+                              onClick={() => {
+                                if (favorite.url) {
+                                  window.open(favorite.url, '_blank', 'noopener,noreferrer');
+                                  return;
+                                }
+                                if (favorite.courseId && favorite.courseId !== GENERAL_COURSE_ID) {
+                                  const topic = visibleTopics.find((entry) => entry.id === favorite.courseId);
+                                  if (topic) {
+                                    openTopic(topic);
+                                    return;
+                                  }
+                                }
+                                navigateToMenuSection('CONTENU');
+                              }}
+                              className="w-full text-left rounded-2xl border border-slate-200 p-4 hover:border-indigo-300 hover:shadow-sm transition-all"
+                            >
+                              <p className="text-xs font-bold uppercase tracking-wider text-indigo-500">{favorite.kind}</p>
+                              <p className="mt-2 text-lg font-black text-slate-900">{favorite.title}</p>
+                            </button>
+                          ))}
+                          {favorites.length === 0 && (
+                            <div className="rounded-2xl border border-slate-200 p-4 text-slate-500">
+                              Tu n&apos;as encore rien enregistré pour plus tard.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
+                      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                        <h2 className="text-2xl font-black text-slate-900 mb-3">Dernier épisode du balado</h2>
+                        {podcastEpisodes[0] ? (
+                          <>
+                            <h3 className="text-lg font-black text-slate-900">{podcastEpisodes[0].title}</h3>
+                            <p className="mt-2 text-sm text-slate-600">{podcastEpisodes[0].description || 'Disponible maintenant.'}</p>
+                            <button
+                              type="button"
+                              onClick={() => navigateToMenuSection('BALADO')}
+                              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-white font-bold hover:bg-indigo-700 transition-colors"
+                            >
+                              Écouter dans l’app
+                            </button>
+                          </>
+                        ) : (
+                          <p className="text-slate-500">Chargement des épisodes...</p>
+                        )}
+                      </div>
+
+                      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                        <h2 className="text-2xl font-black text-slate-900 mb-3">Prochain rendez-vous / lien utile</h2>
+                        <p className="text-slate-600">Prends rapidement un rendez-vous Zoom si tu as besoin d’un échange ou d’un suivi.</p>
+                        <a
+                          href={zoomSchedulerUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={() => trackExternalClick('zoom', 'Dashboard rendez-vous')}
+                          className="mt-4 inline-flex items-center gap-2 rounded-xl bg-orange-500 px-4 py-2 text-white font-bold hover:bg-orange-600 transition-colors"
+                        >
+                          Prendre un rendez-vous
+                        </a>
+                      </div>
+
+                      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                        <h2 className="text-2xl font-black text-slate-900 mb-3">Cours récemment mis à jour</h2>
+                        <div className="space-y-3">
+                          {recentUpdatedCourses.slice(0, 3).map((entry) => (
+                            <button
+                              key={entry.topic.id}
+                              type="button"
+                              onClick={() => startTopic(entry.topic)}
+                              className="w-full text-left rounded-2xl border border-slate-200 p-4 hover:border-indigo-300 transition-colors"
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-black text-slate-900">{entry.topic.title}</span>
+                                {entry.isNew && (
+                                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+                                    Nouveau
+                                  </span>
+                                )}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
+                      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                        <h2 className="text-2xl font-black text-slate-900 mb-4">À faire cette semaine</h2>
+                        <div className="space-y-3">
+                          {todoItems.map((item) => (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={item.action}
+                              className="w-full text-left rounded-2xl border border-slate-200 p-4 hover:border-indigo-300 hover:shadow-sm transition-all"
+                            >
+                              <p className="text-xs font-bold uppercase tracking-wider text-indigo-500">{item.title}</p>
+                              <p className="mt-2 text-lg font-black text-slate-900">{item.description}</p>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                        <h2 className="text-2xl font-black text-slate-900 mb-4">Progression étudiante</h2>
+                        <div className="space-y-4">
+                          {visibleTopics.slice(0, 4).map((topic) => {
+                            const progress = getCourseProgress(topic.id);
+                            return (
+                              <div key={`progress-${topic.id}`} className="rounded-2xl border border-slate-200 p-4">
+                                <div className="flex items-center justify-between gap-3">
+                                  <h3 className="font-black text-slate-900">{topic.title}</h3>
+                                  <span className="text-sm font-bold text-indigo-600">{progress.percentage}%</span>
+                                </div>
+                                <div className="mt-3 h-2 rounded-full bg-slate-100">
+                                  <div className="h-2 rounded-full bg-indigo-600" style={{ width: `${progress.percentage}%` }} />
+                                </div>
+                                <div className="mt-3 grid grid-cols-3 gap-2 text-xs text-slate-500">
+                                  <span>{progress.viewedDocuments} docs vus</span>
+                                  <span>{progress.reviewedFlashcards} cartes révisées</span>
+                                  <span>{progress.lastVisitedAt ? new Date(progress.lastVisitedAt).toLocaleDateString('fr-FR') : 'Jamais visité'}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -1384,6 +2398,11 @@ const App: React.FC = () => {
                           className="relative bg-white rounded-3xl p-8 md:p-10 cursor-pointer border border-slate-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all group overflow-hidden"
                         >
                           <div className={`absolute -top-8 -right-8 w-36 h-36 rounded-full ${style.bubble}`}></div>
+                          {courseUpdateMeta.find((entry) => entry.topic.id === topic.id)?.isNew && (
+                            <div className="absolute top-5 right-5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+                              Nouveau
+                            </div>
+                          )}
                           <div className={`relative w-16 h-16 rounded-2xl ${topicIconStyle} flex items-center justify-center mb-8 overflow-hidden`}>
                             {isCredibilityCourse ? (
                               <img src={ciLogo} alt="" className="w-12 h-12 object-contain" />
@@ -1393,6 +2412,12 @@ const App: React.FC = () => {
                           </div>
                           <h3 className="relative text-2xl md:text-3xl font-black text-slate-900 mb-3 leading-tight">{topic.title}</h3>
                           <p className="relative text-xl md:text-2xl text-slate-600 leading-relaxed">{topic.description}</p>
+                          {courseUpdateMeta.find((entry) => entry.topic.id === topic.id)?.newItemsCount ? (
+                            <div className="relative mt-4 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700">
+                              <i className="fas fa-sparkles text-xs"></i>
+                              {courseUpdateMeta.find((entry) => entry.topic.id === topic.id)?.newItemsCount} nouveauté(s)
+                            </div>
+                          ) : null}
                           {userRole === 'student' && lockedCourseIds.includes(topic.id) && (
                             <div className="relative mt-4 inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600">
                               <i className="fas fa-lock text-xs"></i>
@@ -1499,12 +2524,12 @@ const App: React.FC = () => {
                         )}
 
                         <div className="space-y-3">
-                          {selectedTopicContentItems.length === 0 && (
+                          {activeSelectedTopicContentItems.length === 0 && (
                             <div className="rounded-2xl border border-slate-200 p-4 text-slate-500">
                               Aucun document ou lien pour ce cours.
                             </div>
                           )}
-                          {selectedTopicContentItems.map((item, index) => (
+                          {activeSelectedTopicContentItems.map((item, index) => (
                             <article key={item.id} className="rounded-2xl border border-slate-200 p-4">
                               {canEditResources && editingContentId === item.id ? (
                                 <form
@@ -1556,7 +2581,7 @@ const App: React.FC = () => {
                                     <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ${item.type === 'PDF' ? 'bg-rose-50 text-rose-600' : 'bg-indigo-50 text-indigo-600'}`}>
                                       {item.type}
                                     </span>
-                                    <h3 className="text-lg font-black text-slate-900 mt-2">{item.title}</h3>
+                                    <h3 className="text-lg font-black text-slate-900 mt-2">{stripArchivedResourceTitle(item.title)}</h3>
                                     <button
                                       type="button"
                                       onClick={() => { void openContentItem(item); }}
@@ -1566,11 +2591,11 @@ const App: React.FC = () => {
                                       Ouvrir
                                     </button>
                                   </div>
-                                  {canEditResources && (
+                                  {canEditResources ? (
                                     <div className="flex items-center gap-3">
                                       <button
                                         type="button"
-                                        onClick={() => { void moveContentItem(item.courseId, item.id, 'up'); }}
+                                        onClick={() => { void moveContentItem(item.courseId, item.id, 'up', (entry) => !isArchivedResource(entry)); }}
                                         disabled={index === 0}
                                         className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
                                         title="Monter"
@@ -1579,12 +2604,26 @@ const App: React.FC = () => {
                                       </button>
                                       <button
                                         type="button"
-                                        onClick={() => { void moveContentItem(item.courseId, item.id, 'down'); }}
-                                        disabled={index === selectedTopicContentItems.length - 1}
+                                        onClick={() => { void moveContentItem(item.courseId, item.id, 'down', (entry) => !isArchivedResource(entry)); }}
+                                        disabled={index === activeSelectedTopicContentItems.length - 1}
                                         className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
                                         title="Descendre"
                                       >
                                         <i className="fas fa-arrow-down"></i>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => startDuplicateItem(item, 'content')}
+                                        className="text-sm font-semibold text-slate-600 hover:text-slate-800"
+                                      >
+                                        Dupliquer
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => { void toggleArchiveContentItem(item); }}
+                                        className="text-sm font-semibold text-amber-600 hover:text-amber-700"
+                                      >
+                                        Archiver
                                       </button>
                                       <button
                                         type="button"
@@ -1601,11 +2640,45 @@ const App: React.FC = () => {
                                         Supprimer
                                       </button>
                                     </div>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleFavorite({
+                                        id: item.id,
+                                        kind: 'resource',
+                                        courseId: item.courseId,
+                                        title: stripArchivedResourceTitle(item.title),
+                                        url: item.url,
+                                      })}
+                                      className={`text-sm font-semibold ${isFavorite(item.id, 'resource') ? 'text-amber-500' : 'text-slate-400 hover:text-amber-500'}`}
+                                      title="Enregistrer pour plus tard"
+                                    >
+                                      <i className={`fas ${isFavorite(item.id, 'resource') ? 'fa-star' : 'fa-star-half-stroke'}`}></i>
+                                    </button>
                                   )}
                                 </div>
                               )}
                             </article>
                           ))}
+                          {canEditResources && archivedSelectedTopicContentItems.length > 0 && (
+                            <div className="rounded-2xl border border-dashed border-slate-300 p-4">
+                              <h3 className="font-black text-slate-900 mb-3">Contenus archivés</h3>
+                              <div className="space-y-2">
+                                {archivedSelectedTopicContentItems.map((item) => (
+                                  <div key={`course-archived-${item.id}`} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-4 py-3">
+                                    <span className="font-semibold text-slate-700">{stripArchivedResourceTitle(item.title)}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => { void toggleArchiveContentItem(item); }}
+                                      className="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                                    >
+                                      Restaurer
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -1720,7 +2793,7 @@ const App: React.FC = () => {
                                       <p className="text-slate-700 mt-3 whitespace-pre-line">{note.content}</p>
                                     )}
                                   </div>
-                                  {canEditResources && (
+                                  {canEditResources ? (
                                     <div className="flex items-center gap-3">
                                       <button
                                         type="button"
@@ -1755,6 +2828,21 @@ const App: React.FC = () => {
                                         Supprimer
                                       </button>
                                     </div>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleFavorite({
+                                        id: note.id,
+                                        kind: 'note',
+                                        courseId: note.courseId,
+                                        title: note.title,
+                                        url: note.link,
+                                      })}
+                                      className={`text-sm font-semibold ${isFavorite(note.id, 'note') ? 'text-amber-500' : 'text-slate-400 hover:text-amber-500'}`}
+                                      title="Enregistrer pour plus tard"
+                                    >
+                                      <i className={`fas ${isFavorite(note.id, 'note') ? 'fa-star' : 'fa-star-half-stroke'}`}></i>
+                                    </button>
                                   )}
                                 </div>
                               )}
@@ -1828,7 +2916,7 @@ const App: React.FC = () => {
                                   </a>
                                 )}
                               </div>
-                              {canEditResources && (
+                              {canEditResources ? (
                                 <div className="flex items-center gap-3">
                                   <button
                                     type="button"
@@ -1870,6 +2958,21 @@ const App: React.FC = () => {
                                     Supprimer
                                   </button>
                                 </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleFavorite({
+                                    id: note.id,
+                                    kind: 'literature',
+                                    courseId: note.courseId.replace(PROFESSOR_PROFILE_PREFIX, ''),
+                                    title: note.title.replace(PROFESSOR_LITERATURE_PREFIX, '').trim(),
+                                    url: note.link,
+                                  })}
+                                  className={`text-sm font-semibold ${isFavorite(note.id, 'literature') ? 'text-amber-500' : 'text-slate-400 hover:text-amber-500'}`}
+                                  title="Enregistrer pour plus tard"
+                                >
+                                  <i className={`fas ${isFavorite(note.id, 'literature') ? 'fa-star' : 'fa-star-half-stroke'}`}></i>
+                                </button>
                               )}
                             </div>
                           </div>
@@ -2184,14 +3287,14 @@ const App: React.FC = () => {
 
                     <div className="space-y-4">
                       <h2 className="text-2xl font-black text-slate-900">
-                        Contenus généraux ({filteredContentItems.length})
+                        Contenus généraux ({activeGeneralContentItems.length})
                       </h2>
-                      {filteredContentItems.length === 0 && (
+                      {activeGeneralContentItems.length === 0 && (
                         <div className="bg-white rounded-2xl border border-slate-200 p-6 text-slate-500">
                           Aucun document ou lien général pour le moment.
                         </div>
                       )}
-                      {filteredContentItems.map((item, index) => (
+                      {activeGeneralContentItems.map((item, index) => (
                         <article key={item.id} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
                           {canEditResources && editingContentId === item.id ? (
                             <form
@@ -2245,7 +3348,7 @@ const App: React.FC = () => {
                                     {item.type}
                                   </span>
                                 </div>
-                                <h3 className="text-xl font-black text-slate-900">{item.title}</h3>
+                                <h3 className="text-xl font-black text-slate-900">{stripArchivedResourceTitle(item.title)}</h3>
                                 <p className="text-sm text-slate-400 mt-1">
                                   {new Date(item.createdAt).toLocaleString('fr-FR')}
                                 </p>
@@ -2260,7 +3363,7 @@ const App: React.FC = () => {
                                   Ouvrir
                                 </button>
                               </div>
-                              {canEditResources && (
+                              {canEditResources ? (
                                 <div className="flex items-center gap-3">
                                   <button
                                     type="button"
@@ -2273,8 +3376,8 @@ const App: React.FC = () => {
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => { void moveContentItem(item.courseId, item.id, 'down'); }}
-                                    disabled={index === filteredContentItems.length - 1}
+                                    onClick={() => { void moveContentItem(item.courseId, item.id, 'down', (entry) => !isArchivedResource(entry)); }}
+                                    disabled={index === activeGeneralContentItems.length - 1}
                                     className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
                                     title="Descendre"
                                   >
@@ -2289,17 +3392,70 @@ const App: React.FC = () => {
                                   </button>
                                   <button
                                     type="button"
+                                    onClick={() => startDuplicateItem(item, 'content')}
+                                    className="text-sm font-semibold text-slate-600 hover:text-slate-800"
+                                  >
+                                    Dupliquer
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => { void toggleArchiveContentItem(item); }}
+                                    className="text-sm font-semibold text-amber-600 hover:text-amber-700"
+                                  >
+                                    Archiver
+                                  </button>
+                                  <button
+                                    type="button"
                                     onClick={() => deleteContentItem(item.id)}
                                     className="text-sm font-semibold text-rose-600 hover:text-rose-700"
                                   >
                                     Supprimer
                                   </button>
                                 </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleFavorite({
+                                    id: item.id,
+                                    kind: 'resource',
+                                    courseId: item.courseId,
+                                    title: stripArchivedResourceTitle(item.title),
+                                    url: item.url,
+                                  })}
+                                  className={`text-sm font-semibold ${isFavorite(item.id, 'resource') ? 'text-amber-500' : 'text-slate-400 hover:text-amber-500'}`}
+                                  title="Enregistrer pour plus tard"
+                                >
+                                  <i className={`fas ${isFavorite(item.id, 'resource') ? 'fa-star' : 'fa-star-half-stroke'}`}></i>
+                                </button>
                               )}
                             </div>
                           )}
                         </article>
                       ))}
+                      {canEditResources && archivedGeneralContentItems.length > 0 && (
+                        <div className="mt-6">
+                          <h3 className="text-lg font-black text-slate-900 mb-3">Contenus archivés</h3>
+                          <div className="space-y-3">
+                            {archivedGeneralContentItems.map((item) => (
+                              <article key={`archived-${item.id}`} className="bg-slate-50 rounded-2xl border border-slate-200 p-5">
+                                <div className="flex items-center justify-between gap-3">
+                                  <div>
+                                    <h4 className="font-black text-slate-900">{stripArchivedResourceTitle(item.title)}</h4>
+                                    <p className="text-sm text-slate-500 mt-1">Archivé</p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => { void toggleArchiveContentItem(item); }}
+                                    className="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                                  >
+                                    Restaurer
+                                  </button>
+                                </div>
+                              </article>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
@@ -2429,7 +3585,7 @@ const App: React.FC = () => {
                                       </a>
                                     )}
                                   </div>
-                                  {canEditResources && (
+                                  {canEditResources ? (
                                     <div className="flex items-center gap-3">
                                       <button
                                         type="button"
@@ -2464,6 +3620,21 @@ const App: React.FC = () => {
                                         Supprimer
                                       </button>
                                     </div>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleFavorite({
+                                        id: note.id,
+                                        kind: 'note',
+                                        courseId: note.courseId,
+                                        title: note.title,
+                                        url: note.link,
+                                      })}
+                                      className={`text-sm font-semibold ${isFavorite(note.id, 'note') ? 'text-amber-500' : 'text-slate-400 hover:text-amber-500'}`}
+                                      title="Enregistrer pour plus tard"
+                                    >
+                                      <i className={`fas ${isFavorite(note.id, 'note') ? 'fa-star' : 'fa-star-half-stroke'}`}></i>
+                                    </button>
                                   )}
                                 </div>
                                 {note.content && (
@@ -2489,171 +3660,303 @@ const App: React.FC = () => {
                       </p>
                     </div>
 
-                    {canEditResources && (
-                      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-                        <h2 className="text-2xl font-black text-slate-900 mb-6">Publier une annonce</h2>
-                        <form onSubmit={addEvernoteNote} className="space-y-4">
-                          <label className="block">
-                            <span className="text-sm font-semibold text-slate-700">Titre</span>
-                            <input
-                              type="text"
-                              value={noteTitle}
-                              onChange={(event) => setNoteTitle(event.target.value)}
-                              placeholder="Ex: Examen - date importante"
-                              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                              required
-                            />
-                          </label>
-                          <label className="block">
-                            <span className="text-sm font-semibold text-slate-700">Message</span>
-                            <textarea
-                              value={noteContent}
-                              onChange={(event) => setNoteContent(event.target.value)}
-                              placeholder="Écris ton annonce ici..."
-                              className="mt-2 w-full min-h-32 rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            />
-                          </label>
-                          <label className="block">
-                            <span className="text-sm font-semibold text-slate-700">Lien (optionnel)</span>
-                            <input
-                              type="url"
-                              value={noteLink}
-                              onChange={(event) => setNoteLink(event.target.value)}
-                              placeholder="https://..."
-                              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            />
-                          </label>
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                      {canEditResources && (
+                        <div className="xl:col-span-2 bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                          <h2 className="text-2xl font-black text-slate-900 mb-6">Publier une annonce</h2>
+                          <form onSubmit={addAnnouncement} className="space-y-4">
+                            <label className="block">
+                              <span className="text-sm font-semibold text-slate-700">Titre</span>
+                              <input
+                                type="text"
+                                value={announcementTitle}
+                                onChange={(event) => setAnnouncementTitle(event.target.value)}
+                                placeholder="Ex: Examen - date importante"
+                                className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                required
+                              />
+                            </label>
+                            <label className="block">
+                              <span className="text-sm font-semibold text-slate-700">Message</span>
+                              <textarea
+                                value={announcementMessage}
+                                onChange={(event) => setAnnouncementMessage(event.target.value)}
+                                placeholder="Écris ton annonce ici..."
+                                className="mt-2 w-full min-h-32 rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                required
+                              />
+                            </label>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <label className="block">
+                                <span className="text-sm font-semibold text-slate-700">Lien (optionnel)</span>
+                                <input
+                                  type="url"
+                                  value={announcementLink}
+                                  onChange={(event) => setAnnouncementLink(event.target.value)}
+                                  placeholder="https://..."
+                                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                />
+                              </label>
+                              <label className="block">
+                                <span className="text-sm font-semibold text-slate-700">Cours visé</span>
+                                <select
+                                  value={announcementTargetCourseId}
+                                  onChange={(event) => setAnnouncementTargetCourseId(event.target.value)}
+                                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                >
+                                  <option value="">Annonce générale</option>
+                                  {visibleTopics.map((topic) => (
+                                    <option key={`announcement-course-${topic.id}`} value={topic.id}>{topic.title}</option>
+                                  ))}
+                                </select>
+                              </label>
+                              <label className="block">
+                                <span className="text-sm font-semibold text-slate-700">Date d&apos;expiration (optionnelle)</span>
+                                <input
+                                  type="date"
+                                  value={announcementExpiresAt}
+                                  onChange={(event) => setAnnouncementExpiresAt(event.target.value)}
+                                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                />
+                              </label>
+                              <div className="flex flex-col justify-end gap-3 rounded-2xl border border-slate-200 px-4 py-4">
+                                <label className="inline-flex items-center gap-3 text-sm font-semibold text-slate-700">
+                                  <input
+                                    type="checkbox"
+                                    checked={announcementPinned}
+                                    onChange={(event) => setAnnouncementPinned(event.target.checked)}
+                                    className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                  />
+                                  Épingler en haut
+                                </label>
+                                <label className="inline-flex items-center gap-3 text-sm font-semibold text-slate-700">
+                                  <input
+                                    type="checkbox"
+                                    checked={announcementImportant}
+                                    onChange={(event) => setAnnouncementImportant(event.target.checked)}
+                                    className="h-4 w-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
+                                  />
+                                  Marquer comme importante
+                                </label>
+                              </div>
+                            </div>
 
-                          <button
-                            type="submit"
-                            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-white font-bold hover:bg-indigo-700 transition-colors"
-                          >
-                            <i className="fas fa-plus"></i>
-                            Publier l'annonce
-                          </button>
-                        </form>
+                            <button
+                              type="submit"
+                              className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-white font-bold hover:bg-indigo-700 transition-colors"
+                            >
+                              <i className="fas fa-plus"></i>
+                              Publier l&apos;annonce
+                            </button>
+                          </form>
+                        </div>
+                      )}
+
+                      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                        <h2 className="text-2xl font-black text-slate-900 mb-6">Filtrer les annonces</h2>
+                        <div className="space-y-4">
+                          <label className="block">
+                            <span className="text-sm font-semibold text-slate-700">Vue</span>
+                            <select
+                              value={announcementFilter}
+                              onChange={(event) => setAnnouncementFilter(event.target.value)}
+                              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            >
+                              <option value="ALL">Toutes les annonces</option>
+                              <option value="GENERAL">Annonces générales</option>
+                              <option value="CURRENT">Annonces générales + cours actuel</option>
+                              {visibleTopics.map((topic) => (
+                                <option key={`announcement-filter-${topic.id}`} value={topic.id}>{topic.title}</option>
+                              ))}
+                            </select>
+                          </label>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Actives</p>
+                              <p className="mt-2 text-3xl font-black text-slate-900">{filteredAnnouncements.length}</p>
+                            </div>
+                            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Nouvelles</p>
+                              <p className="mt-2 text-3xl font-black text-slate-900">{recentAnnouncementCount}</p>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    )}
+                    </div>
 
                     <div className="space-y-4">
                       <h2 className="text-2xl font-black text-slate-900">
-                        Annonces ({announcementNotes.length})
+                        Annonces ({filteredAnnouncements.length})
                       </h2>
-                      {announcementNotes.length === 0 && (
+                      {filteredAnnouncements.length === 0 && (
                         <div className="bg-white rounded-2xl border border-slate-200 p-6 text-slate-500">
-                          Aucune annonce pour le moment.
+                          Aucune annonce active pour ce filtre.
                         </div>
                       )}
-                      {announcementNotes.map((note, index) => (
-                        <article key={note.id} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                          {canEditResources && editingNoteId === note.id ? (
-                            <form
-                              onSubmit={(event) => {
-                                event.preventDefault();
-                                void saveEditNote(note);
-                              }}
-                              className="space-y-3"
-                            >
-                              <input
-                                type="text"
-                                value={editNoteTitle}
-                                onChange={(event) => setEditNoteTitle(event.target.value)}
-                                className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                required
-                              />
-                              <textarea
-                                value={editNoteContent}
-                                onChange={(event) => setEditNoteContent(event.target.value)}
-                                className="w-full min-h-24 rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                placeholder="Message de l'annonce"
-                              />
-                              <input
-                                type="url"
-                                value={editNoteLink}
-                                onChange={(event) => setEditNoteLink(event.target.value)}
-                                className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                placeholder="https://..."
-                              />
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="submit"
-                                  className="rounded-xl bg-indigo-600 px-4 py-2 text-white text-sm font-bold hover:bg-indigo-700"
-                                >
-                                  Enregistrer
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={cancelEditNote}
-                                  className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100"
-                                >
-                                  Annuler
-                                </button>
-                              </div>
-                            </form>
-                          ) : (
-                            <>
-                              <div className="flex items-start justify-between gap-4">
-                                <div>
-                                  <h3 className="text-xl font-black text-slate-900">{note.title}</h3>
-                                  <p className="text-sm text-slate-500 mt-1">
-                                    Date de parution : {new Date(note.createdAt).toLocaleString('fr-FR')}
-                                  </p>
-                                  {note.link && (
-                                    <a
-                                      href={note.link}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="inline-flex items-center gap-2 mt-3 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
-                                    >
-                                      <i className="fas fa-up-right-from-square"></i>
-                                      Ouvrir le lien
-                                    </a>
+                      {filteredAnnouncements.map((announcement, index) => {
+                        const targetTopic = announcement.targetCourseId
+                          ? visibleTopics.find((topic) => topic.id === announcement.targetCourseId)
+                          : null;
+                        return (
+                          <article key={announcement.id} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                            {canEditResources && editingAnnouncementId === announcement.id ? (
+                              <form
+                                onSubmit={(event) => {
+                                  event.preventDefault();
+                                  void saveEditAnnouncement(announcement);
+                                }}
+                                className="space-y-4"
+                              >
+                                <input
+                                  type="text"
+                                  value={editAnnouncementTitle}
+                                  onChange={(event) => setEditAnnouncementTitle(event.target.value)}
+                                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  required
+                                />
+                                <textarea
+                                  value={editAnnouncementMessage}
+                                  onChange={(event) => setEditAnnouncementMessage(event.target.value)}
+                                  className="w-full min-h-28 rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  required
+                                />
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <input
+                                    type="url"
+                                    value={editAnnouncementLink}
+                                    onChange={(event) => setEditAnnouncementLink(event.target.value)}
+                                    placeholder="https://..."
+                                    className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  />
+                                  <select
+                                    value={editAnnouncementTargetCourseId}
+                                    onChange={(event) => setEditAnnouncementTargetCourseId(event.target.value)}
+                                    className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  >
+                                    <option value="">Annonce générale</option>
+                                    {visibleTopics.map((topic) => (
+                                      <option key={`edit-announcement-course-${topic.id}`} value={topic.id}>{topic.title}</option>
+                                    ))}
+                                  </select>
+                                  <input
+                                    type="date"
+                                    value={editAnnouncementExpiresAt}
+                                    onChange={(event) => setEditAnnouncementExpiresAt(event.target.value)}
+                                    className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  />
+                                  <div className="flex flex-col justify-center gap-3 rounded-2xl border border-slate-200 px-4 py-3">
+                                    <label className="inline-flex items-center gap-3 text-sm font-semibold text-slate-700">
+                                      <input
+                                        type="checkbox"
+                                        checked={editAnnouncementPinned}
+                                        onChange={(event) => setEditAnnouncementPinned(event.target.checked)}
+                                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                      />
+                                      Épingler en haut
+                                    </label>
+                                    <label className="inline-flex items-center gap-3 text-sm font-semibold text-slate-700">
+                                      <input
+                                        type="checkbox"
+                                        checked={editAnnouncementImportant}
+                                        onChange={(event) => setEditAnnouncementImportant(event.target.checked)}
+                                        className="h-4 w-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
+                                      />
+                                      Importante
+                                    </label>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="submit"
+                                    className="rounded-xl bg-indigo-600 px-4 py-2 text-white text-sm font-bold hover:bg-indigo-700"
+                                  >
+                                    Enregistrer
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={cancelEditAnnouncement}
+                                    className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100"
+                                  >
+                                    Annuler
+                                  </button>
+                                </div>
+                              </form>
+                            ) : (
+                              <>
+                                <div className="flex items-start justify-between gap-4">
+                                  <div className="flex-1">
+                                    <div className="flex flex-wrap items-center gap-2 mb-3">
+                                      {announcement.pinned && <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">Épinglée</span>}
+                                      {announcement.important && <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-700">Important</span>}
+                                      {isRecentDate(announcement.createdAt) && <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">Nouveau</span>}
+                                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+                                        {targetTopic ? targetTopic.title : 'Générale'}
+                                      </span>
+                                      {announcement.expiresAt && (
+                                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+                                          Expire le {new Date(announcement.expiresAt).toLocaleDateString('fr-FR')}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <h3 className="text-xl font-black text-slate-900">{announcement.title}</h3>
+                                    <p className="text-sm text-slate-500 mt-1">
+                                      Date de parution : {new Date(announcement.createdAt).toLocaleString('fr-FR')}
+                                    </p>
+                                    <p className="text-slate-700 mt-4 whitespace-pre-line">{announcement.message}</p>
+                                    {announcement.link && (
+                                      <a
+                                        href={announcement.link}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-2 mt-4 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                                      >
+                                        <i className="fas fa-up-right-from-square"></i>
+                                        Ouvrir le lien
+                                      </a>
+                                    )}
+                                  </div>
+                                  {canEditResources && (
+                                    <div className="flex items-center gap-3">
+                                      <button
+                                        type="button"
+                                        onClick={() => { void moveNoteItem(announcement.courseId, announcement.id, 'up'); }}
+                                        disabled={index === 0}
+                                        className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                                        title="Monter"
+                                      >
+                                        <i className="fas fa-arrow-up"></i>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => { void moveNoteItem(announcement.courseId, announcement.id, 'down'); }}
+                                        disabled={index === filteredAnnouncements.length - 1}
+                                        className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                                        title="Descendre"
+                                      >
+                                        <i className="fas fa-arrow-down"></i>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => startEditAnnouncement(announcement)}
+                                        className="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                                      >
+                                        Modifier
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => deleteEvernoteNote(announcement.id)}
+                                        className="text-sm font-semibold text-rose-600 hover:text-rose-700"
+                                      >
+                                        Supprimer
+                                      </button>
+                                    </div>
                                   )}
                                 </div>
-                                {canEditResources && (
-                                  <div className="flex items-center gap-3">
-                                    <button
-                                      type="button"
-                                      onClick={() => { void moveNoteItem(note.courseId, note.id, 'up'); }}
-                                      disabled={index === 0}
-                                      className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
-                                      title="Monter"
-                                    >
-                                      <i className="fas fa-arrow-up"></i>
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => { void moveNoteItem(note.courseId, note.id, 'down'); }}
-                                      disabled={index === announcementNotes.length - 1}
-                                      className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
-                                      title="Descendre"
-                                    >
-                                      <i className="fas fa-arrow-down"></i>
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => startEditNote(note)}
-                                      className="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
-                                    >
-                                      Modifier
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => deleteEvernoteNote(note.id)}
-                                      className="text-sm font-semibold text-rose-600 hover:text-rose-700"
-                                    >
-                                      Supprimer
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                              {note.content && (
-                                <p className="text-slate-700 mt-4 whitespace-pre-line">{note.content}</p>
-                              )}
-                            </>
-                          )}
-                        </article>
-                      ))}
+                              </>
+                            )}
+                          </article>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -2727,6 +4030,7 @@ const App: React.FC = () => {
                       href={spotifyShowUrl}
                       target="_blank"
                       rel="noreferrer"
+                      onClick={() => trackExternalClick('blog', 'Spotify show')}
                       className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-white font-bold hover:bg-emerald-700 transition-colors"
                     >
                       <i className="fas fa-up-right-from-square"></i>
@@ -2757,6 +4061,7 @@ const App: React.FC = () => {
                       href={blogUrl}
                       target="_blank"
                       rel="noreferrer"
+                      onClick={() => trackExternalClick('blog', 'Blog externe')}
                       className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-white font-bold hover:bg-indigo-700 transition-colors"
                     >
                       <i className="fas fa-up-right-from-square"></i>
@@ -3010,6 +4315,14 @@ const App: React.FC = () => {
                                   </button>
                                   <button
                                     type="button"
+                                    onClick={() => startDuplicateItem(card, 'flashcard')}
+                                    className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-slate-700 font-bold hover:bg-slate-100 transition-colors"
+                                  >
+                                    <i className="fas fa-copy"></i>
+                                    Dupliquer
+                                  </button>
+                                  <button
+                                    type="button"
                                     onClick={() => void deleteCourseFlashcard(card.id)}
                                     className="inline-flex items-center gap-2 rounded-xl border border-rose-200 px-4 py-2 text-rose-600 font-bold hover:bg-rose-50 transition-colors"
                                   >
@@ -3087,6 +4400,7 @@ const App: React.FC = () => {
                           href={contactUrl}
                           target="_blank"
                           rel="noreferrer"
+                          onClick={() => trackExternalClick('contact', 'Contact page')}
                           className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-white font-bold hover:bg-indigo-700 transition-colors"
                         >
                           Ouvrir le formulaire de contact
@@ -3105,6 +4419,7 @@ const App: React.FC = () => {
                           href={zoomSchedulerUrl}
                           target="_blank"
                           rel="noreferrer"
+                          onClick={() => trackExternalClick('zoom', 'Contact zoom')}
                           className="inline-flex items-center gap-2 rounded-xl bg-orange-500 px-5 py-3 text-white font-bold hover:bg-orange-600 transition-colors"
                         >
                           Ouvrir le calendrier Zoom
@@ -3123,6 +4438,7 @@ const App: React.FC = () => {
                           href={assistantUrl}
                           target="_blank"
                           rel="noreferrer"
+                          onClick={() => trackExternalClick('contact', 'Assistant contact')}
                           className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-white font-bold hover:bg-emerald-700 transition-colors"
                         >
                           Ouvrir l'Assistant IA
@@ -3179,6 +4495,79 @@ const App: React.FC = () => {
                                 : 'Aucun accès enregistré'}
                             </p>
                           )}
+
+                          <div className="mt-8 border-t border-slate-200 pt-8">
+                            <h3 className="text-xl font-black text-slate-900 mb-2">Statistiques détaillées</h3>
+                            <p className="text-slate-600 mb-6">
+                              Pages les plus visitées, cours les plus consultés et clics externes.
+                            </p>
+
+                            {analyticsSummaryLoading && (
+                              <p className="text-slate-500">Chargement des statistiques détaillées...</p>
+                            )}
+
+                            {analyticsSummaryError && (
+                              <p className="text-rose-600">{analyticsSummaryError}</p>
+                            )}
+
+                            {!analyticsSummaryLoading && !analyticsSummaryError && analyticsSummary && (
+                              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
+                                  <h4 className="font-black text-slate-900 mb-4">Pages les plus visitées</h4>
+                                  <div className="space-y-3">
+                                    {analyticsSummary.pageViews.length > 0 ? analyticsSummary.pageViews.slice(0, 5).map((entry) => (
+                                      <div key={`page-view-${entry.section}`} className="flex items-center justify-between gap-4">
+                                        <span className="text-slate-700">{entry.section}</span>
+                                        <span className="font-black text-slate-900">{entry.count}</span>
+                                      </div>
+                                    )) : (
+                                      <p className="text-slate-500">Aucune donnée pour le moment.</p>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
+                                  <h4 className="font-black text-slate-900 mb-4">Cours les plus consultés</h4>
+                                  <div className="space-y-3">
+                                    {analyticsSummary.courseViews.length > 0 ? analyticsSummary.courseViews.slice(0, 5).map((entry) => (
+                                      <div key={`course-view-${entry.courseId}`} className="flex items-center justify-between gap-4">
+                                        <span className="text-slate-700">{visibleTopics.find((topic) => topic.id === entry.courseId)?.title || entry.courseId}</span>
+                                        <span className="font-black text-slate-900">{entry.count}</span>
+                                      </div>
+                                    )) : (
+                                      <p className="text-slate-500">Aucune donnée pour le moment.</p>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
+                                  <h4 className="font-black text-slate-900 mb-4">Balado</h4>
+                                  <div className="flex items-center justify-between gap-4">
+                                    <span className="text-slate-700">Ouvertures de la page / épisodes</span>
+                                    <span className="font-black text-slate-900">{analyticsSummary.podcastOpens}</span>
+                                  </div>
+                                </div>
+
+                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
+                                  <h4 className="font-black text-slate-900 mb-4">Clics externes</h4>
+                                  <div className="space-y-3">
+                                    <div className="flex items-center justify-between gap-4">
+                                      <span className="text-slate-700">Blog</span>
+                                      <span className="font-black text-slate-900">{analyticsSummary.externalClicks.blog}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-4">
+                                      <span className="text-slate-700">Contact</span>
+                                      <span className="font-black text-slate-900">{analyticsSummary.externalClicks.contact}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-4">
+                                      <span className="text-slate-700">Zoom</span>
+                                      <span className="font-black text-slate-900">{analyticsSummary.externalClicks.zoom}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -3196,6 +4585,91 @@ const App: React.FC = () => {
           </>
         )}
       </main>
+
+      {showOnboarding && effectiveUserRole === 'student' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4">
+          <div className="w-full max-w-2xl rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl">
+            <p className="text-sm font-bold uppercase tracking-[0.2em] text-indigo-500">Bienvenue</p>
+            <h2 className="mt-2 text-3xl font-black text-slate-900">Comment utiliser la plateforme</h2>
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                <h3 className="font-black text-slate-900">Par où commencer</h3>
+                <p className="mt-2 text-slate-600">Va sur la page Accueil pour voir les dernières annonces, les nouveaux contenus et ce qu&apos;il y a à faire cette semaine.</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                <h3 className="font-black text-slate-900">Où trouver vos contenus</h3>
+                <p className="mt-2 text-slate-600">Les documents généraux sont dans Contenu. Chaque cours possède aussi son propre contenu, ses lectures et ses cartes mémo.</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                <h3 className="font-black text-slate-900">Comment réviser avec les cartes mémo</h3>
+                <p className="mt-2 text-slate-600">Ouvre Cartes mémo, charge les cartes du cours puis lance la révision en mode flashcards.</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                <h3 className="font-black text-slate-900">Fonctions utiles</h3>
+                <p className="mt-2 text-slate-600">Tu peux enregistrer des favoris, utiliser la recherche globale, écouter le balado et consulter les annonces importantes.</p>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={dismissOnboarding}
+                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-white font-bold hover:bg-indigo-700 transition-colors"
+              >
+                C&apos;est compris
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {duplicateState && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4">
+          <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl">
+            <p className="text-sm font-bold uppercase tracking-[0.2em] text-indigo-500">Dupliquer</p>
+            <h2 className="mt-2 text-3xl font-black text-slate-900">
+              {duplicateState.kind === 'content' ? 'Dupliquer un contenu' : 'Dupliquer une carte mémo'}
+            </h2>
+            <p className="mt-3 text-slate-600">
+              Choisis le cours de destination pour copier <span className="font-semibold">{duplicateState.item.title || duplicateState.item.question}</span>.
+            </p>
+
+            <label className="mt-6 block">
+              <span className="text-sm font-semibold text-slate-700">Cours de destination</span>
+              <select
+                value={duplicateTargetCourseId}
+                onChange={(event) => setDuplicateTargetCourseId(event.target.value)}
+                className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">Choisir un cours</option>
+                {visibleTopics.map((topic) => (
+                  <option key={`duplicate-topic-${topic.id}`} value={topic.id}>{topic.title}</option>
+                ))}
+              </select>
+            </label>
+
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setDuplicateState(null);
+                  setDuplicateTargetCourseId('');
+                }}
+                className="inline-flex items-center justify-center rounded-xl border border-slate-300 px-5 py-3 text-slate-700 font-bold hover:bg-slate-100 transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={() => { void confirmDuplicate(); }}
+                disabled={!duplicateTargetCourseId}
+                className="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-5 py-3 text-white font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Dupliquer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showFlashcards && flashcardsForModal.length > 0 && (
         <FlashcardDeck 
