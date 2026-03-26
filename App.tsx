@@ -768,6 +768,7 @@ const App: React.FC = () => {
     { label: 'Annonces', icon: 'fa-bullhorn', key: 'ANNONCES' as const },
     { label: 'Accueil', icon: 'fa-border-all', key: 'ACCUEIL' as const },
     { label: 'Contenu', icon: 'fa-file-lines', key: 'CONTENU' as const },
+    { label: 'Cours', icon: 'fa-graduation-cap', key: 'COURS' as const },
     { label: 'Cartes mémo', icon: 'fa-bolt', key: 'MEMO' as const },
     { label: 'Balado', icon: 'fa-podcast', key: 'BALADO' as const },
     { label: 'Blog', icon: 'fa-newspaper', key: 'BLOG' as const },
@@ -2376,6 +2377,18 @@ const App: React.FC = () => {
                       </div>
                     </div>
 
+                  </div>
+                )}
+
+                {menuSection === 'COURS' && (
+                  <div className="space-y-8">
+                    <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                      <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">Cours</h1>
+                      <p className="text-slate-600 text-lg">
+                        Accède rapidement à chacun de tes cours.
+                      </p>
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       {visibleTopics.map((topic, index) => {
                         const style = cardAccentStyles[index % cardAccentStyles.length];
@@ -2392,44 +2405,44 @@ const App: React.FC = () => {
                             ? 'text-[#0b1f5f]'
                             : ctaAccentClasses[index % ctaAccentClasses.length];
                         return (
-                        <div 
-                          key={topic.id}
-                          onClick={() => startTopic(topic)}
-                          className="relative bg-white rounded-3xl p-8 md:p-10 cursor-pointer border border-slate-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all group overflow-hidden"
-                        >
-                          <div className={`absolute -top-8 -right-8 w-36 h-36 rounded-full ${style.bubble}`}></div>
-                          {courseUpdateMeta.find((entry) => entry.topic.id === topic.id)?.isNew && (
-                            <div className="absolute top-5 right-5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
-                              Nouveau
-                            </div>
-                          )}
-                          <div className={`relative w-16 h-16 rounded-2xl ${topicIconStyle} flex items-center justify-center mb-8 overflow-hidden`}>
-                            {isCredibilityCourse ? (
-                              <img src={ciLogo} alt="" className="w-12 h-12 object-contain" />
-                            ) : (
-                              <i className={`fas ${topic.icon} text-2xl`}></i>
+                          <div
+                            key={topic.id}
+                            onClick={() => startTopic(topic)}
+                            className="relative bg-white rounded-3xl p-8 md:p-10 cursor-pointer border border-slate-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all group overflow-hidden"
+                          >
+                            <div className={`absolute -top-8 -right-8 w-36 h-36 rounded-full ${style.bubble}`}></div>
+                            {courseUpdateMeta.find((entry) => entry.topic.id === topic.id)?.isNew && (
+                              <div className="absolute top-5 right-5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+                                Nouveau
+                              </div>
                             )}
-                          </div>
-                          <h3 className="relative text-2xl md:text-3xl font-black text-slate-900 mb-3 leading-tight">{topic.title}</h3>
-                          <p className="relative text-xl md:text-2xl text-slate-600 leading-relaxed">{topic.description}</p>
-                          {courseUpdateMeta.find((entry) => entry.topic.id === topic.id)?.newItemsCount ? (
-                            <div className="relative mt-4 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700">
-                              <i className="fas fa-sparkles text-xs"></i>
-                              {courseUpdateMeta.find((entry) => entry.topic.id === topic.id)?.newItemsCount} nouveauté(s)
+                            <div className={`relative w-16 h-16 rounded-2xl ${topicIconStyle} flex items-center justify-center mb-8 overflow-hidden`}>
+                              {isCredibilityCourse ? (
+                                <img src={ciLogo} alt="" className="w-12 h-12 object-contain" />
+                              ) : (
+                                <i className={`fas ${topic.icon} text-2xl`}></i>
+                              )}
                             </div>
-                          ) : null}
-                          {userRole === 'student' && lockedCourseIds.includes(topic.id) && (
-                            <div className="relative mt-4 inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600">
-                              <i className="fas fa-lock text-xs"></i>
-                              Mot de passe du cours requis
+                            <h3 className="relative text-2xl md:text-3xl font-black text-slate-900 mb-3 leading-tight">{topic.title}</h3>
+                            <p className="relative text-xl md:text-2xl text-slate-600 leading-relaxed">{topic.description}</p>
+                            {courseUpdateMeta.find((entry) => entry.topic.id === topic.id)?.newItemsCount ? (
+                              <div className="relative mt-4 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700">
+                                <i className="fas fa-sparkles text-xs"></i>
+                                {courseUpdateMeta.find((entry) => entry.topic.id === topic.id)?.newItemsCount} nouveauté(s)
+                              </div>
+                            ) : null}
+                            {userRole === 'student' && lockedCourseIds.includes(topic.id) && (
+                              <div className="relative mt-4 inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600">
+                                <i className="fas fa-lock text-xs"></i>
+                                Mot de passe du cours requis
+                              </div>
+                            )}
+
+                            <div className={`relative mt-8 flex items-center ${topicCtaStyle} font-extrabold text-xl md:text-2xl`}>
+                              <span>Accéder au cours</span>
+                              <i className="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
                             </div>
-                          )}
-                          
-                          <div className={`relative mt-8 flex items-center ${topicCtaStyle} font-extrabold text-xl md:text-2xl`}>
-                            <span>Accéder au cours</span>
-                            <i className="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
                           </div>
-                        </div>
                         );
                       })}
                     </div>
