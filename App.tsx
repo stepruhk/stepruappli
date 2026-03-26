@@ -2296,7 +2296,7 @@ const App: React.FC = () => {
                       </div>
 
                       <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-                        <h2 className="text-2xl font-black text-slate-900 mb-3">Prochain rendez-vous / lien utile</h2>
+                        <h2 className="text-2xl font-black text-slate-900 mb-3">Prochain rendez-vous</h2>
                         <p className="text-slate-600">Prends rapidement un rendez-vous Zoom si tu as besoin d’un échange ou d’un suivi.</p>
                         <a
                           href={zoomSchedulerUrl}
