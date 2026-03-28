@@ -41,6 +41,7 @@ const ORDER_META_COURSE_ID = "__ui_order__";
 const ORDER_META_PREFIX = "__ORDER__";
 const GENERAL_COURSE_ID = "general";
 const ANNOUNCEMENTS_COURSE_ID = "announcements";
+const CONTACT_REQUESTS_COURSE_ID = "__contact_requests__";
 const PROFESSOR_PROFILE_PREFIX = "professor-profile:";
 const FLASHCARD_COURSE_PREFIX = "flashcards:";
 const ANNOUNCEMENTS_FALLBACK_COURSE_ID = "1";
@@ -539,6 +540,67 @@ function toApiNote(rawNote) {
     ...rawNote,
     courseId: isAnnouncement ? ANNOUNCEMENTS_COURSE_ID : (isGeneral ? GENERAL_COURSE_ID : rawNote.courseId),
     title: apiTitle || "",
+  };
+}
+
+function normalizeContactRequestSelections(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
+    .filter(Boolean)
+    .slice(0, 20);
+}
+
+function readRequiredStringArrayField(body, fieldName, maxItems = 20, maxLength = 180) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    throw new ApiError(400, "INVALID_INPUT", "Request body must be a JSON object.");
+  }
+
+  const value = body[fieldName];
+  if (!Array.isArray(value)) {
+    throw new ApiError(400, "INVALID_INPUT", `Field "${fieldName}" must be an array.`);
+  }
+
+  const normalized = normalizeContactRequestSelections(value);
+  if (!normalized.length) {
+    throw new ApiError(400, "INVALID_INPUT", `Field "${fieldName}" must contain at least one choice.`);
+  }
+  if (normalized.length > maxItems) {
+    throw new ApiError(400, "INPUT_TOO_LARGE", `Field "${fieldName}" exceeds maximum number of items.`, {
+      field: fieldName,
+      maxItems,
+    });
+  }
+
+  for (const item of normalized) {
+    if (item.length > maxLength) {
+      throw new ApiError(400, "INPUT_TOO_LARGE", `One value in "${fieldName}" exceeds maximum length.`, {
+        field: fieldName,
+        maxLength,
+      });
+    }
+  }
+
+  return normalized;
+}
+
+function parseContactRequest(rawNote) {
+  let payload = {};
+  if (typeof rawNote?.content === "string" && rawNote.content.trim()) {
+    try {
+      payload = JSON.parse(rawNote.content);
+    } catch {
+      payload = {};
+    }
+  }
+
+  return {
+    id: rawNote?.id || crypto.randomUUID(),
+    name: typeof payload?.name === "string" ? payload.name : "",
+    email: typeof payload?.email === "string" ? payload.email : "",
+    university: typeof payload?.university === "string" ? payload.university : "",
+    selections: normalizeContactRequestSelections(payload?.selections),
+    createdAt: rawNote?.createdAt || rawNote?.created_at || new Date().toISOString(),
   };
 }
 
@@ -1324,6 +1386,94 @@ app.use("/api", (req, _res, next) => {
     return;
   }
   requireAuth(req, _res, next);
+});
+
+app.get("/api/contact-requests", async (req, res) => {
+  try {
+    requireProfessor(req);
+
+    if (hasSupabaseStorage) {
+      const rows = await supabaseRequest(
+        `notes?course_id=eq.${encodeURIComponent(CONTACT_REQUESTS_COURSE_ID)}&select=id,content,created_at&order=created_at.desc`,
+        { method: "GET" },
+      );
+      const requests = (Array.isArray(rows) ? rows : []).map((row) =>
+        parseContactRequest({
+          id: row.id,
+          content: row.content || "",
+          created_at: row.created_at,
+        }),
+      );
+      res.json({ requests });
+      return;
+    }
+
+    const store = await ensureStoreLoaded();
+    const requests = store.notes
+      .filter((note) => note.courseId === CONTACT_REQUESTS_COURSE_ID)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .map((note) => parseContactRequest(note));
+    res.json({ requests });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.post("/api/contact-requests", async (req, res) => {
+  try {
+    const name = readRequiredTextField(req.body, "name", 160);
+    const email = readRequiredTextField(req.body, "email", 220);
+    const university = readRequiredTextField(req.body, "university", 220);
+    const selections = readRequiredStringArrayField(req.body, "selections");
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new ApiError(400, "INVALID_INPUT", "Adresse courriel invalide.");
+    }
+
+    const requestEntry = {
+      id: crypto.randomUUID(),
+      courseId: CONTACT_REQUESTS_COURSE_ID,
+      title: `[CONTACT_REQUEST] ${name}`,
+      content: JSON.stringify({
+        name,
+        email,
+        university,
+        selections,
+      }),
+      link: null,
+      createdAt: new Date().toISOString(),
+    };
+
+    if (hasSupabaseStorage) {
+      await supabaseRequest("notes", {
+        method: "POST",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({
+          id: requestEntry.id,
+          course_id: requestEntry.courseId,
+          title: requestEntry.title,
+          content: requestEntry.content,
+          link: requestEntry.link,
+          created_at: requestEntry.createdAt,
+        }),
+      });
+      res.status(201).json({ ok: true });
+      return;
+    }
+
+    const store = await ensureStoreLoaded();
+    store.notes.unshift({
+      id: requestEntry.id,
+      courseId: requestEntry.courseId,
+      title: requestEntry.title,
+      content: requestEntry.content,
+      createdAt: requestEntry.createdAt,
+    });
+    await saveStore();
+    res.status(201).json({ ok: true });
+  } catch (error) {
+    sendError(res, error);
+  }
 });
 
 app.get("/api/notes", async (req, res) => {

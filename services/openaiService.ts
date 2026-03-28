@@ -37,6 +37,14 @@ export type AnalyticsSummary = {
     zoom: number;
   };
 };
+export type ContactRequest = {
+  id: string;
+  name: string;
+  email: string;
+  university: string;
+  selections: string[];
+  createdAt: string;
+};
 export type OrderEntityType = "notes" | "resources";
 export type AuthStatus = {
   authenticated: boolean;
@@ -352,6 +360,20 @@ export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
       zoom: Number(response.externalClicks?.zoom || 0),
     },
   };
+}
+
+export async function submitContactRequest(payload: {
+  name: string;
+  email: string;
+  university: string;
+  selections: string[];
+}): Promise<void> {
+  await postJson<{ ok?: boolean }>("/api/contact-requests", payload);
+}
+
+export async function listContactRequests(): Promise<ContactRequest[]> {
+  const response = await getJson<{ requests?: ContactRequest[] }>("/api/contact-requests");
+  return Array.isArray(response.requests) ? response.requests : [];
 }
 
 export async function saveCourseOrder(

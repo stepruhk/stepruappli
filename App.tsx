@@ -10,6 +10,7 @@ import {
   createEvernoteNote,
   getAccessMetrics,
   getAnalyticsSummary,
+  listContactRequests,
   listCourseFlashcards,
   listCourseContent,
   listEvernoteNotes,
@@ -19,6 +20,7 @@ import {
   removeCourseContent,
   removeEvernoteNote,
   saveCourseOrder,
+  submitContactRequest,
   trackAnalyticsEvent,
   unlockCourseWithPassword,
   updateCourseFlashcard,
@@ -26,6 +28,7 @@ import {
   updateEvernoteNote,
   type AccessMetrics,
   type AnalyticsSummary,
+  type ContactRequest,
   type EvernoteNote,
   type LearningContentItem,
   type OrderEntityType,
@@ -88,6 +91,15 @@ const FAVORITES_STORAGE_KEY = 'eduboost_favorites_v1';
 const STUDENT_PROGRESS_STORAGE_KEY = 'eduboost_student_progress_v1';
 const ONBOARDING_STORAGE_KEY = 'eduboost_onboarding_seen_v1';
 const NEW_ITEM_WINDOW_DAYS = 7;
+const CONTACT_GENERAL_OPTION = 'Mot de passe général de l’appli';
+const CONTACT_COURSE_OPTIONS = [
+  'Relations médias et influenceurs',
+  'Intro à la comm strat',
+  'Théories de la communication',
+  'Relations de presse',
+  'Gérer la réputation',
+  'Influence',
+];
 
 const isRecentDate = (value?: string, days = NEW_ITEM_WINDOW_DAYS) => {
   if (!value) return false;
@@ -224,6 +236,16 @@ const App: React.FC = () => {
   const [analyticsSummary, setAnalyticsSummary] = useState<AnalyticsSummary | null>(null);
   const [analyticsSummaryLoading, setAnalyticsSummaryLoading] = useState(false);
   const [analyticsSummaryError, setAnalyticsSummaryError] = useState<string | null>(null);
+  const [contactName, setContactName] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactUniversity, setContactUniversity] = useState('');
+  const [contactSelections, setContactSelections] = useState<string[]>([]);
+  const [contactSubmitLoading, setContactSubmitLoading] = useState(false);
+  const [contactSubmitError, setContactSubmitError] = useState<string | null>(null);
+  const [contactSubmitSuccess, setContactSubmitSuccess] = useState<string | null>(null);
+  const [contactRequests, setContactRequests] = useState<ContactRequest[]>([]);
+  const [contactRequestsLoading, setContactRequestsLoading] = useState(false);
+  const [contactRequestsError, setContactRequestsError] = useState<string | null>(null);
   const [previewAsStudent, setPreviewAsStudent] = useState(false);
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [studentProgressByCourse, setStudentProgressByCourse] = useState<Record<string, StudentCourseProgress>>({});
@@ -433,6 +455,27 @@ const App: React.FC = () => {
   }, [authChecked, isAuthenticated, menuSection, isProfessor]);
 
   useEffect(() => {
+    const loadContactRequests = async () => {
+      if (!authChecked || !isAuthenticated || !isProfessor) return;
+      if (menuSection !== 'CONTACT') return;
+
+      setContactRequestsLoading(true);
+      setContactRequestsError(null);
+      try {
+        const requests = await listContactRequests();
+        setContactRequests(requests);
+      } catch (error) {
+        console.error(error);
+        setContactRequestsError('Impossible de charger les demandes de contact pour le moment.');
+      } finally {
+        setContactRequestsLoading(false);
+      }
+    };
+
+    void loadContactRequests();
+  }, [authChecked, isAuthenticated, menuSection, isProfessor]);
+
+  useEffect(() => {
     const preloadDashboardData = async () => {
       if (!authChecked || !isAuthenticated) return;
       const generalCourseIds = [GENERAL_COURSE_ID, ANNOUNCEMENTS_COURSE_ID, ...accessibleTopicIds];
@@ -619,6 +662,53 @@ const App: React.FC = () => {
       target,
       label,
     });
+  };
+
+  const toggleContactSelection = (value: string) => {
+    setContactSelections((current) =>
+      current.includes(value) ? current.filter((entry) => entry !== value) : [...current, value],
+    );
+  };
+
+  const handleSubmitContactRequest = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setContactSubmitError(null);
+    setContactSubmitSuccess(null);
+
+    if (!contactSelections.length) {
+      setContactSubmitError('Choisis au moins un sujet.');
+      return;
+    }
+
+    setContactSubmitLoading(true);
+    try {
+      await submitContactRequest({
+        name: contactName,
+        email: contactEmail,
+        university: contactUniversity,
+        selections: contactSelections,
+      });
+      setContactName('');
+      setContactEmail('');
+      setContactUniversity('');
+      setContactSelections([]);
+      setContactSubmitSuccess('Demande envoyée. Nous te répondrons rapidement.');
+      trackAppEvent({
+        type: 'external_click',
+        section: 'CONTACT',
+        target: 'contact',
+        label: 'Formulaire interne envoyé',
+      });
+      if (isProfessor) {
+        const requests = await listContactRequests();
+        setContactRequests(requests);
+      }
+    } catch (error) {
+      console.error(error);
+      setContactSubmitError(getErrorMessage(error));
+    } finally {
+      setContactSubmitLoading(false);
+    }
   };
 
   const handleLogin = async (event: React.FormEvent) => {
@@ -4401,24 +4491,104 @@ const App: React.FC = () => {
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-                        <h2 className="text-2xl font-black text-slate-900 mb-3 flex items-center gap-2">
-                          <i className="fas fa-envelope text-indigo-600"></i>
-                          Contact
-                        </h2>
-                        <p className="text-slate-600 mb-6">
-                          Pour toute question pédagogique, technique, ou juste pour prendre contact.
-                        </p>
-                        <a
-                          href={contactUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          onClick={() => trackExternalClick('contact', 'Contact page')}
-                          className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-white font-bold hover:bg-indigo-700 transition-colors"
-                        >
-                          Ouvrir le formulaire de contact
-                        </a>
-                      </div>
+                      {effectiveUserRole === 'student' && (
+                        <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm lg:col-span-2">
+                          <h2 className="text-2xl font-black text-slate-900 mb-3 flex items-center gap-2">
+                            <i className="fas fa-envelope text-indigo-600"></i>
+                            Formulaire de contact
+                          </h2>
+                          <p className="text-slate-600 mb-6">
+                            Remplis ce formulaire et nous te répondrons rapidement.
+                          </p>
+
+                          <form onSubmit={handleSubmitContactRequest} className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <label className="block">
+                                <span className="text-sm font-semibold text-slate-700">Nom</span>
+                                <input
+                                  type="text"
+                                  value={contactName}
+                                  onChange={(event) => setContactName(event.target.value)}
+                                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  required
+                                />
+                              </label>
+
+                              <label className="block">
+                                <span className="text-sm font-semibold text-slate-700">Adresse courriel</span>
+                                <input
+                                  type="email"
+                                  value={contactEmail}
+                                  onChange={(event) => setContactEmail(event.target.value)}
+                                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  required
+                                />
+                              </label>
+
+                              <label className="block">
+                                <span className="text-sm font-semibold text-slate-700">Université</span>
+                                <input
+                                  type="text"
+                                  value={contactUniversity}
+                                  onChange={(event) => setContactUniversity(event.target.value)}
+                                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  required
+                                />
+                              </label>
+                            </div>
+
+                            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                              <p className="text-sm font-semibold text-slate-700 mb-3">Choisis un ou plusieurs sujets</p>
+
+                              <div className="space-y-3">
+                                <label className="flex items-start gap-3 rounded-xl bg-white border border-slate-200 px-4 py-3 cursor-pointer hover:border-indigo-300">
+                                  <input
+                                    type="checkbox"
+                                    checked={contactSelections.includes(CONTACT_GENERAL_OPTION)}
+                                    onChange={() => toggleContactSelection(CONTACT_GENERAL_OPTION)}
+                                    className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                  />
+                                  <span className="text-slate-800 font-medium">{CONTACT_GENERAL_OPTION}</span>
+                                </label>
+
+                                <div className="rounded-xl bg-white border border-slate-200 px-4 py-4">
+                                  <p className="text-sm font-semibold text-slate-700 mb-3">Mot de passe pour un ou des cours :</p>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {CONTACT_COURSE_OPTIONS.map((option) => (
+                                      <label key={option} className="flex items-start gap-3 rounded-xl border border-slate-200 px-4 py-3 cursor-pointer hover:border-indigo-300">
+                                        <input
+                                          type="checkbox"
+                                          checked={contactSelections.includes(option)}
+                                          onChange={() => toggleContactSelection(option)}
+                                          className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                        />
+                                        <span className="text-slate-800">{option}</span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {contactSubmitError && (
+                              <p className="text-rose-600 font-medium">{contactSubmitError}</p>
+                            )}
+
+                            {contactSubmitSuccess && (
+                              <p className="text-emerald-600 font-medium">{contactSubmitSuccess}</p>
+                            )}
+
+                            <button
+                              type="submit"
+                              disabled={contactSubmitLoading}
+                              className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-white font-bold hover:bg-indigo-700 transition-colors disabled:opacity-60"
+                            >
+                              <i className="fas fa-paper-plane"></i>
+                              {contactSubmitLoading ? 'Envoi en cours...' : 'Envoyer la demande'}
+                            </button>
+                          </form>
+                        </div>
+                      )}
 
                       <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
                         <h2 className="text-2xl font-black text-slate-900 mb-3 flex items-center gap-2">
@@ -4457,6 +4627,59 @@ const App: React.FC = () => {
                           Ouvrir l'Assistant IA
                         </a>
                       </div>
+
+                      {canEditResources && (
+                        <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm lg:col-span-2">
+                          <h2 className="text-2xl font-black text-slate-900 mb-2 flex items-center gap-2">
+                            <i className="fas fa-inbox text-indigo-600"></i>
+                            Demandes de contact reçues
+                          </h2>
+                          <p className="text-slate-600 mb-6">
+                            Messages envoyés depuis le formulaire étudiant.
+                          </p>
+
+                          {contactRequestsLoading && (
+                            <p className="text-slate-500">Chargement des demandes...</p>
+                          )}
+
+                          {contactRequestsError && (
+                            <p className="text-rose-600">{contactRequestsError}</p>
+                          )}
+
+                          {!contactRequestsLoading && !contactRequestsError && (
+                            <div className="space-y-4">
+                              {contactRequests.length === 0 ? (
+                                <div className="rounded-2xl border border-slate-200 p-4 text-slate-500">
+                                  Aucune demande de contact pour le moment.
+                                </div>
+                              ) : (
+                                contactRequests.map((request) => (
+                                  <article key={request.id} className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
+                                    <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                                      <div>
+                                        <h3 className="text-lg font-black text-slate-900">{request.name}</h3>
+                                        <p className="text-slate-600">{request.email}</p>
+                                        <p className="text-slate-600">{request.university}</p>
+                                      </div>
+                                      <p className="text-sm text-slate-500">
+                                        {new Date(request.createdAt).toLocaleString('fr-FR')}
+                                      </p>
+                                    </div>
+
+                                    <div className="mt-4 flex flex-wrap gap-2">
+                                      {request.selections.map((selection) => (
+                                        <span key={`${request.id}-${selection}`} className="rounded-full bg-white border border-slate-200 px-3 py-1 text-sm text-slate-700">
+                                          {selection}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </article>
+                                ))
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {canEditResources && (
                         <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm lg:col-span-2">
