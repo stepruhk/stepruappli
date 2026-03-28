@@ -1801,7 +1801,7 @@ const App: React.FC = () => {
     if (result.kind === 'literature') {
       const topic = visibleTopics.find((entry) => entry.id === result.courseId);
       if (topic) {
-        openTopic(topic);
+        void startTopic(topic);
       }
       return;
     }
@@ -1818,7 +1818,7 @@ const App: React.FC = () => {
     }
     if (result.courseId && result.courseId !== GENERAL_COURSE_ID) {
       const topic = visibleTopics.find((entry) => entry.id === result.courseId);
-      if (topic) openTopic(topic);
+      if (topic) void startTopic(topic);
     } else {
       navigateToMenuSection('CONTENU');
     }
@@ -2254,7 +2254,7 @@ const App: React.FC = () => {
                                 if (favorite.courseId && favorite.courseId !== GENERAL_COURSE_ID) {
                                   const topic = visibleTopics.find((entry) => entry.id === favorite.courseId);
                                   if (topic) {
-                                    openTopic(topic);
+                                    void startTopic(topic);
                                     return;
                                   }
                                 }

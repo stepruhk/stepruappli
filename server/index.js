@@ -20,7 +20,7 @@ const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").
 const SESSION_TTL_MS = Number(process.env.SESSION_TTL_MS || 12 * 60 * 60 * 1000);
 const OPENAI_BASE_URL = "https://api.openai.com/v1";
 const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 60_000);
-const RATE_LIMIT_MAX_REQUESTS = Number(process.env.RATE_LIMIT_MAX_REQUESTS || 30);
+const RATE_LIMIT_MAX_REQUESTS = Number(process.env.RATE_LIMIT_MAX_REQUESTS || 180);
 const MAX_CONTENT_LENGTH = Number(process.env.MAX_CONTENT_LENGTH || 12_000);
 const MAX_PODCAST_TEXT_LENGTH = Number(process.env.MAX_PODCAST_TEXT_LENGTH || 8_000);
 const PODCAST_RSS_URL = (process.env.PODCAST_RSS_URL || "https://anchor.fm/s/10c060bb4/podcast/rss").trim();
@@ -125,6 +125,12 @@ function getClientIp(req) {
 }
 
 function rateLimitMiddleware(req, res, next) {
+  const token = getBearerToken(req);
+  if (req.method === "GET" && (hasValidSession(token) || !isAuthEnabled())) {
+    next();
+    return;
+  }
+
   const ip = getClientIp(req);
   const now = Date.now();
   const current = rateBuckets.get(ip);
