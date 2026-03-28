@@ -16,6 +16,7 @@ import {
   listEvernoteNotes,
   loginWithPassword,
   logout,
+  removeContactRequest,
   removeCourseFlashcard,
   removeCourseContent,
   removeEvernoteNote,
@@ -225,7 +226,6 @@ const App: React.FC = () => {
   const spotifyShowUrl = 'https://open.spotify.com/show/4C0DeBIvVZjRbM6MUOylOT?si=VZGKDnooR52E7qbZZ2aweA';
   const blogUrl = 'https://stepru.wordpress.com';
   const assistantUrl = 'https://chatgpt.com/g/g-ZltU00p7B-stepru-the-comms-professor';
-  const contactUrl = 'https://credibilityinstitute.com/contact';
   const zoomSchedulerUrl = 'https://scheduler.zoom.us/stephane-prudhomme';
   const [podcastEpisodes, setPodcastEpisodes] = useState<PodcastEpisode[]>([]);
   const [podcastLoading, setPodcastLoading] = useState(false);
@@ -239,6 +239,8 @@ const App: React.FC = () => {
   const [contactName, setContactName] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [contactUniversity, setContactUniversity] = useState('');
+  const [contactCourseGroup, setContactCourseGroup] = useState('');
+  const [contactMessage, setContactMessage] = useState('');
   const [contactSelections, setContactSelections] = useState<string[]>([]);
   const [contactSubmitLoading, setContactSubmitLoading] = useState(false);
   const [contactSubmitError, setContactSubmitError] = useState<string | null>(null);
@@ -246,6 +248,8 @@ const App: React.FC = () => {
   const [contactRequests, setContactRequests] = useState<ContactRequest[]>([]);
   const [contactRequestsLoading, setContactRequestsLoading] = useState(false);
   const [contactRequestsError, setContactRequestsError] = useState<string | null>(null);
+  const [contactDeletingId, setContactDeletingId] = useState<string | null>(null);
+  const [showContactModal, setShowContactModal] = useState(false);
   const [previewAsStudent, setPreviewAsStudent] = useState(false);
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [studentProgressByCourse, setStudentProgressByCourse] = useState<Record<string, StudentCourseProgress>>({});
@@ -670,13 +674,41 @@ const App: React.FC = () => {
     );
   };
 
+  const openStudentContactForm = (options?: { selections?: string[]; message?: string }) => {
+    const nextSelections = Array.isArray(options?.selections)
+      ? Array.from(new Set(options.selections.filter(Boolean)))
+      : [];
+
+    if (nextSelections.length) {
+      setContactSelections((current) => Array.from(new Set([...current, ...nextSelections])));
+    }
+
+    if (options?.message) {
+      setContactMessage((current) => current || options.message || '');
+    }
+
+    setContactSubmitError(null);
+    setContactSubmitSuccess(null);
+    setCoursePasswordTopic(null);
+    setCoursePasswordValue('');
+    setCoursePasswordError(null);
+
+    if (isAuthenticated) {
+      navigateToMenuSection('CONTACT');
+      setShowContactModal(false);
+      return;
+    }
+
+    setShowContactModal(true);
+  };
+
   const handleSubmitContactRequest = async (event: React.FormEvent) => {
     event.preventDefault();
     setContactSubmitError(null);
     setContactSubmitSuccess(null);
 
-    if (!contactSelections.length) {
-      setContactSubmitError('Choisis au moins un sujet.');
+    if (!contactSelections.length && !contactMessage.trim()) {
+      setContactSubmitError('Ajoute un message ou choisis au moins un sujet.');
       return;
     }
 
@@ -686,11 +718,15 @@ const App: React.FC = () => {
         name: contactName,
         email: contactEmail,
         university: contactUniversity,
+        courseGroup: contactCourseGroup,
+        message: contactMessage,
         selections: contactSelections,
       });
       setContactName('');
       setContactEmail('');
       setContactUniversity('');
+      setContactCourseGroup('');
+      setContactMessage('');
       setContactSelections([]);
       setContactSubmitSuccess('Demande envoyée. Nous te répondrons rapidement.');
       trackAppEvent({
@@ -703,11 +739,28 @@ const App: React.FC = () => {
         const requests = await listContactRequests();
         setContactRequests(requests);
       }
+      if (showContactModal) {
+        setShowContactModal(false);
+      }
     } catch (error) {
       console.error(error);
       setContactSubmitError(getErrorMessage(error));
     } finally {
       setContactSubmitLoading(false);
+    }
+  };
+
+  const handleDeleteContactRequest = async (id: string) => {
+    setContactRequestsError(null);
+    setContactDeletingId(id);
+    try {
+      await removeContactRequest(id);
+      setContactRequests((current) => current.filter((request) => request.id !== id));
+    } catch (error) {
+      console.error(error);
+      setContactRequestsError(getErrorMessage(error));
+    } finally {
+      setContactDeletingId(null);
     }
   };
 
@@ -782,6 +835,125 @@ const App: React.FC = () => {
       setCoursePasswordLoading(false);
     }
   };
+
+  const openPasswordHelpForm = (courseTitle?: string, isGeneralAppPassword = false) => {
+    const selections = isGeneralAppPassword
+      ? [CONTACT_GENERAL_OPTION]
+      : (courseTitle && CONTACT_COURSE_OPTIONS.includes(courseTitle) ? [courseTitle] : []);
+
+    openStudentContactForm({ selections });
+  };
+
+  const renderContactRequestForm = () => (
+    <form onSubmit={handleSubmitContactRequest} className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label className="block">
+          <span className="text-sm font-semibold text-slate-700">Nom</span>
+          <input
+            type="text"
+            value={contactName}
+            onChange={(event) => setContactName(event.target.value)}
+            className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            required
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-sm font-semibold text-slate-700">Adresse courriel</span>
+          <input
+            type="email"
+            value={contactEmail}
+            onChange={(event) => setContactEmail(event.target.value)}
+            className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            required
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-sm font-semibold text-slate-700">Université</span>
+          <input
+            type="text"
+            value={contactUniversity}
+            onChange={(event) => setContactUniversity(event.target.value)}
+            className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            required
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-sm font-semibold text-slate-700">Cours et groupe</span>
+          <input
+            type="text"
+            value={contactCourseGroup}
+            onChange={(event) => setContactCourseGroup(event.target.value)}
+            className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            placeholder="Ex.: Relations de presse, groupe 02"
+          />
+        </label>
+      </div>
+
+      <label className="block">
+        <span className="text-sm font-semibold text-slate-700">Message</span>
+        <textarea
+          value={contactMessage}
+          onChange={(event) => setContactMessage(event.target.value)}
+          rows={5}
+          className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          placeholder="Écris ton message ici, même si tu ne choisis aucun cours ci-dessous."
+        />
+      </label>
+
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+        <p className="text-sm font-semibold text-slate-700 mb-3">Choisis un ou plusieurs sujets si c’est utile</p>
+
+        <div className="space-y-3">
+          <label className="flex items-start gap-3 rounded-xl bg-white border border-slate-200 px-4 py-3 cursor-pointer hover:border-indigo-300">
+            <input
+              type="checkbox"
+              checked={contactSelections.includes(CONTACT_GENERAL_OPTION)}
+              onChange={() => toggleContactSelection(CONTACT_GENERAL_OPTION)}
+              className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <span className="text-slate-800 font-medium">{CONTACT_GENERAL_OPTION}</span>
+          </label>
+
+          <div className="rounded-xl bg-white border border-slate-200 px-4 py-4">
+            <p className="text-sm font-semibold text-slate-700 mb-3">Mot de passe pour un ou des cours :</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {CONTACT_COURSE_OPTIONS.map((option) => (
+                <label key={option} className="flex items-start gap-3 rounded-xl border border-slate-200 px-4 py-3 cursor-pointer hover:border-indigo-300">
+                  <input
+                    type="checkbox"
+                    checked={contactSelections.includes(option)}
+                    onChange={() => toggleContactSelection(option)}
+                    className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="text-slate-800">{option}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {contactSubmitError && (
+        <p className="text-rose-600 font-medium">{contactSubmitError}</p>
+      )}
+
+      {contactSubmitSuccess && (
+        <p className="text-emerald-600 font-medium">{contactSubmitSuccess}</p>
+      )}
+
+      <button
+        type="submit"
+        disabled={contactSubmitLoading}
+        className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-white font-bold hover:bg-indigo-700 transition-colors disabled:opacity-60"
+      >
+        <i className="fas fa-paper-plane"></i>
+        {contactSubmitLoading ? 'Envoi en cours...' : 'Envoyer la demande'}
+      </button>
+    </form>
+  );
 
   const currentSession = selectedTopic ? sessionData[selectedTopic.id] : null;
   const resourceCourse = visibleTopics.find((topic) => topic.id === resourceCourseId) || null;
@@ -2042,14 +2214,13 @@ const App: React.FC = () => {
                     />
                   </label>
                   <div className="mt-1">
-                    <a
-                      href="https://credibilityinstitute.com/contact"
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      type="button"
+                      onClick={() => openPasswordHelpForm(undefined, true)}
                       className="inline-flex items-center rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100"
                     >
                       Vous n'avez pas le mot de passe ?
-                    </a>
+                    </button>
                   </div>
 
                   {authError && (
@@ -4491,105 +4662,6 @@ const App: React.FC = () => {
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {effectiveUserRole === 'student' && (
-                        <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm lg:col-span-2">
-                          <h2 className="text-2xl font-black text-slate-900 mb-3 flex items-center gap-2">
-                            <i className="fas fa-envelope text-indigo-600"></i>
-                            Formulaire de contact
-                          </h2>
-                          <p className="text-slate-600 mb-6">
-                            Remplis ce formulaire et nous te répondrons rapidement.
-                          </p>
-
-                          <form onSubmit={handleSubmitContactRequest} className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                              <label className="block">
-                                <span className="text-sm font-semibold text-slate-700">Nom</span>
-                                <input
-                                  type="text"
-                                  value={contactName}
-                                  onChange={(event) => setContactName(event.target.value)}
-                                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                  required
-                                />
-                              </label>
-
-                              <label className="block">
-                                <span className="text-sm font-semibold text-slate-700">Adresse courriel</span>
-                                <input
-                                  type="email"
-                                  value={contactEmail}
-                                  onChange={(event) => setContactEmail(event.target.value)}
-                                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                  required
-                                />
-                              </label>
-
-                              <label className="block">
-                                <span className="text-sm font-semibold text-slate-700">Université</span>
-                                <input
-                                  type="text"
-                                  value={contactUniversity}
-                                  onChange={(event) => setContactUniversity(event.target.value)}
-                                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                  required
-                                />
-                              </label>
-                            </div>
-
-                            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                              <p className="text-sm font-semibold text-slate-700 mb-3">Choisis un ou plusieurs sujets</p>
-
-                              <div className="space-y-3">
-                                <label className="flex items-start gap-3 rounded-xl bg-white border border-slate-200 px-4 py-3 cursor-pointer hover:border-indigo-300">
-                                  <input
-                                    type="checkbox"
-                                    checked={contactSelections.includes(CONTACT_GENERAL_OPTION)}
-                                    onChange={() => toggleContactSelection(CONTACT_GENERAL_OPTION)}
-                                    className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                                  />
-                                  <span className="text-slate-800 font-medium">{CONTACT_GENERAL_OPTION}</span>
-                                </label>
-
-                                <div className="rounded-xl bg-white border border-slate-200 px-4 py-4">
-                                  <p className="text-sm font-semibold text-slate-700 mb-3">Mot de passe pour un ou des cours :</p>
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    {CONTACT_COURSE_OPTIONS.map((option) => (
-                                      <label key={option} className="flex items-start gap-3 rounded-xl border border-slate-200 px-4 py-3 cursor-pointer hover:border-indigo-300">
-                                        <input
-                                          type="checkbox"
-                                          checked={contactSelections.includes(option)}
-                                          onChange={() => toggleContactSelection(option)}
-                                          className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                                        />
-                                        <span className="text-slate-800">{option}</span>
-                                      </label>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-
-                            {contactSubmitError && (
-                              <p className="text-rose-600 font-medium">{contactSubmitError}</p>
-                            )}
-
-                            {contactSubmitSuccess && (
-                              <p className="text-emerald-600 font-medium">{contactSubmitSuccess}</p>
-                            )}
-
-                            <button
-                              type="submit"
-                              disabled={contactSubmitLoading}
-                              className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-white font-bold hover:bg-indigo-700 transition-colors disabled:opacity-60"
-                            >
-                              <i className="fas fa-paper-plane"></i>
-                              {contactSubmitLoading ? 'Envoi en cours...' : 'Envoyer la demande'}
-                            </button>
-                          </form>
-                        </div>
-                      )}
-
                       <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
                         <h2 className="text-2xl font-black text-slate-900 mb-3 flex items-center gap-2">
                           <i className="fas fa-video text-orange-600"></i>
@@ -4628,6 +4700,20 @@ const App: React.FC = () => {
                         </a>
                       </div>
 
+                      {effectiveUserRole === 'student' && (
+                        <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm lg:col-span-2">
+                          <h2 className="text-2xl font-black text-slate-900 mb-3 flex items-center gap-2">
+                            <i className="fas fa-envelope text-indigo-600"></i>
+                            Formulaire de contact
+                          </h2>
+                          <p className="text-slate-600 mb-6">
+                            Remplis ce formulaire pour demander un mot de passe, poser une question ou nous écrire directement.
+                          </p>
+
+                          {renderContactRequestForm()}
+                        </div>
+                      )}
+
                       {canEditResources && (
                         <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm lg:col-span-2">
                           <h2 className="text-2xl font-black text-slate-900 mb-2 flex items-center gap-2">
@@ -4655,23 +4741,48 @@ const App: React.FC = () => {
                               ) : (
                                 contactRequests.map((request) => (
                                   <article key={request.id} className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
-                                    <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                                       <div>
                                         <h3 className="text-lg font-black text-slate-900">{request.name}</h3>
                                         <p className="text-slate-600">{request.email}</p>
                                         <p className="text-slate-600">{request.university}</p>
+                                        {request.courseGroup && (
+                                          <p className="text-slate-600">{request.courseGroup}</p>
+                                        )}
                                       </div>
-                                      <p className="text-sm text-slate-500">
-                                        {new Date(request.createdAt).toLocaleString('fr-FR')}
-                                      </p>
+                                      <div className="flex flex-col items-start gap-3 md:items-end">
+                                        <p className="text-sm text-slate-500">
+                                          {new Date(request.createdAt).toLocaleString('fr-FR')}
+                                        </p>
+                                        <button
+                                          type="button"
+                                          onClick={() => { void handleDeleteContactRequest(request.id); }}
+                                          disabled={contactDeletingId === request.id}
+                                          className="inline-flex items-center gap-2 rounded-xl border border-rose-200 px-3 py-2 text-sm font-bold text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-60"
+                                        >
+                                          <i className="fas fa-trash"></i>
+                                          {contactDeletingId === request.id ? 'Suppression...' : 'Supprimer'}
+                                        </button>
+                                      </div>
                                     </div>
 
+                                    {request.message && (
+                                      <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+                                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">Message</p>
+                                        <p className="mt-2 whitespace-pre-wrap text-slate-700">{request.message}</p>
+                                      </div>
+                                    )}
+
                                     <div className="mt-4 flex flex-wrap gap-2">
-                                      {request.selections.map((selection) => (
+                                      {request.selections.length > 0 ? request.selections.map((selection) => (
                                         <span key={`${request.id}-${selection}`} className="rounded-full bg-white border border-slate-200 px-3 py-1 text-sm text-slate-700">
                                           {selection}
                                         </span>
-                                      ))}
+                                      )) : (
+                                        <span className="rounded-full bg-white border border-slate-200 px-3 py-1 text-sm text-slate-500">
+                                          Message libre
+                                        </span>
+                                      )}
                                     </div>
                                   </article>
                                 ))
@@ -4858,6 +4969,38 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {showContactModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4">
+          <div className="w-full max-w-3xl rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-bold uppercase tracking-[0.2em] text-indigo-500">Contact</p>
+                <h2 className="mt-2 text-3xl font-black text-slate-900">Formulaire de contact</h2>
+                <p className="mt-3 text-slate-600">
+                  Utilise ce formulaire pour demander un mot de passe ou nous écrire directement.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowContactModal(false);
+                  setContactSubmitError(null);
+                  setContactSubmitSuccess(null);
+                }}
+                className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:bg-slate-100 transition-colors"
+                aria-label="Fermer le formulaire de contact"
+              >
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+
+            <div className="mt-6">
+              {renderContactRequestForm()}
+            </div>
+          </div>
+        </div>
+      )}
+
       {duplicateState && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4">
           <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl">
@@ -4942,15 +5085,14 @@ const App: React.FC = () => {
                 <p className="text-sm font-medium text-rose-600">{coursePasswordError}</p>
               )}
 
-              <a
-                href={contactUrl}
-                target="_blank"
-                rel="noreferrer"
+              <button
+                type="button"
+                onClick={() => openPasswordHelpForm(coursePasswordTopic.title, false)}
                 className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
               >
                 <i className="fas fa-circle-question text-xs"></i>
                 Vous n&apos;avez pas ce mot de passe ?
-              </a>
+              </button>
 
               <div className="flex flex-col gap-3 sm:flex-row">
                 <button

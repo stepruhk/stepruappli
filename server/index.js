@@ -551,20 +551,20 @@ function normalizeContactRequestSelections(value) {
     .slice(0, 20);
 }
 
-function readRequiredStringArrayField(body, fieldName, maxItems = 20, maxLength = 180) {
+function readOptionalStringArrayField(body, fieldName, maxItems = 20, maxLength = 180) {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     throw new ApiError(400, "INVALID_INPUT", "Request body must be a JSON object.");
   }
 
   const value = body[fieldName];
+  if (value == null) {
+    return [];
+  }
   if (!Array.isArray(value)) {
     throw new ApiError(400, "INVALID_INPUT", `Field "${fieldName}" must be an array.`);
   }
 
   const normalized = normalizeContactRequestSelections(value);
-  if (!normalized.length) {
-    throw new ApiError(400, "INVALID_INPUT", `Field "${fieldName}" must contain at least one choice.`);
-  }
   if (normalized.length > maxItems) {
     throw new ApiError(400, "INPUT_TOO_LARGE", `Field "${fieldName}" exceeds maximum number of items.`, {
       field: fieldName,
@@ -599,6 +599,8 @@ function parseContactRequest(rawNote) {
     name: typeof payload?.name === "string" ? payload.name : "",
     email: typeof payload?.email === "string" ? payload.email : "",
     university: typeof payload?.university === "string" ? payload.university : "",
+    courseGroup: typeof payload?.courseGroup === "string" ? payload.courseGroup : "",
+    message: typeof payload?.message === "string" ? payload.message : "",
     selections: normalizeContactRequestSelections(payload?.selections),
     createdAt: rawNote?.createdAt || rawNote?.created_at || new Date().toISOString(),
   };
@@ -1381,7 +1383,13 @@ app.post("/api/auth/course-login", (req, res) => {
 });
 
 app.use("/api", (req, _res, next) => {
-  if (req.path === "/health" || req.path === "/auth/login" || req.path === "/auth/prof-login" || req.path === "/auth/status") {
+  if (
+    req.path === "/health" ||
+    req.path === "/auth/login" ||
+    req.path === "/auth/prof-login" ||
+    req.path === "/auth/status" ||
+    (req.path === "/contact-requests" && req.method === "POST")
+  ) {
     next();
     return;
   }
@@ -1424,10 +1432,15 @@ app.post("/api/contact-requests", async (req, res) => {
     const name = readRequiredTextField(req.body, "name", 160);
     const email = readRequiredTextField(req.body, "email", 220);
     const university = readRequiredTextField(req.body, "university", 220);
-    const selections = readRequiredStringArrayField(req.body, "selections");
+    const courseGroup = readOptionalTextField(req.body, "courseGroup", 220);
+    const message = readOptionalTextField(req.body, "message", 4000);
+    const selections = readOptionalStringArrayField(req.body, "selections");
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       throw new ApiError(400, "INVALID_INPUT", "Adresse courriel invalide.");
+    }
+    if (!message && !selections.length) {
+      throw new ApiError(400, "INVALID_INPUT", "Ajoute un message ou choisis au moins un sujet.");
     }
 
     const requestEntry = {
@@ -1438,6 +1451,8 @@ app.post("/api/contact-requests", async (req, res) => {
         name,
         email,
         university,
+        courseGroup,
+        message,
         selections,
       }),
       link: null,
@@ -1471,6 +1486,33 @@ app.post("/api/contact-requests", async (req, res) => {
     });
     await saveStore();
     res.status(201).json({ ok: true });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.delete("/api/contact-requests/:id", async (req, res) => {
+  try {
+    requireProfessor(req);
+    const id = String(req.params.id || "").trim();
+    if (!id) {
+      throw new ApiError(400, "INVALID_INPUT", "Identifiant de demande requis.");
+    }
+
+    if (hasSupabaseStorage) {
+      await supabaseRequest(`notes?id=eq.${encodeURIComponent(id)}&course_id=eq.${encodeURIComponent(CONTACT_REQUESTS_COURSE_ID)}`, {
+        method: "DELETE",
+        headers: { Prefer: "return=minimal" },
+      });
+      res.json({ ok: true });
+      return;
+    }
+
+    const store = await ensureStoreLoaded();
+    const nextNotes = store.notes.filter((note) => !(note.courseId === CONTACT_REQUESTS_COURSE_ID && note.id === id));
+    store.notes = nextNotes;
+    await saveStore();
+    res.json({ ok: true });
   } catch (error) {
     sendError(res, error);
   }

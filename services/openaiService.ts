@@ -42,6 +42,8 @@ export type ContactRequest = {
   name: string;
   email: string;
   university: string;
+  courseGroup?: string;
+  message?: string;
   selections: string[];
   createdAt: string;
 };
@@ -366,7 +368,9 @@ export async function submitContactRequest(payload: {
   name: string;
   email: string;
   university: string;
-  selections: string[];
+  courseGroup?: string;
+  message?: string;
+  selections?: string[];
 }): Promise<void> {
   await postJson<{ ok?: boolean }>("/api/contact-requests", payload);
 }
@@ -374,6 +378,10 @@ export async function submitContactRequest(payload: {
 export async function listContactRequests(): Promise<ContactRequest[]> {
   const response = await getJson<{ requests?: ContactRequest[] }>("/api/contact-requests");
   return Array.isArray(response.requests) ? response.requests : [];
+}
+
+export async function removeContactRequest(id: string): Promise<void> {
+  await deleteJson<{ ok?: boolean }>(`/api/contact-requests/${encodeURIComponent(id)}`);
 }
 
 export async function saveCourseOrder(
