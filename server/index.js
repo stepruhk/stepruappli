@@ -679,7 +679,11 @@ async function ensureStoreLoaded() {
     };
   } catch (_error) {
     storeCache = { notes: [], resources: [] };
-    await fs.writeFile(storageFilePath, JSON.stringify(storeCache, null, 2), "utf8");
+    try {
+      await fs.writeFile(storageFilePath, JSON.stringify(storeCache, null, 2), "utf8");
+    } catch (writeError) {
+      console.warn("Could not initialize local storage file, using in-memory fallback.", writeError);
+    }
   }
 
   return storeCache;
@@ -687,7 +691,11 @@ async function ensureStoreLoaded() {
 
 async function saveStore() {
   if (!storeCache) return;
-  await fs.writeFile(storageFilePath, JSON.stringify(storeCache, null, 2), "utf8");
+  try {
+    await fs.writeFile(storageFilePath, JSON.stringify(storeCache, null, 2), "utf8");
+  } catch (error) {
+    console.warn("Could not persist local storage file, continuing with in-memory data.", error);
+  }
 }
 
 async function supabaseRequest(pathname, init = {}, { allowNotFound = false } = {}) {
@@ -941,29 +949,40 @@ async function readAccessMetrics() {
     }
   }
 
-  const store = await ensureStoreLoaded();
-  const events = store.notes.filter(
-    (note) => note.courseId === ACCESS_ANALYTICS_COURSE_ID && note.title === ACCESS_ANALYTICS_TITLE,
-  );
+  try {
+    const store = await ensureStoreLoaded();
+    const events = store.notes.filter(
+      (note) => note.courseId === ACCESS_ANALYTICS_COURSE_ID && note.title === ACCESS_ANALYTICS_TITLE,
+    );
 
-  const student = events.filter((note) => note.content === "student").length;
-  const professor = events.filter((note) => note.content === "professor").length;
-  const lastAccessAt = events.reduce((latest, note) => {
-    if (!latest) return note.createdAt || null;
-    return new Date(note.createdAt).getTime() > new Date(latest).getTime() ? note.createdAt : latest;
-  }, null);
-  const firstAccessAt = events.reduce((earliest, note) => {
-    if (!earliest) return note.createdAt || null;
-    return new Date(note.createdAt).getTime() < new Date(earliest).getTime() ? note.createdAt : earliest;
-  }, null);
+    const student = events.filter((note) => note.content === "student").length;
+    const professor = events.filter((note) => note.content === "professor").length;
+    const lastAccessAt = events.reduce((latest, note) => {
+      if (!latest) return note.createdAt || null;
+      return new Date(note.createdAt).getTime() > new Date(latest).getTime() ? note.createdAt : latest;
+    }, null);
+    const firstAccessAt = events.reduce((earliest, note) => {
+      if (!earliest) return note.createdAt || null;
+      return new Date(note.createdAt).getTime() < new Date(earliest).getTime() ? note.createdAt : earliest;
+    }, null);
 
-  return {
-    total: events.length + baseTotal,
-    student: student + baseStudent,
-    professor: professor + baseProfessor,
-    firstAccessAt: launchDateIso || firstAccessAt,
-    lastAccessAt,
-  };
+    return {
+      total: events.length + baseTotal,
+      student: student + baseStudent,
+      professor: professor + baseProfessor,
+      firstAccessAt: launchDateIso || firstAccessAt,
+      lastAccessAt,
+    };
+  } catch (error) {
+    console.warn("Could not read access metrics from local storage, returning baseline metrics.", error);
+    return {
+      total: baseTotal,
+      student: baseStudent,
+      professor: baseProfessor,
+      firstAccessAt: launchDateIso,
+      lastAccessAt: null,
+    };
+  }
 }
 
 async function recordAppAnalyticsEvent(eventType, payload = {}) {
@@ -980,30 +999,38 @@ async function recordAppAnalyticsEvent(eventType, payload = {}) {
   };
 
   if (hasSupabaseStorage) {
-    await supabaseRequest("notes", {
-      method: "POST",
-      headers: { Prefer: "return=minimal" },
-      body: JSON.stringify({
-        id: entry.id,
-        course_id: entry.courseId,
-        title: entry.title,
-        content: entry.content,
-        link: entry.link,
-        created_at: entry.createdAt,
-      }),
-    });
-    return;
+    try {
+      await supabaseRequest("notes", {
+        method: "POST",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({
+          id: entry.id,
+          course_id: entry.courseId,
+          title: entry.title,
+          content: entry.content,
+          link: entry.link,
+          created_at: entry.createdAt,
+        }),
+      });
+      return;
+    } catch (error) {
+      console.warn("Could not persist app analytics event in Supabase, fallback to local storage.", error);
+    }
   }
 
-  const store = await ensureStoreLoaded();
-  store.notes.unshift({
-    id: entry.id,
-    courseId: entry.courseId,
-    title: entry.title,
-    content: entry.content,
-    createdAt: entry.createdAt,
-  });
-  await saveStore();
+  try {
+    const store = await ensureStoreLoaded();
+    store.notes.unshift({
+      id: entry.id,
+      courseId: entry.courseId,
+      title: entry.title,
+      content: entry.content,
+      createdAt: entry.createdAt,
+    });
+    await saveStore();
+  } catch (error) {
+    console.warn("Could not persist app analytics event locally, skipping analytics event.", error);
+  }
 }
 
 function createSortedSummaryEntries(sourceMap, keyFieldName) {
@@ -1016,25 +1043,36 @@ async function readAppAnalyticsSummary() {
   let rawEvents = [];
 
   if (hasSupabaseStorage) {
-    const rows = await supabaseRequest(
-      `notes?course_id=eq.${encodeURIComponent(APP_ANALYTICS_COURSE_ID)}&select=title,content,created_at&order=created_at.desc`,
-      { method: "GET" },
-    );
-    rawEvents = (Array.isArray(rows) ? rows : []).map((row) => ({
-      title: row.title,
-      content: row.content,
-      created_at: row.created_at,
-    }));
-  } else {
-    const store = await ensureStoreLoaded();
-    rawEvents = store.notes
-      .filter((note) => note.courseId === APP_ANALYTICS_COURSE_ID)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .map((note) => ({
-        title: note.title,
-        content: note.content,
-        createdAt: note.createdAt,
+    try {
+      const rows = await supabaseRequest(
+        `notes?course_id=eq.${encodeURIComponent(APP_ANALYTICS_COURSE_ID)}&select=title,content,created_at&order=created_at.desc`,
+        { method: "GET" },
+      );
+      rawEvents = (Array.isArray(rows) ? rows : []).map((row) => ({
+        title: row.title,
+        content: row.content,
+        created_at: row.created_at,
       }));
+    } catch (error) {
+      console.warn("Could not read app analytics from Supabase, fallback to local storage.", error);
+    }
+  }
+
+  if (!rawEvents.length) {
+    try {
+      const store = await ensureStoreLoaded();
+      rawEvents = store.notes
+        .filter((note) => note.courseId === APP_ANALYTICS_COURSE_ID)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .map((note) => ({
+          title: note.title,
+          content: note.content,
+          createdAt: note.createdAt,
+        }));
+    } catch (error) {
+      console.warn("Could not read app analytics from local storage, returning empty summary.", error);
+      rawEvents = [];
+    }
   }
 
   const events = rawEvents
