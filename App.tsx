@@ -4662,23 +4662,29 @@ const App: React.FC = () => {
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-                        <h2 className="text-2xl font-black text-slate-900 mb-3 flex items-center gap-2">
-                          <i className="fas fa-video text-orange-600"></i>
-                          Prendre un rendez-vous
-                        </h2>
-                        <p className="text-slate-600 mb-6">
-                          Réserve une plage horaire directement via le calendrier Zoom.
-                        </p>
-                        <a
-                          href={zoomSchedulerUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          onClick={() => trackExternalClick('zoom', 'Contact zoom')}
-                          className="inline-flex items-center gap-2 rounded-xl bg-orange-500 px-5 py-3 text-white font-bold hover:bg-orange-600 transition-colors"
-                        >
-                          Ouvrir le calendrier Zoom
-                        </a>
+                      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm lg:col-span-2">
+                        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                          <div className="max-w-2xl">
+                            <h2 className="text-2xl font-black text-slate-900 mb-3 flex items-center gap-2">
+                              <i className="fas fa-video text-orange-600"></i>
+                              Prendre un rendez-vous
+                            </h2>
+                            <p className="text-slate-600">
+                              Réserve une plage horaire directement via le calendrier Zoom.
+                            </p>
+                          </div>
+                          <div className="flex justify-start lg:justify-end">
+                            <a
+                              href={zoomSchedulerUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={() => trackExternalClick('zoom', 'Contact zoom')}
+                              className="inline-flex items-center gap-2 rounded-xl bg-orange-500 px-5 py-3 text-white font-bold hover:bg-orange-600 transition-colors"
+                            >
+                              Ouvrir le calendrier Zoom
+                            </a>
+                          </div>
+                        </div>
                       </div>
 
                       {effectiveUserRole === 'student' && (
