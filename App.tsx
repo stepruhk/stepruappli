@@ -4592,7 +4592,7 @@ const App: React.FC = () => {
             <footer className="mt-10 rounded-2xl border border-slate-200 bg-white px-6 py-4 text-xs text-slate-500 shadow-sm">
               <p>Ⓒ Stéphane Prud&apos;homme, Tous droits réservés 2026</p>
               <p className="mt-1">
-                Partage, reproduction, utilisation du matériel avec approbation préliminaire et pour des fins éducatives seulement
+                Partage, reproduction, utilisation du matériel avec approbation préliminaire et à des fins éducatives et académiques seulement.
               </p>
             </footer>
           </>
