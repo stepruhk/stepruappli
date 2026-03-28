@@ -4681,25 +4681,6 @@ const App: React.FC = () => {
                         </a>
                       </div>
 
-                      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm lg:col-span-2">
-                        <h2 className="text-2xl font-black text-slate-900 mb-3 flex items-center gap-2">
-                          <i className="fas fa-robot text-emerald-600"></i>
-                          Assistant IA
-                        </h2>
-                        <p className="text-slate-600 mb-6">
-                          Pour des questions de cours immédiates, utilise l'assistant.
-                        </p>
-                        <a
-                          href={assistantUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          onClick={() => trackExternalClick('contact', 'Assistant contact')}
-                          className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-white font-bold hover:bg-emerald-700 transition-colors"
-                        >
-                          Ouvrir l'Assistant IA
-                        </a>
-                      </div>
-
                       {effectiveUserRole === 'student' && (
                         <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm lg:col-span-2">
                           <h2 className="text-2xl font-black text-slate-900 mb-3 flex items-center gap-2">
