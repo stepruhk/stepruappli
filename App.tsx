@@ -98,7 +98,6 @@ const CONTACT_COURSE_OPTIONS = [
   'Relations médias et influenceurs',
   'Intro à la comm strat',
   'Théories de la communication',
-  'Relations de presse',
   'Gérer la réputation',
   'Influence',
 ];
@@ -912,7 +911,7 @@ const App: React.FC = () => {
             value={contactCourseGroup}
             onChange={(event) => setContactCourseGroup(event.target.value)}
             className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            placeholder="Ex.: Relations de presse, groupe 02"
+            placeholder="Ex.: Influence, groupe 02"
           />
         </label>
       </div>
@@ -2690,12 +2689,12 @@ const App: React.FC = () => {
                         const topicIconStyle = isCredibilityCourse
                           ? 'bg-white border border-slate-200'
                           : isInfluenceCourse
-                            ? 'bg-[#0b1f5f] text-white'
+                            ? 'bg-orange-500 text-white'
                             : style.icon;
                         const topicCtaStyle = isCredibilityCourse
                           ? 'text-slate-600'
                           : isInfluenceCourse
-                            ? 'text-[#0b1f5f]'
+                            ? 'text-orange-600'
                             : ctaAccentClasses[index % ctaAccentClasses.length];
                         return (
                           <div
