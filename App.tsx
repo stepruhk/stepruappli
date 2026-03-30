@@ -91,6 +91,7 @@ const ARCHIVED_RESOURCE_PREFIX = '[ARCHIVED] ';
 const FAVORITES_STORAGE_KEY = 'eduboost_favorites_v1';
 const STUDENT_PROGRESS_STORAGE_KEY = 'eduboost_student_progress_v1';
 const ONBOARDING_STORAGE_KEY = 'eduboost_onboarding_seen_v1';
+const CONTACT_REQUESTS_LAST_SEEN_STORAGE_KEY = 'eduboost_contact_requests_last_seen_v1';
 const NEW_ITEM_WINDOW_DAYS = 7;
 const CONTACT_GENERAL_OPTION = 'Mot de passe général de l’appli';
 const CONTACT_COURSE_OPTIONS = [
@@ -250,6 +251,9 @@ const App: React.FC = () => {
   const [contactRequestsError, setContactRequestsError] = useState<string | null>(null);
   const [contactDeletingId, setContactDeletingId] = useState<string | null>(null);
   const [showContactModal, setShowContactModal] = useState(false);
+  const [contactRequestsLastSeenAt, setContactRequestsLastSeenAt] = useState<string>(
+    () => readLocalObject<string>(CONTACT_REQUESTS_LAST_SEEN_STORAGE_KEY, ''),
+  );
   const [previewAsStudent, setPreviewAsStudent] = useState(false);
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [studentProgressByCourse, setStudentProgressByCourse] = useState<Record<string, StudentCourseProgress>>({});
@@ -459,25 +463,46 @@ const App: React.FC = () => {
   }, [authChecked, isAuthenticated, menuSection, isProfessor]);
 
   useEffect(() => {
-    const loadContactRequests = async () => {
+    const loadContactRequests = async (foreground = false) => {
       if (!authChecked || !isAuthenticated || !isProfessor) return;
-      if (menuSection !== 'CONTACT') return;
 
-      setContactRequestsLoading(true);
-      setContactRequestsError(null);
+      if (foreground) {
+        setContactRequestsLoading(true);
+        setContactRequestsError(null);
+      }
+
       try {
         const requests = await listContactRequests();
         setContactRequests(requests);
       } catch (error) {
         console.error(error);
-        setContactRequestsError('Impossible de charger les demandes de contact pour le moment.');
+        if (foreground) {
+          setContactRequestsError('Impossible de charger les demandes de contact pour le moment.');
+        }
       } finally {
-        setContactRequestsLoading(false);
+        if (foreground) {
+          setContactRequestsLoading(false);
+        }
       }
     };
 
-    void loadContactRequests();
+    void loadContactRequests(menuSection === 'CONTACT');
+
+    if (isProfessor) {
+      const intervalId = window.setInterval(() => {
+        void loadContactRequests(false);
+      }, 60000);
+      return () => window.clearInterval(intervalId);
+    }
   }, [authChecked, isAuthenticated, menuSection, isProfessor]);
+
+  useEffect(() => {
+    if (!isProfessor || menuSection !== 'CONTACT' || contactRequests.length === 0) return;
+    const latestSeen = contactRequests[0]?.createdAt || '';
+    if (!latestSeen || latestSeen === contactRequestsLastSeenAt) return;
+    writeLocalObject(CONTACT_REQUESTS_LAST_SEEN_STORAGE_KEY, latestSeen);
+    setContactRequestsLastSeenAt(latestSeen);
+  }, [isProfessor, menuSection, contactRequests, contactRequestsLastSeenAt]);
 
   useEffect(() => {
     const preloadDashboardData = async () => {
@@ -1037,9 +1062,16 @@ const App: React.FC = () => {
     { label: 'Assistant IA', icon: 'fa-robot', key: 'ASSISTANT' as const },
     { label: 'Contact', icon: 'fa-envelope', key: 'CONTACT' as const },
   ];
+  const unreadContactRequestsCount = isProfessor
+    ? contactRequests.filter((request) => {
+        if (!contactRequestsLastSeenAt) return true;
+        return new Date(request.createdAt).getTime() > new Date(contactRequestsLastSeenAt).getTime();
+      }).length
+    : 0;
   const getMenuBadgeCount = (key: typeof mainMenuItems[number]['key']) => {
     if (key === 'ANNONCES') return recentAnnouncementCount;
     if (key === 'CONTENU') return recentGeneralContentCount;
+    if (key === 'CONTACT') return unreadContactRequestsCount;
     return 0;
   };
   const recentAnnouncementCount = parsedAnnouncements.filter(
