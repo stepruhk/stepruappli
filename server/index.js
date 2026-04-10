@@ -974,6 +974,7 @@ async function recordAccess(role = "student") {
 
 async function readAccessMetrics() {
   const launchDateIso = parseLaunchDate(APP_LAUNCH_DATE);
+  const monthStartIso = getCurrentMonthStartIso();
   const baseTotal = Number.isFinite(ACCESS_METRICS_BASE_TOTAL) ? ACCESS_METRICS_BASE_TOTAL : 0;
   const baseStudent = Number.isFinite(ACCESS_METRICS_BASE_STUDENT) ? ACCESS_METRICS_BASE_STUDENT : 0;
   const baseProfessor = Number.isFinite(ACCESS_METRICS_BASE_PROFESSOR) ? ACCESS_METRICS_BASE_PROFESSOR : 0;
@@ -982,30 +983,24 @@ async function readAccessMetrics() {
     try {
       const encodedCourseId = encodeURIComponent(ACCESS_ANALYTICS_COURSE_ID);
       const encodedTitle = encodeURIComponent(ACCESS_ANALYTICS_TITLE);
-      const encodedStudent = encodeURIComponent("student");
-      const encodedProfessor = encodeURIComponent("professor");
       const baseFilter = `course_id=eq.${encodedCourseId}&title=eq.${encodedTitle}`;
+      const rows = await supabaseRequest(
+        `notes?${baseFilter}&select=content,created_at&order=created_at.desc`,
+        { method: "GET" },
+      );
+      const events = Array.isArray(rows) ? rows : [];
 
-      const [total, student, professor, latestRows, firstRows] = await Promise.all([
-        supabaseCount(`notes?${baseFilter}&select=id`),
-        supabaseCount(`notes?${baseFilter}&content=eq.${encodedStudent}&select=id`),
-        supabaseCount(`notes?${baseFilter}&content=eq.${encodedProfessor}&select=id`),
-        supabaseRequest(
-          `notes?${baseFilter}&select=created_at&order=created_at.desc&limit=1`,
-          { method: "GET" },
-        ),
-        supabaseRequest(
-          `notes?${baseFilter}&select=created_at&order=created_at.asc&limit=1`,
-          { method: "GET" },
-        ),
-      ]);
-
-      const lastAccessAt = Array.isArray(latestRows) && latestRows[0]?.created_at
-        ? latestRows[0].created_at
-        : null;
-      const firstAccessAt = Array.isArray(firstRows) && firstRows[0]?.created_at
-        ? firstRows[0].created_at
-        : null;
+      const total = events.length;
+      const student = events.filter((row) => row.content === "student").length;
+      const professor = events.filter((row) => row.content === "professor").length;
+      const monthlyEvents = events.filter((row) => {
+        const createdAt = row.created_at;
+        return createdAt && new Date(createdAt).getTime() >= new Date(monthStartIso).getTime();
+      });
+      const monthlyStudent = monthlyEvents.filter((row) => row.content === "student").length;
+      const monthlyProfessor = monthlyEvents.filter((row) => row.content === "professor").length;
+      const lastAccessAt = events[0]?.created_at || null;
+      const firstAccessAt = events[events.length - 1]?.created_at || null;
 
       return {
         total: total + baseTotal,
@@ -1013,6 +1008,11 @@ async function readAccessMetrics() {
         professor: professor + baseProfessor,
         firstAccessAt: launchDateIso || firstAccessAt,
         lastAccessAt,
+        monthly: {
+          total: monthlyEvents.length,
+          student: monthlyStudent,
+          professor: monthlyProfessor,
+        },
       };
     } catch (error) {
       console.warn("Could not read access metrics from Supabase, fallback to local storage.", error);
@@ -1027,6 +1027,10 @@ async function readAccessMetrics() {
 
     const student = events.filter((note) => note.content === "student").length;
     const professor = events.filter((note) => note.content === "professor").length;
+    const monthlyEvents = events.filter((note) => {
+      const createdAt = note.createdAt;
+      return createdAt && new Date(createdAt).getTime() >= new Date(monthStartIso).getTime();
+    });
     const lastAccessAt = events.reduce((latest, note) => {
       if (!latest) return note.createdAt || null;
       return new Date(note.createdAt).getTime() > new Date(latest).getTime() ? note.createdAt : latest;
@@ -1042,6 +1046,11 @@ async function readAccessMetrics() {
       professor: professor + baseProfessor,
       firstAccessAt: launchDateIso || firstAccessAt,
       lastAccessAt,
+      monthly: {
+        total: monthlyEvents.length,
+        student: monthlyEvents.filter((note) => note.content === "student").length,
+        professor: monthlyEvents.filter((note) => note.content === "professor").length,
+      },
     };
   } catch (error) {
     console.warn("Could not read access metrics from local storage, returning baseline metrics.", error);
@@ -1051,6 +1060,11 @@ async function readAccessMetrics() {
       professor: baseProfessor,
       firstAccessAt: launchDateIso,
       lastAccessAt: null,
+      monthly: {
+        total: 0,
+        student: 0,
+        professor: 0,
+      },
     };
   }
 }
@@ -1109,7 +1123,13 @@ function createSortedSummaryEntries(sourceMap, keyFieldName) {
     .sort((a, b) => b.count - a.count);
 }
 
+function getCurrentMonthStartIso() {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0)).toISOString();
+}
+
 async function readAppAnalyticsSummary() {
+  const monthStartIso = getCurrentMonthStartIso();
   let rawEvents = [];
 
   if (hasSupabaseStorage) {
@@ -1157,14 +1177,26 @@ async function readAppAnalyticsSummary() {
     zoom: 0,
   };
   let podcastOpens = 0;
+  const monthlyPageViews = new Map();
+  const monthlyCourseViews = new Map();
+  const monthlyExternalClicks = {
+    blog: 0,
+    contact: 0,
+    zoom: 0,
+  };
+  let monthlyPodcastOpens = 0;
 
   for (const event of events) {
     const payload = event.payload && typeof event.payload === "object" ? event.payload : {};
+    const isMonthly = event.createdAt && new Date(event.createdAt).getTime() >= new Date(monthStartIso).getTime();
 
     if (event.type === "page_view") {
       const section = typeof payload.section === "string" ? payload.section.trim() : "";
       if (section) {
         pageViews.set(section, (pageViews.get(section) || 0) + 1);
+        if (isMonthly) {
+          monthlyPageViews.set(section, (monthlyPageViews.get(section) || 0) + 1);
+        }
       }
     }
 
@@ -1172,17 +1204,26 @@ async function readAppAnalyticsSummary() {
       const courseId = typeof payload.courseId === "string" ? payload.courseId.trim() : "";
       if (courseId) {
         courseViews.set(courseId, (courseViews.get(courseId) || 0) + 1);
+        if (isMonthly) {
+          monthlyCourseViews.set(courseId, (monthlyCourseViews.get(courseId) || 0) + 1);
+        }
       }
     }
 
     if (event.type === "balado_open") {
       podcastOpens += 1;
+      if (isMonthly) {
+        monthlyPodcastOpens += 1;
+      }
     }
 
     if (event.type === "external_click") {
       const target = typeof payload.target === "string" ? payload.target.trim().toLowerCase() : "";
       if (target === "blog" || target === "contact" || target === "zoom") {
         externalClicks[target] += 1;
+        if (isMonthly) {
+          monthlyExternalClicks[target] += 1;
+        }
       }
     }
   }
@@ -1192,6 +1233,12 @@ async function readAppAnalyticsSummary() {
     courseViews: createSortedSummaryEntries(courseViews, "courseId"),
     podcastOpens,
     externalClicks,
+    monthly: {
+      pageViews: createSortedSummaryEntries(monthlyPageViews, "section"),
+      courseViews: createSortedSummaryEntries(monthlyCourseViews, "courseId"),
+      podcastOpens: monthlyPodcastOpens,
+      externalClicks: monthlyExternalClicks,
+    },
   };
 }
 

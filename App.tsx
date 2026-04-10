@@ -4861,6 +4861,30 @@ const App: React.FC = () => {
                             </p>
                           )}
 
+                          {!accessMetricsLoading && !accessMetricsError && accessMetrics && (
+                            <div className="mt-8 border-t border-slate-200 pt-8">
+                              <h3 className="text-xl font-black text-slate-900 mb-2">Ce mois-ci</h3>
+                              <p className="text-slate-600 mb-6">
+                                Statistiques du mois en cours.
+                              </p>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div className="rounded-2xl border border-slate-200 p-4 bg-slate-50">
+                                  <p className="text-xs uppercase tracking-wider text-slate-500 font-bold">Total</p>
+                                  <p className="text-3xl font-black text-slate-900">{accessMetrics.monthly.total}</p>
+                                </div>
+                                <div className="rounded-2xl border border-slate-200 p-4 bg-slate-50">
+                                  <p className="text-xs uppercase tracking-wider text-slate-500 font-bold">Étudiants</p>
+                                  <p className="text-3xl font-black text-slate-900">{accessMetrics.monthly.student}</p>
+                                </div>
+                                <div className="rounded-2xl border border-slate-200 p-4 bg-slate-50">
+                                  <p className="text-xs uppercase tracking-wider text-slate-500 font-bold">Professeur</p>
+                                  <p className="text-3xl font-black text-slate-900">{accessMetrics.monthly.professor}</p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
                           <div className="mt-8 border-t border-slate-200 pt-8">
                             <h3 className="text-xl font-black text-slate-900 mb-2">Statistiques détaillées</h3>
                             <p className="text-slate-600 mb-6">
@@ -4927,6 +4951,79 @@ const App: React.FC = () => {
                                     <div className="flex items-center justify-between gap-4">
                                       <span className="text-slate-700">Zoom</span>
                                       <span className="font-black text-slate-900">{analyticsSummary.externalClicks.zoom}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="mt-8 border-t border-slate-200 pt-8">
+                            <h3 className="text-xl font-black text-slate-900 mb-2">Statistiques détaillées du mois</h3>
+                            <p className="text-slate-600 mb-6">
+                              Pages les plus visitées, cours les plus consultés et clics externes pour le mois en cours.
+                            </p>
+
+                            {analyticsSummaryLoading && (
+                              <p className="text-slate-500">Chargement des statistiques détaillées du mois...</p>
+                            )}
+
+                            {analyticsSummaryError && (
+                              <p className="text-rose-600">{analyticsSummaryError}</p>
+                            )}
+
+                            {!analyticsSummaryLoading && !analyticsSummaryError && analyticsSummary && (
+                              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
+                                  <h4 className="font-black text-slate-900 mb-4">Pages les plus visitées</h4>
+                                  <div className="space-y-3">
+                                    {analyticsSummary.monthly.pageViews.length > 0 ? analyticsSummary.monthly.pageViews.slice(0, 5).map((entry) => (
+                                      <div key={`monthly-page-view-${entry.section}`} className="flex items-center justify-between gap-4">
+                                        <span className="text-slate-700">{entry.section}</span>
+                                        <span className="font-black text-slate-900">{entry.count}</span>
+                                      </div>
+                                    )) : (
+                                      <p className="text-slate-500">Aucune donnée pour le moment.</p>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
+                                  <h4 className="font-black text-slate-900 mb-4">Cours les plus consultés</h4>
+                                  <div className="space-y-3">
+                                    {analyticsSummary.monthly.courseViews.length > 0 ? analyticsSummary.monthly.courseViews.slice(0, 5).map((entry) => (
+                                      <div key={`monthly-course-view-${entry.courseId}`} className="flex items-center justify-between gap-4">
+                                        <span className="text-slate-700">{visibleTopics.find((topic) => topic.id === entry.courseId)?.title || entry.courseId}</span>
+                                        <span className="font-black text-slate-900">{entry.count}</span>
+                                      </div>
+                                    )) : (
+                                      <p className="text-slate-500">Aucune donnée pour le moment.</p>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
+                                  <h4 className="font-black text-slate-900 mb-4">Balado</h4>
+                                  <div className="flex items-center justify-between gap-4">
+                                    <span className="text-slate-700">Ouvertures de la page / épisodes</span>
+                                    <span className="font-black text-slate-900">{analyticsSummary.monthly.podcastOpens}</span>
+                                  </div>
+                                </div>
+
+                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
+                                  <h4 className="font-black text-slate-900 mb-4">Clics externes</h4>
+                                  <div className="space-y-3">
+                                    <div className="flex items-center justify-between gap-4">
+                                      <span className="text-slate-700">Blog</span>
+                                      <span className="font-black text-slate-900">{analyticsSummary.monthly.externalClicks.blog}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-4">
+                                      <span className="text-slate-700">Contact</span>
+                                      <span className="font-black text-slate-900">{analyticsSummary.monthly.externalClicks.contact}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-4">
+                                      <span className="text-slate-700">Zoom</span>
+                                      <span className="font-black text-slate-900">{analyticsSummary.monthly.externalClicks.zoom}</span>
                                     </div>
                                   </div>
                                 </div>

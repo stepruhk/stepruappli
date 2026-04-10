@@ -26,6 +26,11 @@ export type AccessMetrics = {
   professor: number;
   firstAccessAt: string | null;
   lastAccessAt: string | null;
+  monthly: {
+    total: number;
+    student: number;
+    professor: number;
+  };
 };
 export type AnalyticsSummary = {
   pageViews: { section: string; count: number }[];
@@ -35,6 +40,16 @@ export type AnalyticsSummary = {
     blog: number;
     contact: number;
     zoom: number;
+  };
+  monthly: {
+    pageViews: { section: string; count: number }[];
+    courseViews: { courseId: string; count: number }[];
+    podcastOpens: number;
+    externalClicks: {
+      blog: number;
+      contact: number;
+      zoom: number;
+    };
   };
 };
 export type ContactRequest = {
@@ -333,6 +348,11 @@ export async function getAccessMetrics(): Promise<AccessMetrics> {
     professor: Number(response.professor || 0),
     firstAccessAt: response.firstAccessAt || null,
     lastAccessAt: response.lastAccessAt || null,
+    monthly: {
+      total: Number(response.monthly?.total || 0),
+      student: Number(response.monthly?.student || 0),
+      professor: Number(response.monthly?.professor || 0),
+    },
   };
 }
 
@@ -360,6 +380,16 @@ export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
       blog: Number(response.externalClicks?.blog || 0),
       contact: Number(response.externalClicks?.contact || 0),
       zoom: Number(response.externalClicks?.zoom || 0),
+    },
+    monthly: {
+      pageViews: Array.isArray(response.monthly?.pageViews) ? response.monthly.pageViews : [],
+      courseViews: Array.isArray(response.monthly?.courseViews) ? response.monthly.courseViews : [],
+      podcastOpens: Number(response.monthly?.podcastOpens || 0),
+      externalClicks: {
+        blog: Number(response.monthly?.externalClicks?.blog || 0),
+        contact: Number(response.monthly?.externalClicks?.contact || 0),
+        zoom: Number(response.monthly?.externalClicks?.zoom || 0),
+      },
     },
   };
 }
