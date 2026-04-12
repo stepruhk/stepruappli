@@ -100,6 +100,7 @@ const STUDENT_PROGRESS_STORAGE_KEY = 'eduboost_student_progress_v1';
 const ONBOARDING_STORAGE_KEY = 'eduboost_onboarding_seen_v1';
 const CONTACT_REQUESTS_LAST_SEEN_STORAGE_KEY = 'eduboost_contact_requests_last_seen_v1';
 const RECRUITMENT_LAST_SEEN_STORAGE_KEY = 'eduboost_recruitment_last_seen_v1';
+const PODCAST_LAST_SEEN_STORAGE_KEY = 'eduboost_podcast_last_seen_v1';
 const NEW_ITEM_WINDOW_DAYS = 7;
 const CONTACT_GENERAL_OPTION = 'Mot de passe général de l’appli';
 const CONTACT_COURSE_OPTIONS = [
@@ -281,6 +282,9 @@ const App: React.FC = () => {
   );
   const [recruitmentLastSeenAt, setRecruitmentLastSeenAt] = useState<string>(
     () => readLocalObject<string>(RECRUITMENT_LAST_SEEN_STORAGE_KEY, ''),
+  );
+  const [podcastLastSeenAt, setPodcastLastSeenAt] = useState<string>(
+    () => readLocalObject<string>(PODCAST_LAST_SEEN_STORAGE_KEY, ''),
   );
   const [recruitmentOffers, setRecruitmentOffers] = useState<RecruitmentOffer[]>([]);
   const [recruitmentLoading, setRecruitmentLoading] = useState(false);
@@ -649,6 +653,19 @@ const App: React.FC = () => {
     writeLocalObject(RECRUITMENT_LAST_SEEN_STORAGE_KEY, latestSeen);
     setRecruitmentLastSeenAt(latestSeen);
   }, [isAuthenticated, effectiveUserRole, menuSection, recruitmentOffers, recruitmentLastSeenAt]);
+
+  useEffect(() => {
+    if (!isAuthenticated || effectiveUserRole !== 'student' || menuSection !== 'BALADO') return;
+    const latestEpisode = [...podcastEpisodes].sort((a, b) => {
+      const aTime = a.pubDate ? new Date(a.pubDate).getTime() : 0;
+      const bTime = b.pubDate ? new Date(b.pubDate).getTime() : 0;
+      return bTime - aTime;
+    })[0];
+    const latestSeen = latestEpisode?.pubDate || '';
+    if (!latestSeen || latestSeen === podcastLastSeenAt) return;
+    writeLocalObject(PODCAST_LAST_SEEN_STORAGE_KEY, latestSeen);
+    setPodcastLastSeenAt(latestSeen);
+  }, [isAuthenticated, effectiveUserRole, menuSection, podcastEpisodes, podcastLastSeenAt]);
 
   useEffect(() => {
     if (!authChecked || !isAuthenticated) return;
@@ -1155,6 +1172,13 @@ const App: React.FC = () => {
         return new Date(request.createdAt).getTime() > new Date(contactRequestsLastSeenAt).getTime();
       }).length
     : 0;
+  const unseenPodcastCount = effectiveUserRole === 'student'
+    ? [...podcastEpisodes].filter((episode) => {
+        if (!episode.pubDate) return false;
+        if (!podcastLastSeenAt) return true;
+        return new Date(episode.pubDate).getTime() > new Date(podcastLastSeenAt).getTime();
+      }).length
+    : 0;
   const getMenuBadgeCount = (key: typeof mainMenuItems[number]['key']) => {
     if (key === 'ANNONCES') return recentAnnouncementCount;
     if (key === 'CONTENU') return recentGeneralContentCount;
@@ -1166,6 +1190,7 @@ const App: React.FC = () => {
           }).length
         : 0;
     }
+    if (key === 'BALADO') return unseenPodcastCount;
     if (key === 'CONTACT') return unreadContactRequestsCount;
     return 0;
   };
