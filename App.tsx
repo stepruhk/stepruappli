@@ -2484,7 +2484,7 @@ const App: React.FC = () => {
                   L’espace d’apprentissage des étudiant(e)s en communication
                 </h1>
                 <p className="mt-5 text-lg md:text-2xl text-slate-100/90">
-                  Cours, contenu, balado, assistant IA, et cartes mémo dans une seule plateforme.
+                  Cours, contenu, balado, stages et emplois, assistant IA, et cartes mémo dans une seule plateforme.
                 </p>
               </div>
 
