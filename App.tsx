@@ -99,6 +99,7 @@ const FAVORITES_STORAGE_KEY = 'eduboost_favorites_v1';
 const STUDENT_PROGRESS_STORAGE_KEY = 'eduboost_student_progress_v1';
 const ONBOARDING_STORAGE_KEY = 'eduboost_onboarding_seen_v1';
 const CONTACT_REQUESTS_LAST_SEEN_STORAGE_KEY = 'eduboost_contact_requests_last_seen_v1';
+const RECRUITMENT_LAST_SEEN_STORAGE_KEY = 'eduboost_recruitment_last_seen_v1';
 const NEW_ITEM_WINDOW_DAYS = 7;
 const CONTACT_GENERAL_OPTION = 'Mot de passe général de l’appli';
 const CONTACT_COURSE_OPTIONS = [
@@ -270,6 +271,9 @@ const App: React.FC = () => {
   const [showContactModal, setShowContactModal] = useState(false);
   const [contactRequestsLastSeenAt, setContactRequestsLastSeenAt] = useState<string>(
     () => readLocalObject<string>(CONTACT_REQUESTS_LAST_SEEN_STORAGE_KEY, ''),
+  );
+  const [recruitmentLastSeenAt, setRecruitmentLastSeenAt] = useState<string>(
+    () => readLocalObject<string>(RECRUITMENT_LAST_SEEN_STORAGE_KEY, ''),
   );
   const [recruitmentOffers, setRecruitmentOffers] = useState<RecruitmentOffer[]>([]);
   const [recruitmentLoading, setRecruitmentLoading] = useState(false);
@@ -625,6 +629,14 @@ const App: React.FC = () => {
     if (readLocalObject<boolean>(ONBOARDING_STORAGE_KEY, false)) return;
     setShowOnboarding(true);
   }, [authChecked, isAuthenticated, effectiveUserRole]);
+
+  useEffect(() => {
+    if (!isAuthenticated || effectiveUserRole !== 'student' || menuSection !== 'RECRUTEMENT') return;
+    const latestSeen = visibleRecruitmentOffers[0]?.createdAt || '';
+    if (!latestSeen || latestSeen === recruitmentLastSeenAt) return;
+    writeLocalObject(RECRUITMENT_LAST_SEEN_STORAGE_KEY, latestSeen);
+    setRecruitmentLastSeenAt(latestSeen);
+  }, [isAuthenticated, effectiveUserRole, menuSection, visibleRecruitmentOffers, recruitmentLastSeenAt]);
 
   useEffect(() => {
     if (!authChecked || !isAuthenticated) return;
@@ -1131,9 +1143,17 @@ const App: React.FC = () => {
         return new Date(request.createdAt).getTime() > new Date(contactRequestsLastSeenAt).getTime();
       }).length
     : 0;
+  const newRecruitmentOffersCount =
+    effectiveUserRole === 'student'
+      ? visibleRecruitmentOffers.filter((offer) => {
+          if (!recruitmentLastSeenAt) return true;
+          return new Date(offer.createdAt).getTime() > new Date(recruitmentLastSeenAt).getTime();
+        }).length
+      : 0;
   const getMenuBadgeCount = (key: typeof mainMenuItems[number]['key']) => {
     if (key === 'ANNONCES') return recentAnnouncementCount;
     if (key === 'CONTENU') return recentGeneralContentCount;
+    if (key === 'RECRUTEMENT') return newRecruitmentOffersCount;
     if (key === 'CONTACT') return unreadContactRequestsCount;
     return 0;
   };
