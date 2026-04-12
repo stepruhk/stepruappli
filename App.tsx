@@ -1130,13 +1130,13 @@ const App: React.FC = () => {
   ];
   const mainMenuItems = [
     { label: 'Annonces', icon: 'fa-bullhorn', key: 'ANNONCES' as const },
+    { label: 'Recrutement', icon: 'fa-briefcase', key: 'RECRUTEMENT' as const },
     { label: 'Accueil', icon: 'fa-border-all', key: 'ACCUEIL' as const },
     { label: 'Contenu', icon: 'fa-file-lines', key: 'CONTENU' as const },
     { label: 'Cours', icon: 'fa-graduation-cap', key: 'COURS' as const },
     { label: 'Cartes mémo', icon: 'fa-bolt', key: 'MEMO' as const },
     { label: 'Balado', icon: 'fa-podcast', key: 'BALADO' as const },
     { label: 'Blog', icon: 'fa-newspaper', key: 'BLOG' as const },
-    { label: 'Recrutement', icon: 'fa-briefcase', key: 'RECRUTEMENT' as const },
     { label: 'Assistant IA', icon: 'fa-robot', key: 'ASSISTANT' as const },
     { label: 'Contact', icon: 'fa-envelope', key: 'CONTACT' as const },
   ];
