@@ -42,6 +42,13 @@ const ORDER_META_PREFIX = "__ORDER__";
 const GENERAL_COURSE_ID = "general";
 const ANNOUNCEMENTS_COURSE_ID = "announcements";
 const RECRUITMENT_COURSE_ID = "__recruitment__";
+const RECRUITMENT_EXPERIENCE_OPTIONS = [
+  "Étudiant(e)s de 2e année de baccalauréat en communication",
+  "Étudiant(e)s de 3e année de baccalauréat en communication",
+  "Nouveaux diplômé(e)s, moins de 1 an d'expérience en communication",
+  "2 ans d'expérience professionnelle en communication",
+  "3 ans d'expérience professionnelle en communication",
+];
 const CONTACT_REQUESTS_COURSE_ID = "__contact_requests__";
 const PROFESSOR_PROFILE_PREFIX = "professor-profile:";
 const FLASHCARD_COURSE_PREFIX = "flashcards:";
@@ -630,6 +637,9 @@ function parseRecruitmentOffer(rawNote) {
     title: rawNote?.title || "",
     opportunityType: typeof payload?.opportunityType === "string" ? payload.opportunityType : "",
     employmentType: typeof payload?.employmentType === "string" ? payload.employmentType : "",
+    candidateExperienceLevels: Array.isArray(payload?.candidateExperienceLevels)
+      ? payload.candidateExperienceLevels.filter((entry) => typeof entry === "string" && entry.trim())
+      : [],
     companyName: typeof payload?.companyName === "string" ? payload.companyName : "",
     companyLogoUrl: typeof payload?.companyLogoUrl === "string" ? payload.companyLogoUrl : "",
     companyWebsiteUrl: typeof payload?.companyWebsiteUrl === "string" ? payload.companyWebsiteUrl : "",
@@ -1635,6 +1645,7 @@ app.post("/api/recruitment", async (req, res) => {
     const title = readRequiredTextField(req.body, "title", MAX_TITLE_LENGTH);
     const opportunityType = readRequiredTextField(req.body, "opportunityType", 80);
     const employmentType = readOptionalTextField(req.body, "employmentType", 80);
+    const candidateExperienceLevels = readOptionalStringArrayField(req.body, "candidateExperienceLevels", 10, 180);
     const companyName = readRequiredTextField(req.body, "companyName", 180);
     const companyLogoUrl = readOptionalTextField(req.body, "companyLogoUrl", MAX_URL_LENGTH);
     const companyWebsiteUrl = readOptionalTextField(req.body, "companyWebsiteUrl", MAX_URL_LENGTH);
@@ -1651,12 +1662,16 @@ app.post("/api/recruitment", async (req, res) => {
     if (companyLogoUrl && !companyLogoUrl.startsWith("data:image/")) {
       throw new ApiError(400, "INVALID_INPUT", "Le logo doit être une image valide.");
     }
+    if (candidateExperienceLevels.some((entry) => !RECRUITMENT_EXPERIENCE_OPTIONS.includes(entry))) {
+      throw new ApiError(400, "INVALID_INPUT", "Une option d'expérience sélectionnée est invalide.");
+    }
 
     const id = crypto.randomUUID();
     const createdAt = new Date().toISOString();
     const content = JSON.stringify({
       opportunityType,
       employmentType: opportunityType === "EMPLOI" ? employmentType : "",
+      candidateExperienceLevels,
       companyName,
       companyLogoUrl,
       companyWebsiteUrl,
@@ -1722,6 +1737,7 @@ app.put("/api/recruitment/:id", async (req, res) => {
     const title = readRequiredTextField(req.body, "title", MAX_TITLE_LENGTH);
     const opportunityType = readRequiredTextField(req.body, "opportunityType", 80);
     const employmentType = readOptionalTextField(req.body, "employmentType", 80);
+    const candidateExperienceLevels = readOptionalStringArrayField(req.body, "candidateExperienceLevels", 10, 180);
     const companyName = readRequiredTextField(req.body, "companyName", 180);
     const companyLogoUrl = readOptionalTextField(req.body, "companyLogoUrl", MAX_URL_LENGTH);
     const companyWebsiteUrl = readOptionalTextField(req.body, "companyWebsiteUrl", MAX_URL_LENGTH);
@@ -1738,10 +1754,14 @@ app.put("/api/recruitment/:id", async (req, res) => {
     if (companyLogoUrl && !companyLogoUrl.startsWith("data:image/")) {
       throw new ApiError(400, "INVALID_INPUT", "Le logo doit être une image valide.");
     }
+    if (candidateExperienceLevels.some((entry) => !RECRUITMENT_EXPERIENCE_OPTIONS.includes(entry))) {
+      throw new ApiError(400, "INVALID_INPUT", "Une option d'expérience sélectionnée est invalide.");
+    }
 
     const content = JSON.stringify({
       opportunityType,
       employmentType: opportunityType === "EMPLOI" ? employmentType : "",
+      candidateExperienceLevels,
       companyName,
       companyLogoUrl,
       companyWebsiteUrl,

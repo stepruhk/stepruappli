@@ -67,6 +67,7 @@ export type RecruitmentOffer = {
   title: string;
   opportunityType: "STAGE_REMUNERE" | "STAGE_NON_REMUNERE" | "EMPLOI" | "EXPERIENCE_BENEVOLE";
   employmentType?: "TEMPS_PLEIN" | "TEMPS_PARTIEL" | "EMPLOI_ETE" | "";
+  candidateExperienceLevels: string[];
   companyName: string;
   companyLogoUrl?: string;
   companyWebsiteUrl?: string;
@@ -436,6 +437,7 @@ export async function createRecruitmentOffer(payload: {
   title: string;
   opportunityType: RecruitmentOffer["opportunityType"];
   employmentType?: RecruitmentOffer["employmentType"];
+  candidateExperienceLevels?: string[];
   companyName: string;
   companyLogoUrl?: string;
   companyWebsiteUrl?: string;
@@ -454,6 +456,7 @@ export async function updateRecruitmentOffer(
     title: string;
     opportunityType: RecruitmentOffer["opportunityType"];
     employmentType?: RecruitmentOffer["employmentType"];
+    candidateExperienceLevels?: string[];
     companyName: string;
     companyLogoUrl?: string;
     companyWebsiteUrl?: string;

@@ -120,6 +120,13 @@ const RECRUITMENT_EMPLOYMENT_OPTIONS: { value: RecruitmentEmploymentType; label:
   { value: 'TEMPS_PARTIEL', label: 'Temps partiel' },
   { value: 'EMPLOI_ETE', label: "Emploi d'été" },
 ];
+const RECRUITMENT_EXPERIENCE_OPTIONS = [
+  "Étudiant(e)s de 2e année de baccalauréat en communication",
+  "Étudiant(e)s de 3e année de baccalauréat en communication",
+  "Nouveaux diplômé(e)s, moins de 1 an d'expérience en communication",
+  "2 ans d'expérience professionnelle en communication",
+  "3 ans d'expérience professionnelle en communication",
+];
 
 const isRecentDate = (value?: string, days = NEW_ITEM_WINDOW_DAYS) => {
   if (!value) return false;
@@ -281,6 +288,7 @@ const App: React.FC = () => {
   const [recruitmentTitle, setRecruitmentTitle] = useState('');
   const [recruitmentOpportunityType, setRecruitmentOpportunityType] = useState<RecruitmentOpportunityType>('STAGE_REMUNERE');
   const [recruitmentEmploymentType, setRecruitmentEmploymentType] = useState<RecruitmentEmploymentType>('TEMPS_PLEIN');
+  const [recruitmentCandidateExperienceLevels, setRecruitmentCandidateExperienceLevels] = useState<string[]>([]);
   const [recruitmentCompanyName, setRecruitmentCompanyName] = useState('');
   const [recruitmentCompanyLogoUrl, setRecruitmentCompanyLogoUrl] = useState('');
   const [recruitmentCompanyWebsiteUrl, setRecruitmentCompanyWebsiteUrl] = useState('');
@@ -291,6 +299,7 @@ const App: React.FC = () => {
   const [editRecruitmentTitle, setEditRecruitmentTitle] = useState('');
   const [editRecruitmentOpportunityType, setEditRecruitmentOpportunityType] = useState<RecruitmentOpportunityType>('STAGE_REMUNERE');
   const [editRecruitmentEmploymentType, setEditRecruitmentEmploymentType] = useState<RecruitmentEmploymentType>('TEMPS_PLEIN');
+  const [editRecruitmentCandidateExperienceLevels, setEditRecruitmentCandidateExperienceLevels] = useState<string[]>([]);
   const [editRecruitmentCompanyName, setEditRecruitmentCompanyName] = useState('');
   const [editRecruitmentCompanyLogoUrl, setEditRecruitmentCompanyLogoUrl] = useState('');
   const [editRecruitmentCompanyWebsiteUrl, setEditRecruitmentCompanyWebsiteUrl] = useState('');
@@ -1632,10 +1641,22 @@ const App: React.FC = () => {
     }
   };
 
+  const toggleRecruitmentExperienceSelection = (value: string, mode: 'create' | 'edit') => {
+    const updater = (current: string[]) =>
+      current.includes(value) ? current.filter((entry) => entry !== value) : [...current, value];
+
+    if (mode === 'create') {
+      setRecruitmentCandidateExperienceLevels((current) => updater(current));
+      return;
+    }
+    setEditRecruitmentCandidateExperienceLevels((current) => updater(current));
+  };
+
   const resetRecruitmentForm = () => {
     setRecruitmentTitle('');
     setRecruitmentOpportunityType('STAGE_REMUNERE');
     setRecruitmentEmploymentType('TEMPS_PLEIN');
+    setRecruitmentCandidateExperienceLevels([]);
     setRecruitmentCompanyName('');
     setRecruitmentCompanyLogoUrl('');
     setRecruitmentCompanyWebsiteUrl('');
@@ -1652,6 +1673,7 @@ const App: React.FC = () => {
         title: recruitmentTitle.trim(),
         opportunityType: recruitmentOpportunityType,
         employmentType: recruitmentOpportunityType === 'EMPLOI' ? recruitmentEmploymentType : '',
+        candidateExperienceLevels: recruitmentCandidateExperienceLevels,
         companyName: recruitmentCompanyName.trim(),
         companyLogoUrl: recruitmentCompanyLogoUrl || undefined,
         companyWebsiteUrl: recruitmentCompanyWebsiteUrl.trim() || undefined,
@@ -1673,6 +1695,7 @@ const App: React.FC = () => {
     setEditRecruitmentTitle(offer.title);
     setEditRecruitmentOpportunityType(offer.opportunityType);
     setEditRecruitmentEmploymentType((offer.employmentType as RecruitmentEmploymentType) || 'TEMPS_PLEIN');
+    setEditRecruitmentCandidateExperienceLevels(offer.candidateExperienceLevels || []);
     setEditRecruitmentCompanyName(offer.companyName);
     setEditRecruitmentCompanyLogoUrl(offer.companyLogoUrl || '');
     setEditRecruitmentCompanyWebsiteUrl(offer.companyWebsiteUrl || '');
@@ -1686,6 +1709,7 @@ const App: React.FC = () => {
     setEditRecruitmentTitle('');
     setEditRecruitmentOpportunityType('STAGE_REMUNERE');
     setEditRecruitmentEmploymentType('TEMPS_PLEIN');
+    setEditRecruitmentCandidateExperienceLevels([]);
     setEditRecruitmentCompanyName('');
     setEditRecruitmentCompanyLogoUrl('');
     setEditRecruitmentCompanyWebsiteUrl('');
@@ -1701,6 +1725,7 @@ const App: React.FC = () => {
         title: editRecruitmentTitle.trim(),
         opportunityType: editRecruitmentOpportunityType,
         employmentType: editRecruitmentOpportunityType === 'EMPLOI' ? editRecruitmentEmploymentType : '',
+        candidateExperienceLevels: editRecruitmentCandidateExperienceLevels,
         companyName: editRecruitmentCompanyName.trim(),
         companyLogoUrl: editRecruitmentCompanyLogoUrl || undefined,
         companyWebsiteUrl: editRecruitmentCompanyWebsiteUrl.trim() || undefined,
@@ -4736,6 +4761,23 @@ const App: React.FC = () => {
                             )}
                           </label>
 
+                          <div className="rounded-2xl border border-slate-200 p-4">
+                            <p className="text-sm font-semibold text-slate-700">Expérience nécessaire des candidat(e)s</p>
+                            <div className="mt-3 space-y-3">
+                              {RECRUITMENT_EXPERIENCE_OPTIONS.map((option) => (
+                                <label key={`recruitment-exp-${option}`} className="flex items-start gap-3 rounded-xl bg-white border border-slate-200 px-4 py-3 cursor-pointer hover:border-indigo-300">
+                                  <input
+                                    type="checkbox"
+                                    checked={recruitmentCandidateExperienceLevels.includes(option)}
+                                    onChange={() => toggleRecruitmentExperienceSelection(option, 'create')}
+                                    className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                  />
+                                  <span className="text-slate-800">{option}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+
                           <label className="block">
                             <span className="text-sm font-semibold text-slate-700">Description de l&apos;offre</span>
                             <textarea
@@ -4895,6 +4937,23 @@ const App: React.FC = () => {
                               )}
                             </label>
 
+                            <div className="rounded-2xl border border-slate-200 p-4">
+                              <p className="text-sm font-semibold text-slate-700">Expérience nécessaire des candidat(e)s</p>
+                              <div className="mt-3 space-y-3">
+                                {RECRUITMENT_EXPERIENCE_OPTIONS.map((option) => (
+                                  <label key={`edit-recruitment-exp-${offer.id}-${option}`} className="flex items-start gap-3 rounded-xl bg-white border border-slate-200 px-4 py-3 cursor-pointer hover:border-indigo-300">
+                                    <input
+                                      type="checkbox"
+                                      checked={editRecruitmentCandidateExperienceLevels.includes(option)}
+                                      onChange={() => toggleRecruitmentExperienceSelection(option, 'edit')}
+                                      className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <span className="text-slate-800">{option}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+
                             <label className="block">
                               <span className="text-sm font-semibold text-slate-700">Description de l&apos;offre</span>
                               <textarea
@@ -4985,6 +5044,21 @@ const App: React.FC = () => {
                             <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
                               <p className="whitespace-pre-wrap text-slate-700">{offer.description}</p>
                             </div>
+
+                            {!!offer.candidateExperienceLevels?.length && (
+                              <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                                <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500 mb-3">
+                                  Expérience nécessaire des candidat(e)s
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                  {offer.candidateExperienceLevels.map((entry) => (
+                                    <span key={`${offer.id}-experience-${entry}`} className="rounded-full bg-white border border-slate-200 px-3 py-1 text-sm font-medium text-slate-700">
+                                      {entry}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
 
                             <div className="mt-6 flex flex-wrap items-center gap-3">
                               {offer.companyWebsiteUrl && (
