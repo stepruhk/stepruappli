@@ -5,6 +5,7 @@ import { INITIAL_TOPICS } from './constants.ts';
 import ciLogo from './assets/ci-logo.png';
 import {
   checkAuthStatus,
+  createRecruitmentOffer,
   createCourseFlashcard,
   createCourseContent,
   createEvernoteNote,
@@ -14,12 +15,14 @@ import {
   listCourseFlashcards,
   listCourseContent,
   listEvernoteNotes,
+  listRecruitmentOffers,
   loginWithPassword,
   logout,
   removeContactRequest,
   removeCourseFlashcard,
   removeCourseContent,
   removeEvernoteNote,
+  removeRecruitmentOffer,
   saveCourseOrder,
   submitContactRequest,
   trackAnalyticsEvent,
@@ -27,17 +30,19 @@ import {
   updateCourseFlashcard,
   updateCourseContent,
   updateEvernoteNote,
+  updateRecruitmentOffer,
   type AccessMetrics,
   type AnalyticsSummary,
   type ContactRequest,
   type EvernoteNote,
   type LearningContentItem,
   type OrderEntityType,
+  type RecruitmentOffer,
   type UserRole,
 } from './services/openaiService.ts';
 import FlashcardDeck from './components/FlashcardDeck.tsx';
 
-type MenuSection = 'ACCUEIL' | 'CONTENU' | 'ANNONCES' | 'MEMO' | 'BALADO' | 'BLOG' | 'ASSISTANT' | 'CONTACT';
+type MenuSection = 'ACCUEIL' | 'CONTENU' | 'ANNONCES' | 'MEMO' | 'BALADO' | 'BLOG' | 'ASSISTANT' | 'RECRUTEMENT' | 'CONTACT';
 type PodcastEpisode = {
   title: string;
   link?: string;
@@ -53,6 +58,8 @@ type AnnouncementMeta = {
   pinned?: boolean;
 };
 type AnnouncementItem = EvernoteNote & AnnouncementMeta;
+type RecruitmentOpportunityType = RecruitmentOffer['opportunityType'];
+type RecruitmentEmploymentType = NonNullable<RecruitmentOffer['employmentType']>;
 type FavoriteKind = 'resource' | 'note' | 'literature';
 type FavoriteItem = {
   id: string;
@@ -100,6 +107,17 @@ const CONTACT_COURSE_OPTIONS = [
   'Théories de la communication',
   'Gérer la réputation',
   'Influence',
+];
+const RECRUITMENT_TYPE_OPTIONS: { value: RecruitmentOpportunityType; label: string }[] = [
+  { value: 'STAGE_REMUNERE', label: 'Stage (rémunéré)' },
+  { value: 'STAGE_NON_REMUNERE', label: 'Stage (non rémunéré)' },
+  { value: 'EMPLOI', label: 'Emploi' },
+  { value: 'EXPERIENCE_BENEVOLE', label: 'Expérience bénévole' },
+];
+const RECRUITMENT_EMPLOYMENT_OPTIONS: { value: RecruitmentEmploymentType; label: string }[] = [
+  { value: 'TEMPS_PLEIN', label: 'Temps plein' },
+  { value: 'TEMPS_PARTIEL', label: 'Temps partiel' },
+  { value: 'EMPLOI_ETE', label: "Emploi d'été" },
 ];
 
 const isRecentDate = (value?: string, days = NEW_ITEM_WINDOW_DAYS) => {
@@ -253,6 +271,30 @@ const App: React.FC = () => {
   const [contactRequestsLastSeenAt, setContactRequestsLastSeenAt] = useState<string>(
     () => readLocalObject<string>(CONTACT_REQUESTS_LAST_SEEN_STORAGE_KEY, ''),
   );
+  const [recruitmentOffers, setRecruitmentOffers] = useState<RecruitmentOffer[]>([]);
+  const [recruitmentLoading, setRecruitmentLoading] = useState(false);
+  const [recruitmentError, setRecruitmentError] = useState<string | null>(null);
+  const [recruitmentTitle, setRecruitmentTitle] = useState('');
+  const [recruitmentOpportunityType, setRecruitmentOpportunityType] = useState<RecruitmentOpportunityType>('STAGE_REMUNERE');
+  const [recruitmentEmploymentType, setRecruitmentEmploymentType] = useState<RecruitmentEmploymentType>('TEMPS_PLEIN');
+  const [recruitmentCompanyName, setRecruitmentCompanyName] = useState('');
+  const [recruitmentCompanyLogoUrl, setRecruitmentCompanyLogoUrl] = useState('');
+  const [recruitmentCompanyWebsiteUrl, setRecruitmentCompanyWebsiteUrl] = useState('');
+  const [recruitmentDescription, setRecruitmentDescription] = useState('');
+  const [recruitmentApplyBy, setRecruitmentApplyBy] = useState('');
+  const [recruitmentApplyUrl, setRecruitmentApplyUrl] = useState('');
+  const [editingRecruitmentId, setEditingRecruitmentId] = useState<string | null>(null);
+  const [editRecruitmentTitle, setEditRecruitmentTitle] = useState('');
+  const [editRecruitmentOpportunityType, setEditRecruitmentOpportunityType] = useState<RecruitmentOpportunityType>('STAGE_REMUNERE');
+  const [editRecruitmentEmploymentType, setEditRecruitmentEmploymentType] = useState<RecruitmentEmploymentType>('TEMPS_PLEIN');
+  const [editRecruitmentCompanyName, setEditRecruitmentCompanyName] = useState('');
+  const [editRecruitmentCompanyLogoUrl, setEditRecruitmentCompanyLogoUrl] = useState('');
+  const [editRecruitmentCompanyWebsiteUrl, setEditRecruitmentCompanyWebsiteUrl] = useState('');
+  const [editRecruitmentDescription, setEditRecruitmentDescription] = useState('');
+  const [editRecruitmentApplyBy, setEditRecruitmentApplyBy] = useState('');
+  const [editRecruitmentApplyUrl, setEditRecruitmentApplyUrl] = useState('');
+  const [recruitmentLogoInputKey, setRecruitmentLogoInputKey] = useState(0);
+  const [editRecruitmentLogoInputKey, setEditRecruitmentLogoInputKey] = useState(0);
   const [previewAsStudent, setPreviewAsStudent] = useState(false);
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [studentProgressByCourse, setStudentProgressByCourse] = useState<Record<string, StudentCourseProgress>>({});
@@ -494,6 +536,27 @@ const App: React.FC = () => {
       return () => window.clearInterval(intervalId);
     }
   }, [authChecked, isAuthenticated, menuSection, isProfessor]);
+
+  useEffect(() => {
+    const loadRecruitmentOffers = async () => {
+      if (!authChecked || !isAuthenticated) return;
+      if (menuSection !== 'RECRUTEMENT' && menuSection !== 'ACCUEIL') return;
+
+      setRecruitmentLoading(true);
+      setRecruitmentError(null);
+      try {
+        const offers = await listRecruitmentOffers();
+        setRecruitmentOffers(offers);
+      } catch (error) {
+        console.error(error);
+        setRecruitmentError('Impossible de charger les offres pour le moment.');
+      } finally {
+        setRecruitmentLoading(false);
+      }
+    };
+
+    void loadRecruitmentOffers();
+  }, [authChecked, isAuthenticated, menuSection]);
 
   useEffect(() => {
     if (!isProfessor || menuSection !== 'CONTACT' || contactRequests.length === 0) return;
@@ -1058,6 +1121,7 @@ const App: React.FC = () => {
     { label: 'Cartes mémo', icon: 'fa-bolt', key: 'MEMO' as const },
     { label: 'Balado', icon: 'fa-podcast', key: 'BALADO' as const },
     { label: 'Blog', icon: 'fa-newspaper', key: 'BLOG' as const },
+    { label: 'Recrutement', icon: 'fa-briefcase', key: 'RECRUTEMENT' as const },
     { label: 'Assistant IA', icon: 'fa-robot', key: 'ASSISTANT' as const },
     { label: 'Contact', icon: 'fa-envelope', key: 'CONTACT' as const },
   ];
@@ -1490,6 +1554,150 @@ const App: React.FC = () => {
       return `data:${mime};base64,${btoa(binary)}`;
     } catch (_error) {
       throw new Error('Lecture du fichier impossible.');
+    }
+  };
+
+  const formatRecruitmentTypeLabel = (value: RecruitmentOpportunityType) =>
+    RECRUITMENT_TYPE_OPTIONS.find((option) => option.value === value)?.label || value;
+
+  const formatRecruitmentEmploymentLabel = (value?: RecruitmentOffer['employmentType']) =>
+    RECRUITMENT_EMPLOYMENT_OPTIONS.find((option) => option.value === value)?.label || value || '';
+
+  const isOfferExpired = (offer: RecruitmentOffer) => {
+    if (!offer.applyBy) return false;
+    const deadline = new Date(`${offer.applyBy}T23:59:59`).getTime();
+    if (Number.isNaN(deadline)) return false;
+    return deadline < Date.now();
+  };
+
+  const sortedRecruitmentOffers = [...recruitmentOffers].sort((a, b) => {
+    const expiredA = isOfferExpired(a) ? 1 : 0;
+    const expiredB = isOfferExpired(b) ? 1 : 0;
+    if (expiredA !== expiredB) return expiredA - expiredB;
+    const deadlineA = a.applyBy ? new Date(`${a.applyBy}T23:59:59`).getTime() : Number.MAX_SAFE_INTEGER;
+    const deadlineB = b.applyBy ? new Date(`${b.applyBy}T23:59:59`).getTime() : Number.MAX_SAFE_INTEGER;
+    if (deadlineA !== deadlineB) return deadlineA - deadlineB;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+
+  const visibleRecruitmentOffers = canEditResources
+    ? sortedRecruitmentOffers
+    : sortedRecruitmentOffers.filter((offer) => !isOfferExpired(offer));
+
+  const handleRecruitmentLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>, mode: 'create' | 'edit') => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      if (!dataUrl.startsWith('data:image/')) {
+        throw new Error("Le fichier doit être une image.");
+      }
+      if (mode === 'create') {
+        setRecruitmentCompanyLogoUrl(dataUrl);
+      } else {
+        setEditRecruitmentCompanyLogoUrl(dataUrl);
+      }
+    } catch (error) {
+      console.error(error);
+      alert(`Impossible d'ajouter le logo. ${getErrorMessage(error)}`);
+    } finally {
+      event.target.value = '';
+    }
+  };
+
+  const resetRecruitmentForm = () => {
+    setRecruitmentTitle('');
+    setRecruitmentOpportunityType('STAGE_REMUNERE');
+    setRecruitmentEmploymentType('TEMPS_PLEIN');
+    setRecruitmentCompanyName('');
+    setRecruitmentCompanyLogoUrl('');
+    setRecruitmentCompanyWebsiteUrl('');
+    setRecruitmentDescription('');
+    setRecruitmentApplyBy('');
+    setRecruitmentApplyUrl('');
+    setRecruitmentLogoInputKey((current) => current + 1);
+  };
+
+  const addRecruitmentOffer = async (event: React.FormEvent) => {
+    event.preventDefault();
+    try {
+      const created = await createRecruitmentOffer({
+        title: recruitmentTitle.trim(),
+        opportunityType: recruitmentOpportunityType,
+        employmentType: recruitmentOpportunityType === 'EMPLOI' ? recruitmentEmploymentType : '',
+        companyName: recruitmentCompanyName.trim(),
+        companyLogoUrl: recruitmentCompanyLogoUrl || undefined,
+        companyWebsiteUrl: recruitmentCompanyWebsiteUrl.trim() || undefined,
+        description: recruitmentDescription.trim(),
+        applyBy: recruitmentApplyBy,
+        applyUrl: recruitmentApplyUrl.trim(),
+      });
+      setRecruitmentOffers((prev) => [created, ...prev]);
+      resetRecruitmentForm();
+    } catch (error) {
+      console.error(error);
+      handleAuthError(error);
+      alert(`Impossible d'ajouter l'offre. ${getErrorMessage(error)}`);
+    }
+  };
+
+  const startEditRecruitmentOffer = (offer: RecruitmentOffer) => {
+    setEditingRecruitmentId(offer.id);
+    setEditRecruitmentTitle(offer.title);
+    setEditRecruitmentOpportunityType(offer.opportunityType);
+    setEditRecruitmentEmploymentType((offer.employmentType as RecruitmentEmploymentType) || 'TEMPS_PLEIN');
+    setEditRecruitmentCompanyName(offer.companyName);
+    setEditRecruitmentCompanyLogoUrl(offer.companyLogoUrl || '');
+    setEditRecruitmentCompanyWebsiteUrl(offer.companyWebsiteUrl || '');
+    setEditRecruitmentDescription(offer.description);
+    setEditRecruitmentApplyBy(offer.applyBy);
+    setEditRecruitmentApplyUrl(offer.applyUrl);
+  };
+
+  const cancelEditRecruitmentOffer = () => {
+    setEditingRecruitmentId(null);
+    setEditRecruitmentTitle('');
+    setEditRecruitmentOpportunityType('STAGE_REMUNERE');
+    setEditRecruitmentEmploymentType('TEMPS_PLEIN');
+    setEditRecruitmentCompanyName('');
+    setEditRecruitmentCompanyLogoUrl('');
+    setEditRecruitmentCompanyWebsiteUrl('');
+    setEditRecruitmentDescription('');
+    setEditRecruitmentApplyBy('');
+    setEditRecruitmentApplyUrl('');
+    setEditRecruitmentLogoInputKey((current) => current + 1);
+  };
+
+  const saveEditRecruitmentOffer = async (offer: RecruitmentOffer) => {
+    try {
+      const updated = await updateRecruitmentOffer(offer.id, {
+        title: editRecruitmentTitle.trim(),
+        opportunityType: editRecruitmentOpportunityType,
+        employmentType: editRecruitmentOpportunityType === 'EMPLOI' ? editRecruitmentEmploymentType : '',
+        companyName: editRecruitmentCompanyName.trim(),
+        companyLogoUrl: editRecruitmentCompanyLogoUrl || undefined,
+        companyWebsiteUrl: editRecruitmentCompanyWebsiteUrl.trim() || undefined,
+        description: editRecruitmentDescription.trim(),
+        applyBy: editRecruitmentApplyBy,
+        applyUrl: editRecruitmentApplyUrl.trim(),
+      });
+      setRecruitmentOffers((prev) => prev.map((entry) => (entry.id === offer.id ? updated : entry)));
+      cancelEditRecruitmentOffer();
+    } catch (error) {
+      console.error(error);
+      handleAuthError(error);
+      alert(`Impossible de modifier l'offre. ${getErrorMessage(error)}`);
+    }
+  };
+
+  const deleteRecruitmentOffer = async (id: string) => {
+    try {
+      await removeRecruitmentOffer(id);
+      setRecruitmentOffers((prev) => prev.filter((offer) => offer.id !== id));
+    } catch (error) {
+      console.error(error);
+      handleAuthError(error);
+      alert(`Impossible de supprimer l'offre. ${getErrorMessage(error)}`);
     }
   };
 
@@ -4372,6 +4580,411 @@ const App: React.FC = () => {
                       <i className="fas fa-up-right-from-square"></i>
                       Ouvrir le blog
                     </a>
+                  </div>
+                )}
+
+                {menuSection === 'RECRUTEMENT' && (
+                  <div className="space-y-8">
+                    <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                      <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">Recrutement</h1>
+                      <p className="text-slate-600 text-lg">
+                        Offres de stages, d&apos;emplois et d&apos;expériences bénévoles partagées pour les étudiant(e)s.
+                      </p>
+                    </div>
+
+                    {canEditResources && (
+                      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                        <h2 className="text-2xl font-black text-slate-900 mb-3">Ajouter une offre</h2>
+                        <p className="text-slate-600 mb-6">
+                          Publie ici les offres de recrutement destinées aux étudiant(e)s.
+                        </p>
+
+                        <form onSubmit={addRecruitmentOffer} className="space-y-5">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <label className="block">
+                              <span className="text-sm font-semibold text-slate-700">Titre de l&apos;offre</span>
+                              <input
+                                type="text"
+                                value={recruitmentTitle}
+                                onChange={(event) => setRecruitmentTitle(event.target.value)}
+                                className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                required
+                              />
+                            </label>
+
+                            <label className="block">
+                              <span className="text-sm font-semibold text-slate-700">Nom de l&apos;entreprise</span>
+                              <input
+                                type="text"
+                                value={recruitmentCompanyName}
+                                onChange={(event) => setRecruitmentCompanyName(event.target.value)}
+                                className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                required
+                              />
+                            </label>
+
+                            <label className="block">
+                              <span className="text-sm font-semibold text-slate-700">Type d&apos;offre</span>
+                              <select
+                                value={recruitmentOpportunityType}
+                                onChange={(event) => setRecruitmentOpportunityType(event.target.value as RecruitmentOpportunityType)}
+                                className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              >
+                                {RECRUITMENT_TYPE_OPTIONS.map((option) => (
+                                  <option key={option.value} value={option.value}>{option.label}</option>
+                                ))}
+                              </select>
+                            </label>
+
+                            {recruitmentOpportunityType === 'EMPLOI' && (
+                              <label className="block">
+                                <span className="text-sm font-semibold text-slate-700">Type d&apos;emploi</span>
+                                <select
+                                  value={recruitmentEmploymentType}
+                                  onChange={(event) => setRecruitmentEmploymentType(event.target.value as RecruitmentEmploymentType)}
+                                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                >
+                                  {RECRUITMENT_EMPLOYMENT_OPTIONS.map((option) => (
+                                    <option key={option.value} value={option.value}>{option.label}</option>
+                                  ))}
+                                </select>
+                              </label>
+                            )}
+
+                            <label className="block">
+                              <span className="text-sm font-semibold text-slate-700">Date d&apos;échéance pour appliquer</span>
+                              <input
+                                type="date"
+                                value={recruitmentApplyBy}
+                                onChange={(event) => setRecruitmentApplyBy(event.target.value)}
+                                className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                required
+                              />
+                            </label>
+
+                            <label className="block md:col-span-2">
+                              <span className="text-sm font-semibold text-slate-700">Lien web de l&apos;entreprise</span>
+                              <input
+                                type="url"
+                                value={recruitmentCompanyWebsiteUrl}
+                                onChange={(event) => setRecruitmentCompanyWebsiteUrl(event.target.value)}
+                                placeholder="https://..."
+                                className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              />
+                            </label>
+
+                            <label className="block md:col-span-2">
+                              <span className="text-sm font-semibold text-slate-700">Lien pour appliquer</span>
+                              <input
+                                type="text"
+                                value={recruitmentApplyUrl}
+                                onChange={(event) => setRecruitmentApplyUrl(event.target.value)}
+                                placeholder="https://... ou mailto:..."
+                                className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                required
+                              />
+                            </label>
+                          </div>
+
+                          <label className="block">
+                            <span className="text-sm font-semibold text-slate-700">Logo de l&apos;entreprise</span>
+                            <input
+                              key={`recruitment-logo-${recruitmentLogoInputKey}`}
+                              type="file"
+                              accept="image/*"
+                              onChange={(event) => { void handleRecruitmentLogoUpload(event, 'create'); }}
+                              className="mt-2 block w-full text-sm text-slate-700"
+                            />
+                            {recruitmentCompanyLogoUrl && (
+                              <div className="mt-4 flex items-center gap-4">
+                                <img src={recruitmentCompanyLogoUrl} alt="" className="h-16 w-16 rounded-2xl border border-slate-200 bg-white object-contain p-2" />
+                                <button
+                                  type="button"
+                                  onClick={() => setRecruitmentCompanyLogoUrl('')}
+                                  className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100"
+                                >
+                                  Retirer le logo
+                                </button>
+                              </div>
+                            )}
+                          </label>
+
+                          <label className="block">
+                            <span className="text-sm font-semibold text-slate-700">Description de l&apos;offre</span>
+                            <textarea
+                              value={recruitmentDescription}
+                              onChange={(event) => setRecruitmentDescription(event.target.value)}
+                              rows={7}
+                              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              required
+                            />
+                          </label>
+
+                          <button
+                            type="submit"
+                            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-white font-bold hover:bg-indigo-700 transition-colors"
+                          >
+                            <i className="fas fa-plus"></i>
+                            Publier l&apos;offre
+                          </button>
+                        </form>
+                      </div>
+                    )}
+
+                    {recruitmentLoading && (
+                      <div className="bg-white rounded-3xl border border-slate-200 p-6 text-slate-500">
+                        Chargement des offres...
+                      </div>
+                    )}
+
+                    {recruitmentError && (
+                      <div className="bg-white rounded-3xl border border-rose-200 p-6 text-rose-600">
+                        {recruitmentError}
+                      </div>
+                    )}
+
+                    {!recruitmentLoading && !recruitmentError && visibleRecruitmentOffers.length === 0 && (
+                      <div className="bg-white rounded-3xl border border-slate-200 p-6 text-slate-500">
+                        {canEditResources
+                          ? "Aucune offre n'a encore été publiée."
+                          : "Aucune offre active n'est disponible pour le moment."}
+                      </div>
+                    )}
+
+                    {!recruitmentLoading && !recruitmentError && visibleRecruitmentOffers.map((offer) => (
+                      <article key={offer.id} className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                        {canEditResources && editingRecruitmentId === offer.id ? (
+                          <form
+                            onSubmit={(event) => {
+                              event.preventDefault();
+                              void saveEditRecruitmentOffer(offer);
+                            }}
+                            className="space-y-5"
+                          >
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                              <label className="block">
+                                <span className="text-sm font-semibold text-slate-700">Titre de l&apos;offre</span>
+                                <input
+                                  type="text"
+                                  value={editRecruitmentTitle}
+                                  onChange={(event) => setEditRecruitmentTitle(event.target.value)}
+                                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  required
+                                />
+                              </label>
+
+                              <label className="block">
+                                <span className="text-sm font-semibold text-slate-700">Nom de l&apos;entreprise</span>
+                                <input
+                                  type="text"
+                                  value={editRecruitmentCompanyName}
+                                  onChange={(event) => setEditRecruitmentCompanyName(event.target.value)}
+                                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  required
+                                />
+                              </label>
+
+                              <label className="block">
+                                <span className="text-sm font-semibold text-slate-700">Type d&apos;offre</span>
+                                <select
+                                  value={editRecruitmentOpportunityType}
+                                  onChange={(event) => setEditRecruitmentOpportunityType(event.target.value as RecruitmentOpportunityType)}
+                                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                >
+                                  {RECRUITMENT_TYPE_OPTIONS.map((option) => (
+                                    <option key={option.value} value={option.value}>{option.label}</option>
+                                  ))}
+                                </select>
+                              </label>
+
+                              {editRecruitmentOpportunityType === 'EMPLOI' && (
+                                <label className="block">
+                                  <span className="text-sm font-semibold text-slate-700">Type d&apos;emploi</span>
+                                  <select
+                                    value={editRecruitmentEmploymentType}
+                                    onChange={(event) => setEditRecruitmentEmploymentType(event.target.value as RecruitmentEmploymentType)}
+                                    className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  >
+                                    {RECRUITMENT_EMPLOYMENT_OPTIONS.map((option) => (
+                                      <option key={option.value} value={option.value}>{option.label}</option>
+                                    ))}
+                                  </select>
+                                </label>
+                              )}
+
+                              <label className="block">
+                                <span className="text-sm font-semibold text-slate-700">Date d&apos;échéance pour appliquer</span>
+                                <input
+                                  type="date"
+                                  value={editRecruitmentApplyBy}
+                                  onChange={(event) => setEditRecruitmentApplyBy(event.target.value)}
+                                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  required
+                                />
+                              </label>
+
+                              <label className="block md:col-span-2">
+                                <span className="text-sm font-semibold text-slate-700">Lien web de l&apos;entreprise</span>
+                                <input
+                                  type="url"
+                                  value={editRecruitmentCompanyWebsiteUrl}
+                                  onChange={(event) => setEditRecruitmentCompanyWebsiteUrl(event.target.value)}
+                                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                />
+                              </label>
+
+                              <label className="block md:col-span-2">
+                                <span className="text-sm font-semibold text-slate-700">Lien pour appliquer</span>
+                                <input
+                                  type="text"
+                                  value={editRecruitmentApplyUrl}
+                                  onChange={(event) => setEditRecruitmentApplyUrl(event.target.value)}
+                                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  required
+                                />
+                              </label>
+                            </div>
+
+                            <label className="block">
+                              <span className="text-sm font-semibold text-slate-700">Logo de l&apos;entreprise</span>
+                              <input
+                                key={`edit-recruitment-logo-${editRecruitmentLogoInputKey}`}
+                                type="file"
+                                accept="image/*"
+                                onChange={(event) => { void handleRecruitmentLogoUpload(event, 'edit'); }}
+                                className="mt-2 block w-full text-sm text-slate-700"
+                              />
+                              {editRecruitmentCompanyLogoUrl && (
+                                <div className="mt-4 flex items-center gap-4">
+                                  <img src={editRecruitmentCompanyLogoUrl} alt="" className="h-16 w-16 rounded-2xl border border-slate-200 bg-white object-contain p-2" />
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditRecruitmentCompanyLogoUrl('')}
+                                    className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100"
+                                  >
+                                    Retirer le logo
+                                  </button>
+                                </div>
+                              )}
+                            </label>
+
+                            <label className="block">
+                              <span className="text-sm font-semibold text-slate-700">Description de l&apos;offre</span>
+                              <textarea
+                                value={editRecruitmentDescription}
+                                onChange={(event) => setEditRecruitmentDescription(event.target.value)}
+                                rows={7}
+                                className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                required
+                              />
+                            </label>
+
+                            <div className="flex flex-wrap items-center gap-3">
+                              <button
+                                type="submit"
+                                className="rounded-xl bg-indigo-600 px-4 py-2 text-white text-sm font-bold hover:bg-indigo-700"
+                              >
+                                Enregistrer
+                              </button>
+                              <button
+                                type="button"
+                                onClick={cancelEditRecruitmentOffer}
+                                className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100"
+                              >
+                                Annuler
+                              </button>
+                            </div>
+                          </form>
+                        ) : (
+                          <>
+                            <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+                              <div className="flex items-start gap-4">
+                                {offer.companyLogoUrl ? (
+                                  <img src={offer.companyLogoUrl} alt="" className="h-16 w-16 rounded-2xl border border-slate-200 bg-white object-contain p-2" />
+                                ) : (
+                                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+                                    <i className="fas fa-briefcase text-xl"></i>
+                                  </div>
+                                )}
+                                <div>
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <h2 className="text-2xl font-black text-slate-900">{offer.title}</h2>
+                                    {isRecentDate(offer.createdAt) && (
+                                      <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">Nouveau</span>
+                                    )}
+                                    {isOfferExpired(offer) && (
+                                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">Expirée</span>
+                                    )}
+                                  </div>
+                                  <p className="mt-2 text-lg font-semibold text-slate-700">{offer.companyName}</p>
+                                  <div className="mt-3 flex flex-wrap gap-2">
+                                    <span className="rounded-full bg-indigo-50 px-3 py-1 text-sm font-bold text-indigo-700">
+                                      {formatRecruitmentTypeLabel(offer.opportunityType)}
+                                    </span>
+                                    {offer.opportunityType === 'EMPLOI' && offer.employmentType && (
+                                      <span className="rounded-full bg-orange-50 px-3 py-1 text-sm font-bold text-orange-700">
+                                        {formatRecruitmentEmploymentLabel(offer.employmentType)}
+                                      </span>
+                                    )}
+                                    <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-600">
+                                      Échéance: {new Date(`${offer.applyBy}T12:00:00`).toLocaleDateString('fr-FR')}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {canEditResources && (
+                                <div className="flex flex-wrap items-center gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => startEditRecruitmentOffer(offer)}
+                                    className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-slate-700 font-bold hover:bg-slate-100 transition-colors"
+                                  >
+                                    <i className="fas fa-pen"></i>
+                                    Modifier
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => { void deleteRecruitmentOffer(offer.id); }}
+                                    className="inline-flex items-center gap-2 rounded-xl border border-rose-200 px-4 py-2 text-rose-600 font-bold hover:bg-rose-50 transition-colors"
+                                  >
+                                    <i className="fas fa-trash"></i>
+                                    Supprimer
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                              <p className="whitespace-pre-wrap text-slate-700">{offer.description}</p>
+                            </div>
+
+                            <div className="mt-6 flex flex-wrap items-center gap-3">
+                              {offer.companyWebsiteUrl && (
+                                <a
+                                  href={offer.companyWebsiteUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-slate-700 font-bold hover:bg-slate-100 transition-colors"
+                                >
+                                  <i className="fas fa-globe"></i>
+                                  Site de l&apos;entreprise
+                                </a>
+                              )}
+                              <a
+                                href={offer.applyUrl}
+                                target={offer.applyUrl.startsWith('mailto:') ? undefined : '_blank'}
+                                rel={offer.applyUrl.startsWith('mailto:') ? undefined : 'noreferrer'}
+                                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-white font-bold hover:bg-indigo-700 transition-colors"
+                              >
+                                <i className="fas fa-paper-plane"></i>
+                                Appliquer à l&apos;offre
+                              </a>
+                            </div>
+                          </>
+                        )}
+                      </article>
+                    ))}
                   </div>
                 )}
 

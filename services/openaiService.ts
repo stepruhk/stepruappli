@@ -62,6 +62,19 @@ export type ContactRequest = {
   selections: string[];
   createdAt: string;
 };
+export type RecruitmentOffer = {
+  id: string;
+  title: string;
+  opportunityType: "STAGE_REMUNERE" | "STAGE_NON_REMUNERE" | "EMPLOI" | "EXPERIENCE_BENEVOLE";
+  employmentType?: "TEMPS_PLEIN" | "TEMPS_PARTIEL" | "EMPLOI_ETE" | "";
+  companyName: string;
+  companyLogoUrl?: string;
+  companyWebsiteUrl?: string;
+  description: string;
+  applyBy: string;
+  applyUrl: string;
+  createdAt: string;
+};
 export type OrderEntityType = "notes" | "resources";
 export type AuthStatus = {
   authenticated: boolean;
@@ -412,6 +425,50 @@ export async function listContactRequests(): Promise<ContactRequest[]> {
 
 export async function removeContactRequest(id: string): Promise<void> {
   await deleteJson<{ ok?: boolean }>(`/api/contact-requests/${encodeURIComponent(id)}`);
+}
+
+export async function listRecruitmentOffers(): Promise<RecruitmentOffer[]> {
+  const response = await getJson<{ offers?: RecruitmentOffer[] }>("/api/recruitment");
+  return Array.isArray(response.offers) ? response.offers : [];
+}
+
+export async function createRecruitmentOffer(payload: {
+  title: string;
+  opportunityType: RecruitmentOffer["opportunityType"];
+  employmentType?: RecruitmentOffer["employmentType"];
+  companyName: string;
+  companyLogoUrl?: string;
+  companyWebsiteUrl?: string;
+  description: string;
+  applyBy: string;
+  applyUrl: string;
+}): Promise<RecruitmentOffer> {
+  const response = await postJson<{ offer?: RecruitmentOffer }>("/api/recruitment", payload);
+  if (!response.offer) throw new Error("Impossible de créer l'offre.");
+  return response.offer;
+}
+
+export async function updateRecruitmentOffer(
+  id: string,
+  payload: {
+    title: string;
+    opportunityType: RecruitmentOffer["opportunityType"];
+    employmentType?: RecruitmentOffer["employmentType"];
+    companyName: string;
+    companyLogoUrl?: string;
+    companyWebsiteUrl?: string;
+    description: string;
+    applyBy: string;
+    applyUrl: string;
+  },
+): Promise<RecruitmentOffer> {
+  const response = await putJson<{ offer?: RecruitmentOffer }>(`/api/recruitment/${encodeURIComponent(id)}`, payload);
+  if (!response.offer) throw new Error("Impossible de modifier l'offre.");
+  return response.offer;
+}
+
+export async function removeRecruitmentOffer(id: string): Promise<void> {
+  await deleteJson<{ ok?: boolean }>(`/api/recruitment/${encodeURIComponent(id)}`);
 }
 
 export async function saveCourseOrder(

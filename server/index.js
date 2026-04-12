@@ -41,6 +41,7 @@ const ORDER_META_COURSE_ID = "__ui_order__";
 const ORDER_META_PREFIX = "__ORDER__";
 const GENERAL_COURSE_ID = "general";
 const ANNOUNCEMENTS_COURSE_ID = "announcements";
+const RECRUITMENT_COURSE_ID = "__recruitment__";
 const CONTACT_REQUESTS_COURSE_ID = "__contact_requests__";
 const PROFESSOR_PROFILE_PREFIX = "professor-profile:";
 const FLASHCARD_COURSE_PREFIX = "flashcards:";
@@ -602,6 +603,39 @@ function parseContactRequest(rawNote) {
     courseGroup: typeof payload?.courseGroup === "string" ? payload.courseGroup : "",
     message: typeof payload?.message === "string" ? payload.message : "",
     selections: normalizeContactRequestSelections(payload?.selections),
+    createdAt: rawNote?.createdAt || rawNote?.created_at || new Date().toISOString(),
+  };
+}
+
+function isValidMailtoUrl(value) {
+  return typeof value === "string" && value.trim().toLowerCase().startsWith("mailto:");
+}
+
+function isValidExternalActionUrl(value) {
+  return isValidHttpUrl(value) || isValidMailtoUrl(value);
+}
+
+function parseRecruitmentOffer(rawNote) {
+  let payload = {};
+  if (typeof rawNote?.content === "string" && rawNote.content.trim()) {
+    try {
+      payload = JSON.parse(rawNote.content);
+    } catch {
+      payload = {};
+    }
+  }
+
+  return {
+    id: rawNote?.id || crypto.randomUUID(),
+    title: rawNote?.title || "",
+    opportunityType: typeof payload?.opportunityType === "string" ? payload.opportunityType : "",
+    employmentType: typeof payload?.employmentType === "string" ? payload.employmentType : "",
+    companyName: typeof payload?.companyName === "string" ? payload.companyName : "",
+    companyLogoUrl: typeof payload?.companyLogoUrl === "string" ? payload.companyLogoUrl : "",
+    companyWebsiteUrl: typeof payload?.companyWebsiteUrl === "string" ? payload.companyWebsiteUrl : "",
+    description: typeof payload?.description === "string" ? payload.description : "",
+    applyBy: typeof payload?.applyBy === "string" ? payload.applyBy : "",
+    applyUrl: typeof payload?.applyUrl === "string" ? payload.applyUrl : "",
     createdAt: rawNote?.createdAt || rawNote?.created_at || new Date().toISOString(),
   };
 }
@@ -1559,6 +1593,227 @@ app.delete("/api/contact-requests/:id", async (req, res) => {
     const nextNotes = store.notes.filter((note) => !(note.courseId === CONTACT_REQUESTS_COURSE_ID && note.id === id));
     store.notes = nextNotes;
     await saveStore();
+    res.json({ ok: true });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.get("/api/recruitment", async (_req, res) => {
+  try {
+    if (hasSupabaseStorage) {
+      const rows = await supabaseRequest(
+        `notes?course_id=eq.${encodeURIComponent(RECRUITMENT_COURSE_ID)}&select=id,title,content,created_at&order=created_at.desc`,
+        { method: "GET" },
+      );
+      const offers = (Array.isArray(rows) ? rows : []).map((row) =>
+        parseRecruitmentOffer({
+          id: row.id,
+          title: row.title,
+          content: row.content || "",
+          created_at: row.created_at,
+        }),
+      );
+      res.json({ offers });
+      return;
+    }
+
+    const store = await ensureStoreLoaded();
+    const offers = store.notes
+      .filter((note) => note.courseId === RECRUITMENT_COURSE_ID)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .map((note) => parseRecruitmentOffer(note));
+    res.json({ offers });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.post("/api/recruitment", async (req, res) => {
+  try {
+    requireProfessor(req);
+    const title = readRequiredTextField(req.body, "title", MAX_TITLE_LENGTH);
+    const opportunityType = readRequiredTextField(req.body, "opportunityType", 80);
+    const employmentType = readOptionalTextField(req.body, "employmentType", 80);
+    const companyName = readRequiredTextField(req.body, "companyName", 180);
+    const companyLogoUrl = readOptionalTextField(req.body, "companyLogoUrl", MAX_URL_LENGTH);
+    const companyWebsiteUrl = readOptionalTextField(req.body, "companyWebsiteUrl", MAX_URL_LENGTH);
+    const description = readRequiredTextField(req.body, "description", MAX_CONTENT_LENGTH);
+    const applyBy = readRequiredTextField(req.body, "applyBy", 32);
+    const applyUrl = readRequiredTextField(req.body, "applyUrl", MAX_URL_LENGTH);
+
+    if (companyWebsiteUrl && !isValidHttpUrl(companyWebsiteUrl)) {
+      throw new ApiError(400, "INVALID_INPUT", "Le lien du site web de l'entreprise doit être un lien http(s) valide.");
+    }
+    if (!isValidExternalActionUrl(applyUrl)) {
+      throw new ApiError(400, "INVALID_INPUT", "Le lien pour appliquer doit être un lien http(s) ou mailto: valide.");
+    }
+    if (companyLogoUrl && !companyLogoUrl.startsWith("data:image/")) {
+      throw new ApiError(400, "INVALID_INPUT", "Le logo doit être une image valide.");
+    }
+
+    const id = crypto.randomUUID();
+    const createdAt = new Date().toISOString();
+    const content = JSON.stringify({
+      opportunityType,
+      employmentType: opportunityType === "EMPLOI" ? employmentType : "",
+      companyName,
+      companyLogoUrl,
+      companyWebsiteUrl,
+      description,
+      applyBy,
+      applyUrl,
+    });
+
+    if (hasSupabaseStorage) {
+      const rows = await supabaseRequest("notes", {
+        method: "POST",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify({
+          id,
+          course_id: RECRUITMENT_COURSE_ID,
+          title,
+          content,
+          link: null,
+          created_at: createdAt,
+        }),
+      });
+      const created = Array.isArray(rows) ? rows[0] : null;
+      if (!created) {
+        throw new ApiError(502, "STORAGE_ERROR", "Impossible d'enregistrer l'offre.");
+      }
+      await prependItemInOrder("notes", RECRUITMENT_COURSE_ID, id);
+      res.status(201).json({
+        offer: parseRecruitmentOffer({
+          id: created.id,
+          title: created.title,
+          content: created.content || "",
+          created_at: created.created_at,
+        }),
+      });
+      return;
+    }
+
+    const store = await ensureStoreLoaded();
+    const storedOffer = {
+      id,
+      courseId: RECRUITMENT_COURSE_ID,
+      title,
+      content,
+      createdAt,
+    };
+    store.notes.unshift(storedOffer);
+    await saveStore();
+    await prependItemInOrder("notes", RECRUITMENT_COURSE_ID, id);
+    res.status(201).json({ offer: parseRecruitmentOffer(storedOffer) });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.put("/api/recruitment/:id", async (req, res) => {
+  try {
+    requireProfessor(req);
+    const id = String(req.params.id || "").trim();
+    if (!id) {
+      throw new ApiError(400, "INVALID_INPUT", "Missing recruitment offer id.");
+    }
+
+    const title = readRequiredTextField(req.body, "title", MAX_TITLE_LENGTH);
+    const opportunityType = readRequiredTextField(req.body, "opportunityType", 80);
+    const employmentType = readOptionalTextField(req.body, "employmentType", 80);
+    const companyName = readRequiredTextField(req.body, "companyName", 180);
+    const companyLogoUrl = readOptionalTextField(req.body, "companyLogoUrl", MAX_URL_LENGTH);
+    const companyWebsiteUrl = readOptionalTextField(req.body, "companyWebsiteUrl", MAX_URL_LENGTH);
+    const description = readRequiredTextField(req.body, "description", MAX_CONTENT_LENGTH);
+    const applyBy = readRequiredTextField(req.body, "applyBy", 32);
+    const applyUrl = readRequiredTextField(req.body, "applyUrl", MAX_URL_LENGTH);
+
+    if (companyWebsiteUrl && !isValidHttpUrl(companyWebsiteUrl)) {
+      throw new ApiError(400, "INVALID_INPUT", "Le lien du site web de l'entreprise doit être un lien http(s) valide.");
+    }
+    if (!isValidExternalActionUrl(applyUrl)) {
+      throw new ApiError(400, "INVALID_INPUT", "Le lien pour appliquer doit être un lien http(s) ou mailto: valide.");
+    }
+    if (companyLogoUrl && !companyLogoUrl.startsWith("data:image/")) {
+      throw new ApiError(400, "INVALID_INPUT", "Le logo doit être une image valide.");
+    }
+
+    const content = JSON.stringify({
+      opportunityType,
+      employmentType: opportunityType === "EMPLOI" ? employmentType : "",
+      companyName,
+      companyLogoUrl,
+      companyWebsiteUrl,
+      description,
+      applyBy,
+      applyUrl,
+    });
+
+    if (hasSupabaseStorage) {
+      const rows = await supabaseRequest(`notes?id=eq.${encodeURIComponent(id)}&course_id=eq.${encodeURIComponent(RECRUITMENT_COURSE_ID)}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify({
+          title,
+          content,
+        }),
+      });
+      const updated = Array.isArray(rows) ? rows[0] : null;
+      if (!updated) {
+        throw new ApiError(404, "NOT_FOUND", "Offre introuvable.");
+      }
+      res.json({
+        offer: parseRecruitmentOffer({
+          id: updated.id,
+          title: updated.title,
+          content: updated.content || "",
+          created_at: updated.created_at,
+        }),
+      });
+      return;
+    }
+
+    const store = await ensureStoreLoaded();
+    const note = store.notes.find((entry) => entry.id === id && entry.courseId === RECRUITMENT_COURSE_ID);
+    if (!note) {
+      throw new ApiError(404, "NOT_FOUND", "Offre introuvable.");
+    }
+    note.title = title;
+    note.content = content;
+    await saveStore();
+    res.json({ offer: parseRecruitmentOffer(note) });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.delete("/api/recruitment/:id", async (req, res) => {
+  try {
+    requireProfessor(req);
+    const id = String(req.params.id || "").trim();
+    if (!id) {
+      throw new ApiError(400, "INVALID_INPUT", "Missing recruitment offer id.");
+    }
+
+    if (hasSupabaseStorage) {
+      await supabaseRequest(`notes?id=eq.${encodeURIComponent(id)}&course_id=eq.${encodeURIComponent(RECRUITMENT_COURSE_ID)}`, {
+        method: "DELETE",
+        headers: { Prefer: "return=minimal" },
+      });
+      await removeItemFromOrder("notes", RECRUITMENT_COURSE_ID, id);
+      res.json({ ok: true });
+      return;
+    }
+
+    const store = await ensureStoreLoaded();
+    const before = store.notes.length;
+    store.notes = store.notes.filter((note) => !(note.courseId === RECRUITMENT_COURSE_ID && note.id === id));
+    if (store.notes.length === before) {
+      throw new ApiError(404, "NOT_FOUND", "Offre introuvable.");
+    }
+    await saveStore();
+    await removeItemFromOrder("notes", RECRUITMENT_COURSE_ID, id);
     res.json({ ok: true });
   } catch (error) {
     sendError(res, error);
