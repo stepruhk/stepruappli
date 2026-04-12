@@ -4615,7 +4615,7 @@ const App: React.FC = () => {
                     <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
                       <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">Recrutement</h1>
                       <p className="text-slate-600 text-lg">
-                        Offres de stages, d&apos;emplois et d&apos;expériences bénévoles partagées pour les étudiant(e)s.
+                        Offres de stages, d&apos;emplois et d&apos;expériences bénévoles partagées pour les étudiant(e)s en communication et les nouveaux diplômé(e)s.
                       </p>
                     </div>
 
