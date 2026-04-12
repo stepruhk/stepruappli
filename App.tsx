@@ -632,11 +632,14 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (!isAuthenticated || effectiveUserRole !== 'student' || menuSection !== 'RECRUTEMENT') return;
-    const latestSeen = visibleRecruitmentOffers[0]?.createdAt || '';
+    const latestVisibleOffer = [...recruitmentOffers]
+      .filter((offer) => !isOfferExpired(offer))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+    const latestSeen = latestVisibleOffer?.createdAt || '';
     if (!latestSeen || latestSeen === recruitmentLastSeenAt) return;
     writeLocalObject(RECRUITMENT_LAST_SEEN_STORAGE_KEY, latestSeen);
     setRecruitmentLastSeenAt(latestSeen);
-  }, [isAuthenticated, effectiveUserRole, menuSection, visibleRecruitmentOffers, recruitmentLastSeenAt]);
+  }, [isAuthenticated, effectiveUserRole, menuSection, recruitmentOffers, recruitmentLastSeenAt]);
 
   useEffect(() => {
     if (!authChecked || !isAuthenticated) return;
