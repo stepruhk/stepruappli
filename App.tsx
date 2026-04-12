@@ -1143,17 +1143,17 @@ const App: React.FC = () => {
         return new Date(request.createdAt).getTime() > new Date(contactRequestsLastSeenAt).getTime();
       }).length
     : 0;
-  const newRecruitmentOffersCount =
-    effectiveUserRole === 'student'
-      ? visibleRecruitmentOffers.filter((offer) => {
-          if (!recruitmentLastSeenAt) return true;
-          return new Date(offer.createdAt).getTime() > new Date(recruitmentLastSeenAt).getTime();
-        }).length
-      : 0;
   const getMenuBadgeCount = (key: typeof mainMenuItems[number]['key']) => {
     if (key === 'ANNONCES') return recentAnnouncementCount;
     if (key === 'CONTENU') return recentGeneralContentCount;
-    if (key === 'RECRUTEMENT') return newRecruitmentOffersCount;
+    if (key === 'RECRUTEMENT') {
+      return effectiveUserRole === 'student'
+        ? visibleRecruitmentOffers.filter((offer) => {
+            if (!recruitmentLastSeenAt) return true;
+            return new Date(offer.createdAt).getTime() > new Date(recruitmentLastSeenAt).getTime();
+          }).length
+        : 0;
+    }
     if (key === 'CONTACT') return unreadContactRequestsCount;
     return 0;
   };
