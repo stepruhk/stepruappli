@@ -4841,14 +4841,16 @@ const App: React.FC = () => {
                       <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
                         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                           <p className="text-slate-700 text-base md:text-lg">
-                            Vous souhaitez offrir un emploi ou un stage, envoyez-nous un courriel et nous vous répondrons avec les détails nécessaires.
+                            Vous souhaitez offrir un emploi ou un stage, remplissez le formulaire et nous vous répondrons rapidement.
                           </p>
                           <a
-                            href="mailto:stephane@stepru.com"
+                            href="https://forms.office.com/r/QYA6zZmh98"
+                            target="_blank"
+                            rel="noreferrer"
                             className="inline-flex min-w-[260px] items-center justify-center gap-3 rounded-2xl bg-indigo-600 px-7 py-3.5 text-white font-bold shadow-sm hover:bg-indigo-700 transition-colors"
                           >
                             <i className="fas fa-envelope"></i>
-                            Écrire un courriel
+                            Formulaire
                           </a>
                         </div>
                       </div>
