@@ -4845,7 +4845,7 @@ const App: React.FC = () => {
                           </p>
                           <a
                             href="mailto:stephane@stepru.com"
-                            className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-white font-bold hover:bg-indigo-700 transition-colors"
+                            className="inline-flex min-w-[260px] items-center justify-center gap-3 rounded-2xl bg-indigo-600 px-7 py-3.5 text-white font-bold shadow-sm hover:bg-indigo-700 transition-colors"
                           >
                             <i className="fas fa-envelope"></i>
                             Écrire un courriel
