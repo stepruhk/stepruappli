@@ -4837,6 +4837,23 @@ const App: React.FC = () => {
                       </div>
                     )}
 
+                    {!canEditResources && (
+                      <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
+                        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                          <p className="text-slate-700 text-base md:text-lg">
+                            Vous souhaitez offrir un emploi ou un stage, envoyez-nous un courriel et nous vous répondrons avec les détails nécessaires.
+                          </p>
+                          <a
+                            href="mailto:stephane@stepru.com"
+                            className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-white font-bold hover:bg-indigo-700 transition-colors"
+                          >
+                            <i className="fas fa-envelope"></i>
+                            Écrire un courriel
+                          </a>
+                        </div>
+                      </div>
+                    )}
+
                     {!recruitmentLoading && !recruitmentError && visibleRecruitmentOffers.length === 0 && (
                       <div className="bg-white rounded-3xl border border-slate-200 p-6 text-slate-500">
                         {canEditResources
