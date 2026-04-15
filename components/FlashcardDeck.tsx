@@ -51,7 +51,9 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ cards, onClose }) => {
                   {currentCard.question}
                 </p>
               </div>
-              <p className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-slate-400">Cliquez pour voir la réponse</p>
+              <p className="absolute bottom-4 left-1/2 -translate-x-1/2 text-sm font-semibold text-indigo-600">
+                Cliquez pour voir la réponse
+              </p>
             </div>
 
             <div className="flashcard-face flashcard-back absolute inset-0 w-full h-full bg-indigo-600 rounded-2xl p-8 text-white">
