@@ -46,7 +46,7 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ cards, onClose }) => {
           <div className={`flashcard-inner relative w-full h-full transition-transform duration-500 shadow-2xl rounded-2xl ${isFlipped ? 'flashcard-flipped' : ''}`}>
             <div className="flashcard-face absolute inset-0 w-full h-full bg-white rounded-2xl p-8 flex flex-col items-center justify-center text-center">
               <span className="absolute top-4 left-6 text-xs font-bold text-slate-400 uppercase tracking-widest">Question</span>
-              <p className="text-2xl font-medium text-slate-800">{currentCard.question}</p>
+              <p className="text-2xl font-medium text-slate-800 whitespace-pre-line">{currentCard.question}</p>
               <p className="absolute bottom-4 text-xs text-slate-400">Cliquez pour voir la réponse</p>
             </div>
 

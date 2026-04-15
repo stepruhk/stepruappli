@@ -5150,13 +5150,16 @@ const App: React.FC = () => {
                         <form onSubmit={addCourseFlashcard} className="space-y-4">
                           <label className="block">
                             <span className="text-sm font-semibold text-slate-700">Question</span>
-                            <input
-                              type="text"
+                            <textarea
                               value={flashcardQuestion}
                               onChange={(event) => setFlashcardQuestion(event.target.value)}
+                              rows={5}
                               className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                              placeholder="Ex: Quelle est la différence entre relations médias et relations de presse?"
+                              placeholder={"Ex: Quelle est la différence entre relations médias et relations de presse?\nA. Les relations médias visent tous les médias\nB. Les relations de presse visent surtout les journalistes et médias d'information\nC. Les deux sont exactement la même chose"}
                             />
+                            <p className="mt-2 text-sm text-slate-500">
+                              Tu peux écrire une question simple ou une question à choix multiples directement ici, avec une réponse par ligne.
+                            </p>
                           </label>
 
                           <label className="block">
@@ -5244,12 +5247,15 @@ const App: React.FC = () => {
                             <div className="space-y-4">
                               <label className="block">
                                 <span className="text-sm font-semibold text-slate-700">Question</span>
-                                <input
-                                  type="text"
+                                <textarea
                                   value={editFlashcardQuestion}
                                   onChange={(event) => setEditFlashcardQuestion(event.target.value)}
+                                  rows={5}
                                   className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                 />
+                                <p className="mt-2 text-sm text-slate-500">
+                                  Tu peux aussi écrire ici des choix multiples, une réponse par ligne.
+                                </p>
                               </label>
 
                               <label className="block">
@@ -5302,7 +5308,7 @@ const App: React.FC = () => {
                           ) : (
                             <>
                               <p className="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-2">Question</p>
-                              <h3 className="text-xl font-black text-slate-900">{card.question}</h3>
+                              <h3 className="text-xl font-black text-slate-900 whitespace-pre-line">{card.question}</h3>
                               <hr className="my-4 border-slate-100" />
                               <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
                                 <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-2">Bonne réponse</p>
