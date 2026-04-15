@@ -198,7 +198,6 @@ const App: React.FC = () => {
   const [showFlashcards, setShowFlashcards] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userRole, setUserRole] = useState<UserRole>('student');
-  const [loginRole, setLoginRole] = useState<UserRole>('student');
   const [authChecked, setAuthChecked] = useState(false);
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
@@ -897,7 +896,7 @@ const App: React.FC = () => {
     setAuthError(null);
 
     try {
-      const role = await loginWithPassword(password, loginRole);
+      const role = await loginWithPassword(password);
       setIsAuthenticated(true);
       setUserRole(role);
       setPassword('');
@@ -2547,25 +2546,9 @@ const App: React.FC = () => {
                     type="submit"
                     className="w-full py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition-colors"
                   >
-                    Se connecter ({loginRole === 'professor' ? 'Professeur' : 'Étudiant'})
+                    Se connecter
                   </button>
                 </form>
-                <div className="mt-4 grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setLoginRole('student')}
-                    className={`rounded-xl px-3 py-2 text-sm font-semibold border ${loginRole === 'student' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-300'}`}
-                  >
-                    Étudiant
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setLoginRole('professor')}
-                    className={`rounded-xl px-3 py-2 text-sm font-semibold border ${loginRole === 'professor' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-300'}`}
-                  >
-                    Professeur
-                  </button>
-                </div>
               </div>
             </div>
           </div>
@@ -2708,7 +2691,6 @@ const App: React.FC = () => {
                               setUserRole('student');
                               setPreviewAsStudent(false);
                               setUnlockedCourseIds([]);
-                              setLoginRole('student');
                               setView(AppView.DASHBOARD);
                               setSelectedTopic(null);
                             }}

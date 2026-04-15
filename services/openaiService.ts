@@ -196,14 +196,34 @@ function fallbackFlashcards(content: string): Flashcard[] {
   }));
 }
 
-export async function loginWithPassword(password: string, role: UserRole = "student"): Promise<UserRole> {
+export async function loginWithPassword(password: string, role?: UserRole): Promise<UserRole> {
   if (!password.trim()) throw new Error("Mot de passe requis.");
-  const endpoint = role === "professor" ? "/api/auth/prof-login" : "/api/auth/login";
-  const response = await postJson<{ token?: string; role?: UserRole }>(endpoint, { password });
-  if (!response.token) throw new Error("Invalid response");
-  localStorage.setItem(AUTH_TOKEN_KEY, response.token);
-  localStorage.setItem(AUTH_ROLE_KEY, response.role || role);
-  return response.role || role;
+
+  const finalizeLogin = (response: { token?: string; role?: UserRole }, fallbackRole: UserRole) => {
+    if (!response.token) throw new Error("Invalid response");
+    localStorage.setItem(AUTH_TOKEN_KEY, response.token);
+    localStorage.setItem(AUTH_ROLE_KEY, response.role || fallbackRole);
+    return response.role || fallbackRole;
+  };
+
+  if (role) {
+    const endpoint = role === "professor" ? "/api/auth/prof-login" : "/api/auth/login";
+    const response = await postJson<{ token?: string; role?: UserRole }>(endpoint, { password });
+    return finalizeLogin(response, role);
+  }
+
+  try {
+    const professorResponse = await postJson<{ token?: string; role?: UserRole }>("/api/auth/prof-login", { password });
+    return finalizeLogin(professorResponse, "professor");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes("Mot de passe professeur incorrect") && !message.includes("INVALID_CREDENTIALS")) {
+      throw error;
+    }
+  }
+
+  const studentResponse = await postJson<{ token?: string; role?: UserRole }>("/api/auth/login", { password });
+  return finalizeLogin(studentResponse, "student");
 }
 
 export async function checkAuthStatus(): Promise<AuthStatus> {
