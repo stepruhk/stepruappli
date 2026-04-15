@@ -31,7 +31,7 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ cards, onClose }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-2xl">
         <div className="flex justify-between items-center mb-6 text-white">
           <h2 className="text-xl font-bold">Révision par Flashcards</h2>
           <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
@@ -40,22 +40,26 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ cards, onClose }) => {
         </div>
 
         <div 
-          className="relative h-80 w-full cursor-pointer perspective-1000"
+          className="relative h-[28rem] w-full cursor-pointer perspective-1000"
           onClick={() => setIsFlipped(!isFlipped)}
         >
           <div className={`flashcard-inner relative w-full h-full transition-transform duration-500 shadow-2xl rounded-2xl ${isFlipped ? 'flashcard-flipped' : ''}`}>
-            <div className="flashcard-face absolute inset-0 w-full h-full bg-white rounded-2xl p-8 flex flex-col items-center justify-center text-center">
-              <span className="absolute top-4 left-6 text-xs font-bold text-slate-400 uppercase tracking-widest">Question</span>
-              <p className="text-2xl font-medium text-slate-800 whitespace-pre-line">{currentCard.question}</p>
-              <p className="absolute bottom-4 text-xs text-slate-400">Cliquez pour voir la réponse</p>
+            <div className="flashcard-face absolute inset-0 w-full h-full bg-white rounded-2xl p-8">
+              <span className="absolute top-5 left-6 text-xs font-bold text-slate-400 uppercase tracking-widest">Question</span>
+              <div className="h-full overflow-y-auto pt-10 pb-8 pr-2">
+                <p className="text-lg md:text-xl font-semibold leading-relaxed text-slate-800 whitespace-pre-line text-left">
+                  {currentCard.question}
+                </p>
+              </div>
+              <p className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-slate-400">Cliquez pour voir la réponse</p>
             </div>
 
-            <div className="flashcard-face flashcard-back absolute inset-0 w-full h-full bg-indigo-600 rounded-2xl p-8 flex flex-col items-center justify-center text-center text-white">
-              <span className="absolute top-4 left-6 text-xs font-bold text-indigo-200 uppercase tracking-widest">Réponse</span>
-              <div className="max-h-full w-full overflow-y-auto px-2 text-left">
+            <div className="flashcard-face flashcard-back absolute inset-0 w-full h-full bg-indigo-600 rounded-2xl p-8 text-white">
+              <span className="absolute top-5 left-6 text-xs font-bold text-indigo-200 uppercase tracking-widest">Réponse</span>
+              <div className="h-full overflow-y-auto pt-10 pb-8 px-2 text-left">
                 <div className="rounded-2xl bg-emerald-400/20 p-4 border border-emerald-200/30">
                   <p className="text-xs font-bold uppercase tracking-widest text-emerald-100">Bonne réponse</p>
-                  <p className="mt-2 text-xl leading-relaxed whitespace-pre-line">{currentCard.answer}</p>
+                  <p className="mt-2 text-lg md:text-xl leading-relaxed whitespace-pre-line">{currentCard.answer}</p>
                 </div>
                 {currentCard.justification && (
                   <div className="mt-4 rounded-2xl bg-white/10 p-4 text-left">
@@ -77,7 +81,7 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ cards, onClose }) => {
                   </div>
                 )}
               </div>
-              <p className="absolute bottom-4 text-xs text-indigo-200">Cliquez pour revenir à la question</p>
+              <p className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-indigo-200">Cliquez pour revenir à la question</p>
             </div>
           </div>
         </div>
