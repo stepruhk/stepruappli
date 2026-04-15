@@ -56,35 +56,35 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ cards, onClose }) => {
               </p>
             </div>
 
-            <div className="flashcard-face flashcard-back absolute inset-0 w-full h-full bg-indigo-600 rounded-2xl p-8 text-white">
-              <span className="absolute top-5 left-6 text-xs font-bold text-indigo-200 uppercase tracking-widest">Réponse</span>
+            <div className="flashcard-face flashcard-back absolute inset-0 w-full h-full bg-white rounded-2xl p-8 text-slate-800">
+              <span className="absolute top-5 left-6 text-xs font-bold text-slate-400 uppercase tracking-widest">Réponse</span>
               <div className="h-full overflow-y-auto pt-10 pb-14 px-2 text-left">
-                <div className="rounded-2xl bg-emerald-400/20 p-5 border border-emerald-200/30">
-                  <p className="text-xs font-bold uppercase tracking-widest text-emerald-100">Bonne réponse</p>
-                  <p className="mt-3 text-sm leading-relaxed whitespace-pre-line">{currentCard.answer}</p>
+                <div className="rounded-2xl bg-indigo-50 p-5 border border-indigo-100">
+                  <p className="text-xs font-bold uppercase tracking-widest text-indigo-700">Bonne réponse</p>
+                  <p className="mt-3 text-sm leading-relaxed whitespace-pre-line text-slate-800">{currentCard.answer}</p>
                 </div>
                 {currentCard.justification && (
-                  <div className="mt-4 rounded-2xl bg-white/10 p-5 text-left">
-                    <p className="text-xs font-bold uppercase tracking-widest text-indigo-100">Pourquoi c&apos;est la bonne réponse</p>
-                    <p className="mt-2 text-sm leading-relaxed text-white/90 whitespace-pre-line">{currentCard.justification}</p>
+                  <div className="mt-4 rounded-2xl bg-slate-50 p-5 text-left border border-slate-100">
+                    <p className="text-xs font-bold uppercase tracking-widest text-slate-600">Pourquoi c&apos;est la bonne réponse</p>
+                    <p className="mt-2 text-sm leading-relaxed text-slate-700 whitespace-pre-line">{currentCard.justification}</p>
                   </div>
                 )}
                 {!!currentCard.commonMistakes?.length && (
-                  <div className="mt-4 rounded-2xl bg-rose-500/15 p-5 text-left border border-rose-200/20">
-                    <p className="text-xs font-bold uppercase tracking-widest text-rose-100">Mauvaises réponses fréquentes</p>
+                  <div className="mt-4 rounded-2xl bg-rose-50 p-5 text-left border border-rose-100">
+                    <p className="text-xs font-bold uppercase tracking-widest text-rose-700">Mauvaises réponses fréquentes</p>
                     <div className="mt-3 space-y-3">
                       {currentCard.commonMistakes.map((mistake, index) => (
-                        <div key={`${currentCard.id}-mistake-${index}`} className="rounded-xl bg-white/10 p-3">
-                          <p className="font-bold text-white">{mistake.answer}</p>
-                          <p className="mt-1 text-sm leading-relaxed text-white/85 whitespace-pre-line">{mistake.explanation}</p>
+                        <div key={`${currentCard.id}-mistake-${index}`} className="rounded-xl bg-white p-3 border border-rose-100">
+                          <p className="font-bold text-slate-800">{mistake.answer}</p>
+                          <p className="mt-1 text-sm leading-relaxed text-slate-700 whitespace-pre-line">{mistake.explanation}</p>
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
               </div>
-              <div className="absolute inset-x-0 bottom-0 rounded-b-2xl bg-gradient-to-t from-indigo-700/95 via-indigo-700/80 to-transparent px-6 pb-4 pt-8">
-                <p className="text-center text-xs text-indigo-100">Cliquez pour revenir à la question</p>
+              <div className="absolute inset-x-0 bottom-0 rounded-b-2xl bg-gradient-to-t from-white via-white/95 to-transparent px-6 pb-4 pt-8">
+                <p className="text-center text-xs font-medium text-indigo-600">Cliquez pour revenir à la question</p>
               </div>
             </div>
           </div>
