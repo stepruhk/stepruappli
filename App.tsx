@@ -345,6 +345,8 @@ const App: React.FC = () => {
         .map((topic) => topic.id),
     [visibleTopics, isProfessor, lockedCourseIds, unlockedCourseIds],
   );
+  const isStudentLockedCourse = (courseId: string) =>
+    effectiveUserRole === 'student' && lockedCourseIds.includes(courseId) && !unlockedCourseIds.includes(courseId);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -942,6 +944,15 @@ const App: React.FC = () => {
     setCoursePasswordError(null);
   };
 
+  const handleMemoCourseChange = (courseId: string) => {
+    setResourceCourseId(courseId);
+    const topic = visibleTopics.find((entry) => entry.id === courseId);
+    if (!topic || !isStudentLockedCourse(courseId)) return;
+    setCoursePasswordTopic(topic);
+    setCoursePasswordValue('');
+    setCoursePasswordError(null);
+  };
+
   const handleCourseUnlock = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!coursePasswordTopic) return;
@@ -954,7 +965,12 @@ const App: React.FC = () => {
       const topicToOpen = coursePasswordTopic;
       setCoursePasswordTopic(null);
       setCoursePasswordValue('');
-      openTopic(topicToOpen);
+      if (menuSection === 'MEMO') {
+        setResourceCourseId(topicToOpen.id);
+        await ensureCourseSession(topicToOpen.id);
+      } else {
+        openTopic(topicToOpen);
+      }
     } catch (error) {
       console.error(error);
       setCoursePasswordError('Mot de passe du cours incorrect. Réessayez.');
@@ -2409,6 +2425,12 @@ const App: React.FC = () => {
   const ensureCourseSession = async (courseId: string): Promise<Flashcard[]> => {
     const topic = visibleTopics.find((item) => item.id === courseId);
     if (!topic) return [];
+    if (isStudentLockedCourse(courseId)) {
+      setCoursePasswordTopic(topic);
+      setCoursePasswordValue('');
+      setCoursePasswordError(null);
+      return [];
+    }
     setLoading("Chargement des cartes mémo...");
     try {
       const flashcards = await listCourseFlashcards(courseId);
@@ -5129,7 +5151,7 @@ const App: React.FC = () => {
                           <span className="text-sm font-semibold text-slate-700">Cours lié</span>
                           <select
                             value={resourceCourseId}
-                            onChange={(event) => setResourceCourseId(event.target.value)}
+                            onChange={(event) => handleMemoCourseChange(event.target.value)}
                             className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                           >
                             {visibleTopics.map((topic) => (
