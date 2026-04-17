@@ -641,6 +641,7 @@ function parseRecruitmentOffer(rawNote) {
       ? payload.candidateExperienceLevels.filter((entry) => typeof entry === "string" && entry.trim())
       : [],
     companyName: typeof payload?.companyName === "string" ? payload.companyName : "",
+    hourlySalary: typeof payload?.hourlySalary === "string" ? payload.hourlySalary : "",
     companyLogoUrl: typeof payload?.companyLogoUrl === "string" ? payload.companyLogoUrl : "",
     companyWebsiteUrl: typeof payload?.companyWebsiteUrl === "string" ? payload.companyWebsiteUrl : "",
     description: typeof payload?.description === "string" ? payload.description : "",
@@ -1647,6 +1648,7 @@ app.post("/api/recruitment", async (req, res) => {
     const employmentType = readOptionalTextField(req.body, "employmentType", 80);
     const candidateExperienceLevels = readOptionalStringArrayField(req.body, "candidateExperienceLevels", 10, 180);
     const companyName = readRequiredTextField(req.body, "companyName", 180);
+    const hourlySalary = readOptionalTextField(req.body, "hourlySalary", 80);
     const companyLogoUrl = readOptionalTextField(req.body, "companyLogoUrl", MAX_URL_LENGTH);
     const companyWebsiteUrl = readOptionalTextField(req.body, "companyWebsiteUrl", MAX_URL_LENGTH);
     const description = readRequiredTextField(req.body, "description", MAX_CONTENT_LENGTH);
@@ -1673,6 +1675,7 @@ app.post("/api/recruitment", async (req, res) => {
       employmentType: opportunityType === "EMPLOI" ? employmentType : "",
       candidateExperienceLevels,
       companyName,
+      hourlySalary,
       companyLogoUrl,
       companyWebsiteUrl,
       description,
@@ -1739,6 +1742,7 @@ app.put("/api/recruitment/:id", async (req, res) => {
     const employmentType = readOptionalTextField(req.body, "employmentType", 80);
     const candidateExperienceLevels = readOptionalStringArrayField(req.body, "candidateExperienceLevels", 10, 180);
     const companyName = readRequiredTextField(req.body, "companyName", 180);
+    const hourlySalary = readOptionalTextField(req.body, "hourlySalary", 80);
     const companyLogoUrl = readOptionalTextField(req.body, "companyLogoUrl", MAX_URL_LENGTH);
     const companyWebsiteUrl = readOptionalTextField(req.body, "companyWebsiteUrl", MAX_URL_LENGTH);
     const description = readRequiredTextField(req.body, "description", MAX_CONTENT_LENGTH);
@@ -1763,6 +1767,7 @@ app.put("/api/recruitment/:id", async (req, res) => {
       employmentType: opportunityType === "EMPLOI" ? employmentType : "",
       candidateExperienceLevels,
       companyName,
+      hourlySalary,
       companyLogoUrl,
       companyWebsiteUrl,
       description,

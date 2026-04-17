@@ -293,6 +293,7 @@ const App: React.FC = () => {
   const [recruitmentEmploymentType, setRecruitmentEmploymentType] = useState<RecruitmentEmploymentType>('TEMPS_PLEIN');
   const [recruitmentCandidateExperienceLevels, setRecruitmentCandidateExperienceLevels] = useState<string[]>([]);
   const [recruitmentCompanyName, setRecruitmentCompanyName] = useState('');
+  const [recruitmentHourlySalary, setRecruitmentHourlySalary] = useState('');
   const [recruitmentCompanyLogoUrl, setRecruitmentCompanyLogoUrl] = useState('');
   const [recruitmentCompanyWebsiteUrl, setRecruitmentCompanyWebsiteUrl] = useState('');
   const [recruitmentDescription, setRecruitmentDescription] = useState('');
@@ -304,6 +305,7 @@ const App: React.FC = () => {
   const [editRecruitmentEmploymentType, setEditRecruitmentEmploymentType] = useState<RecruitmentEmploymentType>('TEMPS_PLEIN');
   const [editRecruitmentCandidateExperienceLevels, setEditRecruitmentCandidateExperienceLevels] = useState<string[]>([]);
   const [editRecruitmentCompanyName, setEditRecruitmentCompanyName] = useState('');
+  const [editRecruitmentHourlySalary, setEditRecruitmentHourlySalary] = useState('');
   const [editRecruitmentCompanyLogoUrl, setEditRecruitmentCompanyLogoUrl] = useState('');
   const [editRecruitmentCompanyWebsiteUrl, setEditRecruitmentCompanyWebsiteUrl] = useState('');
   const [editRecruitmentDescription, setEditRecruitmentDescription] = useState('');
@@ -1698,6 +1700,7 @@ const App: React.FC = () => {
     setRecruitmentEmploymentType('TEMPS_PLEIN');
     setRecruitmentCandidateExperienceLevels([]);
     setRecruitmentCompanyName('');
+    setRecruitmentHourlySalary('');
     setRecruitmentCompanyLogoUrl('');
     setRecruitmentCompanyWebsiteUrl('');
     setRecruitmentDescription('');
@@ -1715,6 +1718,7 @@ const App: React.FC = () => {
         employmentType: recruitmentOpportunityType === 'EMPLOI' ? recruitmentEmploymentType : '',
         candidateExperienceLevels: recruitmentCandidateExperienceLevels,
         companyName: recruitmentCompanyName.trim(),
+        hourlySalary: recruitmentHourlySalary.trim() || undefined,
         companyLogoUrl: recruitmentCompanyLogoUrl || undefined,
         companyWebsiteUrl: recruitmentCompanyWebsiteUrl.trim() || undefined,
         description: recruitmentDescription.trim(),
@@ -1737,6 +1741,7 @@ const App: React.FC = () => {
     setEditRecruitmentEmploymentType((offer.employmentType as RecruitmentEmploymentType) || 'TEMPS_PLEIN');
     setEditRecruitmentCandidateExperienceLevels(offer.candidateExperienceLevels || []);
     setEditRecruitmentCompanyName(offer.companyName);
+    setEditRecruitmentHourlySalary(offer.hourlySalary || '');
     setEditRecruitmentCompanyLogoUrl(offer.companyLogoUrl || '');
     setEditRecruitmentCompanyWebsiteUrl(offer.companyWebsiteUrl || '');
     setEditRecruitmentDescription(offer.description);
@@ -1751,6 +1756,7 @@ const App: React.FC = () => {
     setEditRecruitmentEmploymentType('TEMPS_PLEIN');
     setEditRecruitmentCandidateExperienceLevels([]);
     setEditRecruitmentCompanyName('');
+    setEditRecruitmentHourlySalary('');
     setEditRecruitmentCompanyLogoUrl('');
     setEditRecruitmentCompanyWebsiteUrl('');
     setEditRecruitmentDescription('');
@@ -1767,6 +1773,7 @@ const App: React.FC = () => {
         employmentType: editRecruitmentOpportunityType === 'EMPLOI' ? editRecruitmentEmploymentType : '',
         candidateExperienceLevels: editRecruitmentCandidateExperienceLevels,
         companyName: editRecruitmentCompanyName.trim(),
+        hourlySalary: editRecruitmentHourlySalary.trim() || undefined,
         companyLogoUrl: editRecruitmentCompanyLogoUrl || undefined,
         companyWebsiteUrl: editRecruitmentCompanyWebsiteUrl.trim() || undefined,
         description: editRecruitmentDescription.trim(),
@@ -4705,6 +4712,17 @@ const App: React.FC = () => {
                             </label>
 
                             <label className="block">
+                              <span className="text-sm font-semibold text-slate-700">Salaire horaire</span>
+                              <input
+                                type="text"
+                                value={recruitmentHourlySalary}
+                                onChange={(event) => setRecruitmentHourlySalary(event.target.value)}
+                                placeholder="Ex: 22 $/h"
+                                className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              />
+                            </label>
+
+                            <label className="block">
                               <span className="text-sm font-semibold text-slate-700">Type d&apos;offre</span>
                               <select
                                 value={recruitmentOpportunityType}
@@ -4902,6 +4920,17 @@ const App: React.FC = () => {
                               </label>
 
                               <label className="block">
+                                <span className="text-sm font-semibold text-slate-700">Salaire horaire</span>
+                                <input
+                                  type="text"
+                                  value={editRecruitmentHourlySalary}
+                                  onChange={(event) => setEditRecruitmentHourlySalary(event.target.value)}
+                                  placeholder="Ex: 22 $/h"
+                                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                />
+                              </label>
+
+                              <label className="block">
                                 <span className="text-sm font-semibold text-slate-700">Type d&apos;offre</span>
                                 <select
                                   value={editRecruitmentOpportunityType}
@@ -5063,6 +5092,11 @@ const App: React.FC = () => {
                                     <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-600">
                                       Échéance: {new Date(`${offer.applyBy}T12:00:00`).toLocaleDateString('fr-FR')}
                                     </span>
+                                    {offer.hourlySalary && (
+                                      <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700">
+                                        Salaire horaire: {offer.hourlySalary}
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
                               </div>
