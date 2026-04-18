@@ -110,6 +110,7 @@ const NEW_ITEM_WINDOW_DAYS = 7;
 const CONTACT_GENERAL_OPTION = 'Mot de passe général de l’appli';
 const CONTACT_COURSE_OPTIONS = [
   'Relations médias et influenceurs',
+  'Relations de presse',
   'Intro à la comm strat',
   'Théories de la communication',
   'Gérer la réputation',

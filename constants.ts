@@ -13,6 +13,16 @@ export const INITIAL_TOPICS: Topic[] = [
     Le cours inclut aussi la gestion de crise sur les réseaux sociaux et les indicateurs de performance: portée, engagement, sentiment et conversion.`
   },
   {
+    id: '8',
+    title: 'Relations de presse',
+    description: "Gérer l'image de marque et optimiser les collaborations stratégiques.",
+    category: 'Communication',
+    icon: 'fa-book-open',
+    content: `Ce module couvre les stratégies de collaboration avec les médias et les créateurs de contenu. 
+    Vous étudierez la cartographie des parties prenantes, la négociation de partenariats, et les critères de sélection d'influenceurs alignés avec l'identité de marque.
+    Le cours inclut aussi la gestion de crise sur les réseaux sociaux et les indicateurs de performance: portée, engagement, sentiment et conversion.`
+  },
+  {
     id: '2',
     title: 'Introduction à la comm strat',
     description: 'Les fondements et les leviers de la communication stratégique moderne.',

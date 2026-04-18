@@ -57,9 +57,13 @@ const ANNOUNCEMENTS_FALLBACK_COURSE_ID = "1";
 const ANNOUNCEMENT_TITLE_PREFIX = "[ANNONCE] ";
 const GENERAL_NOTE_TITLE_PREFIX = "[NOTE_GENERALE] ";
 const GENERAL_RESOURCE_TITLE_PREFIX = "[CONTENU_GENERAL] ";
+const COURSE_CLONES = [
+  { sourceId: "1", targetId: "8" },
+];
 
 const rateBuckets = new Map();
 const authSessions = new Map();
+const courseClonePromises = new Map();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const storageFilePath = process.env.STORAGE_FILE || path.resolve(__dirname, "../data/app-data.json");
@@ -292,6 +296,12 @@ function getCanonicalCourseId(courseId) {
   return normalized;
 }
 
+function getClonedCourseSourceId(courseId) {
+  const canonicalCourseId = getCanonicalCourseId(courseId);
+  const match = COURSE_CLONES.find((entry) => entry.targetId === canonicalCourseId);
+  return match?.sourceId || "";
+}
+
 function getFlashcardStorageCourseId(courseId) {
   const canonicalCourseId = getCanonicalCourseId(courseId);
   if (!canonicalCourseId) return "";
@@ -376,16 +386,35 @@ function readFlashcardDifficulty(body) {
 function getCoursePassword(courseId) {
   const canonicalCourseId = getCanonicalCourseId(courseId);
   if (!canonicalCourseId) return "";
-  const envKey = `${COURSE_PASSWORD_PREFIX}${normalizeCoursePasswordKey(canonicalCourseId)}`;
-  return String(process.env[envKey] || "").trim();
+  const courseIdsToTry = [canonicalCourseId];
+  const fallbackCourseId = getClonedCourseSourceId(canonicalCourseId);
+  if (fallbackCourseId && !courseIdsToTry.includes(fallbackCourseId)) {
+    courseIdsToTry.push(fallbackCourseId);
+  }
+
+  for (const candidateCourseId of courseIdsToTry) {
+    const envKey = `${COURSE_PASSWORD_PREFIX}${normalizeCoursePasswordKey(candidateCourseId)}`;
+    const password = String(process.env[envKey] || "").trim();
+    if (password) {
+      return password;
+    }
+  }
+
+  return "";
 }
 
 function getConfiguredLockedCourseIds() {
-  return Object.entries(process.env)
+  const directCourseIds = Object.entries(process.env)
     .filter(([key, value]) => key.startsWith(COURSE_PASSWORD_PREFIX) && String(value || "").trim())
     .map(([key]) => key.slice(COURSE_PASSWORD_PREFIX.length))
     .map((suffix) => suffix.trim().toLowerCase())
     .filter(Boolean);
+
+  const clonedCourseIds = COURSE_CLONES
+    .filter((entry) => directCourseIds.includes(entry.sourceId.toLowerCase()) || directCourseIds.includes(entry.targetId.toLowerCase()))
+    .map((entry) => entry.targetId.toLowerCase());
+
+  return normalizeOrderIds([...directCourseIds, ...clonedCourseIds]);
 }
 
 function courseRequiresPassword(courseId) {
@@ -844,6 +873,219 @@ async function ensureStoreLoaded() {
   }
 
   return storeCache;
+}
+
+async function listStorageNotesByExactCourseId(courseId) {
+  if (!courseId) return [];
+
+  if (hasSupabaseStorage) {
+    const rows = await supabaseRequest(
+      `notes?course_id=eq.${encodeURIComponent(courseId)}&select=id,course_id,title,content,link,created_at&order=created_at.desc`,
+      { method: "GET" },
+    );
+    return (Array.isArray(rows) ? rows : []).map((row) => ({
+      id: row.id,
+      courseId: row.course_id,
+      title: row.title || "",
+      content: row.content || "",
+      link: row.link || undefined,
+      createdAt: row.created_at || new Date().toISOString(),
+    }));
+  }
+
+  const store = await ensureStoreLoaded();
+  return store.notes
+    .filter((note) => note.courseId === courseId)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .map((note) => ({
+      id: note.id,
+      courseId: note.courseId,
+      title: note.title || "",
+      content: note.content || "",
+      link: note.link || undefined,
+      createdAt: note.createdAt || new Date().toISOString(),
+    }));
+}
+
+async function listStorageResourcesByExactCourseId(courseId) {
+  if (!courseId) return [];
+
+  if (hasSupabaseStorage) {
+    const rows = await supabaseRequest(
+      `resources?course_id=eq.${encodeURIComponent(courseId)}&select=id,course_id,type,title,url,created_at&order=created_at.desc`,
+      { method: "GET" },
+    );
+    return (Array.isArray(rows) ? rows : []).map((row) => ({
+      id: row.id,
+      courseId: row.course_id,
+      type: row.type,
+      title: row.title || "",
+      url: row.url || "",
+      createdAt: row.created_at || new Date().toISOString(),
+    }));
+  }
+
+  const store = await ensureStoreLoaded();
+  return store.resources
+    .filter((resource) => resource.courseId === courseId)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .map((resource) => ({
+      id: resource.id,
+      courseId: resource.courseId,
+      type: resource.type,
+      title: resource.title || "",
+      url: resource.url || "",
+      createdAt: resource.createdAt || new Date().toISOString(),
+    }));
+}
+
+async function insertStorageNotes(entries) {
+  if (!entries.length) return;
+
+  if (hasSupabaseStorage) {
+    for (const entry of entries) {
+      await supabaseRequest("notes", {
+        method: "POST",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({
+          id: entry.id,
+          course_id: entry.courseId,
+          title: entry.title,
+          content: entry.content,
+          link: entry.link || null,
+          created_at: entry.createdAt,
+        }),
+      });
+    }
+    return;
+  }
+
+  const store = await ensureStoreLoaded();
+  store.notes.unshift(...entries.map((entry) => ({
+    id: entry.id,
+    courseId: entry.courseId,
+    title: entry.title,
+    content: entry.content,
+    link: entry.link || undefined,
+    createdAt: entry.createdAt,
+  })));
+  await saveStore();
+}
+
+async function insertStorageResources(entries) {
+  if (!entries.length) return;
+
+  if (hasSupabaseStorage) {
+    for (const entry of entries) {
+      await supabaseRequest("resources", {
+        method: "POST",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({
+          id: entry.id,
+          course_id: entry.courseId,
+          type: entry.type,
+          title: entry.title,
+          url: entry.url,
+          created_at: entry.createdAt,
+        }),
+      });
+    }
+    return;
+  }
+
+  const store = await ensureStoreLoaded();
+  store.resources.unshift(...entries.map((entry) => ({
+    id: entry.id,
+    courseId: entry.courseId,
+    type: entry.type,
+    title: entry.title,
+    url: entry.url,
+    createdAt: entry.createdAt,
+  })));
+  await saveStore();
+}
+
+async function cloneOrderedNotesIfNeeded(sourceCourseId, targetCourseId) {
+  const [sourceItems, targetItems] = await Promise.all([
+    listStorageNotesByExactCourseId(sourceCourseId),
+    listStorageNotesByExactCourseId(targetCourseId),
+  ]);
+
+  if (!sourceItems.length || targetItems.length) return;
+
+  const clonedItems = sourceItems.map((item) => ({
+    id: crypto.randomUUID(),
+    courseId: targetCourseId,
+    title: item.title,
+    content: item.content,
+    link: item.link || undefined,
+    createdAt: item.createdAt,
+  }));
+
+  await insertStorageNotes(clonedItems);
+
+  const sourceOrder = await readStoredOrder("notes", sourceCourseId);
+  if (sourceOrder.length) {
+    const idMap = new Map(sourceItems.map((item, index) => [item.id, clonedItems[index].id]));
+    const targetOrder = sourceOrder.map((id) => idMap.get(id)).filter(Boolean);
+    if (targetOrder.length) {
+      await upsertStoredOrder("notes", targetCourseId, targetOrder);
+    }
+  }
+}
+
+async function cloneOrderedResourcesIfNeeded(sourceCourseId, targetCourseId) {
+  const [sourceItems, targetItems] = await Promise.all([
+    listStorageResourcesByExactCourseId(sourceCourseId),
+    listStorageResourcesByExactCourseId(targetCourseId),
+  ]);
+
+  if (!sourceItems.length || targetItems.length) return;
+
+  const clonedItems = sourceItems.map((item) => ({
+    id: crypto.randomUUID(),
+    courseId: targetCourseId,
+    type: item.type,
+    title: item.title,
+    url: item.url,
+    createdAt: item.createdAt,
+  }));
+
+  await insertStorageResources(clonedItems);
+
+  const sourceOrder = await readStoredOrder("resources", sourceCourseId);
+  if (sourceOrder.length) {
+    const idMap = new Map(sourceItems.map((item, index) => [item.id, clonedItems[index].id]));
+    const targetOrder = sourceOrder.map((id) => idMap.get(id)).filter(Boolean);
+    if (targetOrder.length) {
+      await upsertStoredOrder("resources", targetCourseId, targetOrder);
+    }
+  }
+}
+
+async function performCourseClone(sourceCourseId, targetCourseId) {
+  await cloneOrderedNotesIfNeeded(sourceCourseId, targetCourseId);
+  await cloneOrderedResourcesIfNeeded(sourceCourseId, targetCourseId);
+  await cloneOrderedNotesIfNeeded(getFlashcardStorageCourseId(sourceCourseId), getFlashcardStorageCourseId(targetCourseId));
+  await cloneOrderedNotesIfNeeded(`${PROFESSOR_PROFILE_PREFIX}${sourceCourseId}`, `${PROFESSOR_PROFILE_PREFIX}${targetCourseId}`);
+  await cloneOrderedResourcesIfNeeded(`${PROFESSOR_PROFILE_PREFIX}${sourceCourseId}`, `${PROFESSOR_PROFILE_PREFIX}${targetCourseId}`);
+}
+
+async function ensureClonedCourseData(courseId) {
+  const canonicalCourseId = getCanonicalCourseId(courseId);
+  const cloneConfig = COURSE_CLONES.find((entry) => entry.targetId === canonicalCourseId);
+  if (!cloneConfig) return;
+
+  const cloneKey = `${cloneConfig.sourceId}->${cloneConfig.targetId}`;
+  if (!courseClonePromises.has(cloneKey)) {
+    const promise = performCourseClone(cloneConfig.sourceId, cloneConfig.targetId).catch((error) => {
+      courseClonePromises.delete(cloneKey);
+      throw error;
+    });
+    courseClonePromises.set(cloneKey, promise);
+  }
+
+  await courseClonePromises.get(cloneKey);
 }
 
 async function saveStore() {
@@ -1893,6 +2135,7 @@ app.get("/api/notes", async (req, res) => {
     if (!requestedCourseId) {
       throw new ApiError(400, "INVALID_INPUT", "Query parameter \"courseId\" is required.");
     }
+    await ensureClonedCourseData(requestedCourseId);
     requireCourseAccess(req, requestedCourseId);
     const orderedIds = await readStoredOrder("notes", requestedCourseId);
     const storageCourseIds = requestedCourseId === ANNOUNCEMENTS_COURSE_ID
@@ -2167,6 +2410,7 @@ app.get("/api/resources", async (req, res) => {
     if (!requestedCourseId) {
       throw new ApiError(400, "INVALID_INPUT", "Query parameter \"courseId\" is required.");
     }
+    await ensureClonedCourseData(requestedCourseId);
     requireCourseAccess(req, requestedCourseId);
     const orderedIds = await readStoredOrder("resources", requestedCourseId);
     const storageCourseIds = requestedCourseId === GENERAL_COURSE_ID
@@ -2218,6 +2462,7 @@ app.get("/api/flashcards", async (req, res) => {
       throw new ApiError(400, "INVALID_INPUT", "Query parameter \"courseId\" is required.");
     }
 
+    await ensureClonedCourseData(requestedCourseId);
     requireCourseAccess(req, requestedCourseId);
     const storageCourseId = getFlashcardStorageCourseId(requestedCourseId);
     const orderedIds = await readStoredOrder("notes", storageCourseId);
