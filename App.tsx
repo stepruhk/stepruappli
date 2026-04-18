@@ -704,27 +704,31 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (!isAuthenticated || effectiveUserRole !== 'student' || menuSection !== 'ANNONCES') return;
-    const latestVisibleAnnouncement = [...parsedAnnouncements]
+    const latestVisibleAnnouncement = [...(evernoteNotesByCourse[ANNOUNCEMENTS_COURSE_ID] || [])]
+      .map((note) => parseAnnouncementMeta(note))
       .filter((announcement) => !announcement.expiresAt || new Date(announcement.expiresAt).getTime() >= Date.now())
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
     const latestSeen = latestVisibleAnnouncement?.createdAt || '';
     if (!latestSeen || latestSeen === announcementsLastSeenAt) return;
     writeLocalObject(ANNOUNCEMENTS_LAST_SEEN_STORAGE_KEY, latestSeen);
     setAnnouncementsLastSeenAt(latestSeen);
-  }, [isAuthenticated, effectiveUserRole, menuSection, parsedAnnouncements, announcementsLastSeenAt]);
+  }, [isAuthenticated, effectiveUserRole, menuSection, evernoteNotesByCourse, announcementsLastSeenAt]);
 
   useEffect(() => {
     if (!isAuthenticated || effectiveUserRole !== 'student' || menuSection !== 'CONTENU') return;
+    const currentNotes = evernoteNotesByCourse[resourceCourseId] || [];
+    const currentContentItems = contentItemsByCourse[resourceCourseId] || [];
+    const currentActiveContentItems = currentContentItems.filter((item) => !isArchivedResource(item));
     const latestContentTimestamp = [
-      ...activeGeneralContentItems.map((item) => item.createdAt),
-      ...filteredEvernoteNotes.map((note) => note.createdAt),
+      ...currentActiveContentItems.map((item) => item.createdAt),
+      ...currentNotes.map((note) => note.createdAt),
     ]
       .filter(Boolean)
       .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
     if (!latestContentTimestamp || latestContentTimestamp === contentLastSeenAt) return;
     writeLocalObject(CONTENT_LAST_SEEN_STORAGE_KEY, latestContentTimestamp);
     setContentLastSeenAt(latestContentTimestamp);
-  }, [isAuthenticated, effectiveUserRole, menuSection, activeGeneralContentItems, filteredEvernoteNotes, contentLastSeenAt]);
+  }, [isAuthenticated, effectiveUserRole, menuSection, evernoteNotesByCourse, contentItemsByCourse, resourceCourseId, contentLastSeenAt]);
 
   useEffect(() => {
     if (!isAuthenticated || effectiveUserRole !== 'student' || menuSection !== 'RECRUTEMENT') return;
