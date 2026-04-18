@@ -77,6 +77,12 @@ export type RecruitmentOffer = {
   applyUrl: string;
   createdAt: string;
 };
+export type BlogPost = {
+  title: string;
+  link?: string;
+  pubDate?: string;
+  description?: string;
+};
 export type OrderEntityType = "notes" | "resources";
 export type AuthStatus = {
   authenticated: boolean;
@@ -429,6 +435,11 @@ export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
       },
     },
   };
+}
+
+export async function listBlogPosts(): Promise<BlogPost[]> {
+  const response = await getJson<{ posts?: BlogPost[] }>("/api/blog-posts");
+  return Array.isArray(response.posts) ? response.posts : [];
 }
 
 export async function submitContactRequest(payload: {

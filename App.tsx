@@ -11,6 +11,7 @@ import {
   createEvernoteNote,
   getAccessMetrics,
   getAnalyticsSummary,
+  listBlogPosts,
   listContactRequests,
   listCourseFlashcards,
   listCourseContent,
@@ -33,6 +34,7 @@ import {
   updateRecruitmentOffer,
   type AccessMetrics,
   type AnalyticsSummary,
+  type BlogPost,
   type ContactRequest,
   type EvernoteNote,
   type LearningContentItem,
@@ -99,8 +101,11 @@ const FAVORITES_STORAGE_KEY = 'eduboost_favorites_v1';
 const STUDENT_PROGRESS_STORAGE_KEY = 'eduboost_student_progress_v1';
 const ONBOARDING_STORAGE_KEY = 'eduboost_onboarding_seen_v1';
 const CONTACT_REQUESTS_LAST_SEEN_STORAGE_KEY = 'eduboost_contact_requests_last_seen_v1';
+const ANNOUNCEMENTS_LAST_SEEN_STORAGE_KEY = 'eduboost_announcements_last_seen_v1';
+const CONTENT_LAST_SEEN_STORAGE_KEY = 'eduboost_content_last_seen_v1';
 const RECRUITMENT_LAST_SEEN_STORAGE_KEY = 'eduboost_recruitment_last_seen_v1';
 const PODCAST_LAST_SEEN_STORAGE_KEY = 'eduboost_podcast_last_seen_v1';
+const BLOG_LAST_SEEN_STORAGE_KEY = 'eduboost_blog_last_seen_v1';
 const NEW_ITEM_WINDOW_DAYS = 7;
 const CONTACT_GENERAL_OPTION = 'Mot de passe général de l’appli';
 const CONTACT_COURSE_OPTIONS = [
@@ -274,6 +279,9 @@ const App: React.FC = () => {
   const [podcastEpisodes, setPodcastEpisodes] = useState<PodcastEpisode[]>([]);
   const [podcastLoading, setPodcastLoading] = useState(false);
   const [podcastError, setPodcastError] = useState<string | null>(null);
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
+  const [blogLoading, setBlogLoading] = useState(false);
+  const [blogError, setBlogError] = useState<string | null>(null);
   const [accessMetrics, setAccessMetrics] = useState<AccessMetrics | null>(null);
   const [accessMetricsLoading, setAccessMetricsLoading] = useState(false);
   const [accessMetricsError, setAccessMetricsError] = useState<string | null>(null);
@@ -297,11 +305,20 @@ const App: React.FC = () => {
   const [contactRequestsLastSeenAt, setContactRequestsLastSeenAt] = useState<string>(
     () => readLocalObject<string>(CONTACT_REQUESTS_LAST_SEEN_STORAGE_KEY, ''),
   );
+  const [announcementsLastSeenAt, setAnnouncementsLastSeenAt] = useState<string>(
+    () => readLocalObject<string>(ANNOUNCEMENTS_LAST_SEEN_STORAGE_KEY, ''),
+  );
+  const [contentLastSeenAt, setContentLastSeenAt] = useState<string>(
+    () => readLocalObject<string>(CONTENT_LAST_SEEN_STORAGE_KEY, ''),
+  );
   const [recruitmentLastSeenAt, setRecruitmentLastSeenAt] = useState<string>(
     () => readLocalObject<string>(RECRUITMENT_LAST_SEEN_STORAGE_KEY, ''),
   );
   const [podcastLastSeenAt, setPodcastLastSeenAt] = useState<string>(
     () => readLocalObject<string>(PODCAST_LAST_SEEN_STORAGE_KEY, ''),
+  );
+  const [blogLastSeenAt, setBlogLastSeenAt] = useState<string>(
+    () => readLocalObject<string>(BLOG_LAST_SEEN_STORAGE_KEY, ''),
   );
   const [recruitmentOffers, setRecruitmentOffers] = useState<RecruitmentOffer[]>([]);
   const [recruitmentLoading, setRecruitmentLoading] = useState(false);
@@ -500,6 +517,27 @@ const App: React.FC = () => {
   }, [authChecked, isAuthenticated, menuSection]);
 
   useEffect(() => {
+    const loadBlogPosts = async () => {
+      if (!authChecked || !isAuthenticated) return;
+      if (menuSection !== 'BLOG' && menuSection !== 'ACCUEIL') return;
+
+      setBlogLoading(true);
+      setBlogError(null);
+      try {
+        const response = await listBlogPosts();
+        setBlogPosts(response);
+      } catch (error) {
+        console.error(error);
+        setBlogError(error instanceof Error ? error.message : 'Impossible de charger les articles du blog.');
+      } finally {
+        setBlogLoading(false);
+      }
+    };
+
+    void loadBlogPosts();
+  }, [authChecked, isAuthenticated, menuSection]);
+
+  useEffect(() => {
     const loadAccessMetrics = async () => {
       if (!authChecked || !isAuthenticated || !isProfessor) return;
       if (menuSection !== 'CONTACT') return;
@@ -665,6 +703,30 @@ const App: React.FC = () => {
   }, [authChecked, isAuthenticated, effectiveUserRole]);
 
   useEffect(() => {
+    if (!isAuthenticated || effectiveUserRole !== 'student' || menuSection !== 'ANNONCES') return;
+    const latestVisibleAnnouncement = [...parsedAnnouncements]
+      .filter((announcement) => !announcement.expiresAt || new Date(announcement.expiresAt).getTime() >= Date.now())
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+    const latestSeen = latestVisibleAnnouncement?.createdAt || '';
+    if (!latestSeen || latestSeen === announcementsLastSeenAt) return;
+    writeLocalObject(ANNOUNCEMENTS_LAST_SEEN_STORAGE_KEY, latestSeen);
+    setAnnouncementsLastSeenAt(latestSeen);
+  }, [isAuthenticated, effectiveUserRole, menuSection, parsedAnnouncements, announcementsLastSeenAt]);
+
+  useEffect(() => {
+    if (!isAuthenticated || effectiveUserRole !== 'student' || menuSection !== 'CONTENU') return;
+    const latestContentTimestamp = [
+      ...activeGeneralContentItems.map((item) => item.createdAt),
+      ...filteredEvernoteNotes.map((note) => note.createdAt),
+    ]
+      .filter(Boolean)
+      .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
+    if (!latestContentTimestamp || latestContentTimestamp === contentLastSeenAt) return;
+    writeLocalObject(CONTENT_LAST_SEEN_STORAGE_KEY, latestContentTimestamp);
+    setContentLastSeenAt(latestContentTimestamp);
+  }, [isAuthenticated, effectiveUserRole, menuSection, activeGeneralContentItems, filteredEvernoteNotes, contentLastSeenAt]);
+
+  useEffect(() => {
     if (!isAuthenticated || effectiveUserRole !== 'student' || menuSection !== 'RECRUTEMENT') return;
     const latestVisibleOffer = [...recruitmentOffers]
       .filter((offer) => !isOfferExpired(offer))
@@ -687,6 +749,19 @@ const App: React.FC = () => {
     writeLocalObject(PODCAST_LAST_SEEN_STORAGE_KEY, latestSeen);
     setPodcastLastSeenAt(latestSeen);
   }, [isAuthenticated, effectiveUserRole, menuSection, podcastEpisodes, podcastLastSeenAt]);
+
+  useEffect(() => {
+    if (!isAuthenticated || effectiveUserRole !== 'student' || menuSection !== 'BLOG') return;
+    const latestBlogPost = [...blogPosts].sort((a, b) => {
+      const aTime = a.pubDate ? new Date(a.pubDate).getTime() : 0;
+      const bTime = b.pubDate ? new Date(b.pubDate).getTime() : 0;
+      return bTime - aTime;
+    })[0];
+    const latestSeen = latestBlogPost?.pubDate || '';
+    if (!latestSeen || latestSeen === blogLastSeenAt) return;
+    writeLocalObject(BLOG_LAST_SEEN_STORAGE_KEY, latestSeen);
+    setBlogLastSeenAt(latestSeen);
+  }, [isAuthenticated, effectiveUserRole, menuSection, blogPosts, blogLastSeenAt]);
 
   useEffect(() => {
     if (!authChecked || !isAuthenticated) return;
@@ -1207,6 +1282,25 @@ const App: React.FC = () => {
         return new Date(request.createdAt).getTime() > new Date(contactRequestsLastSeenAt).getTime();
       }).length
     : 0;
+  const visibleAnnouncementsForStudent = parsedAnnouncements.filter(
+    (announcement) => !announcement.expiresAt || new Date(announcement.expiresAt).getTime() >= Date.now(),
+  );
+  const unseenAnnouncementCount = effectiveUserRole === 'student'
+    ? visibleAnnouncementsForStudent.filter((announcement) => {
+        if (!announcementsLastSeenAt) return true;
+        return new Date(announcement.createdAt).getTime() > new Date(announcementsLastSeenAt).getTime();
+      }).length
+    : 0;
+  const unseenGeneralContentCount = effectiveUserRole === 'student'
+    ? [
+        ...activeGeneralContentItems.map((item) => item.createdAt),
+        ...filteredEvernoteNotes.map((note) => note.createdAt),
+      ].filter((createdAt) => {
+        if (!createdAt) return false;
+        if (!contentLastSeenAt) return true;
+        return new Date(createdAt).getTime() > new Date(contentLastSeenAt).getTime();
+      }).length
+    : 0;
   const unseenPodcastCount = effectiveUserRole === 'student'
     ? [...podcastEpisodes].filter((episode) => {
         if (!episode.pubDate) return false;
@@ -1214,9 +1308,16 @@ const App: React.FC = () => {
         return new Date(episode.pubDate).getTime() > new Date(podcastLastSeenAt).getTime();
       }).length
     : 0;
+  const unseenBlogCount = effectiveUserRole === 'student'
+    ? [...blogPosts].filter((post) => {
+        if (!post.pubDate) return false;
+        if (!blogLastSeenAt) return true;
+        return new Date(post.pubDate).getTime() > new Date(blogLastSeenAt).getTime();
+      }).length
+    : 0;
   const getMenuBadgeCount = (key: typeof mainMenuItems[number]['key']) => {
-    if (key === 'ANNONCES') return recentAnnouncementCount;
-    if (key === 'CONTENU') return recentGeneralContentCount;
+    if (key === 'ANNONCES') return unseenAnnouncementCount;
+    if (key === 'CONTENU') return unseenGeneralContentCount;
     if (key === 'RECRUTEMENT') {
       return effectiveUserRole === 'student'
         ? visibleRecruitmentOffers.filter((offer) => {
@@ -1226,6 +1327,7 @@ const App: React.FC = () => {
         : 0;
     }
     if (key === 'BALADO') return unseenPodcastCount;
+    if (key === 'BLOG') return unseenBlogCount;
     if (key === 'CONTACT') return unreadContactRequestsCount;
     return 0;
   };
