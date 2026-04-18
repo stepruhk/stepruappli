@@ -209,6 +209,27 @@ const getFlashcardDifficultyLineStyle = (difficulty?: number | string) => {
   };
 };
 
+const createEmptyCommonMistake = (): FlashcardCommonMistake => ({
+  answer: '',
+  explanation: '',
+});
+
+const normalizeCommonMistakes = (items: FlashcardCommonMistake[] = []): FlashcardCommonMistake[] => {
+  const normalized = items
+    .map((item) => ({
+      answer: (item.answer || '').trim(),
+      explanation: (item.explanation || '').trim(),
+    }))
+    .filter((item) => item.answer && item.explanation);
+
+  return normalized;
+};
+
+const ensureCommonMistakeDraftRows = (items: FlashcardCommonMistake[] = []): FlashcardCommonMistake[] => {
+  const normalized = normalizeCommonMistakes(items);
+  return normalized.length ? normalized : [createEmptyCommonMistake()];
+};
+
 const App: React.FC = () => {
   const visibleTopics = INITIAL_TOPICS;
   const [view, setView] = useState<AppView>(AppView.DASHBOARD);
@@ -234,13 +255,17 @@ const App: React.FC = () => {
   const [flashcardAnswer, setFlashcardAnswer] = useState('');
   const [flashcardDifficulty, setFlashcardDifficulty] = useState('3');
   const [flashcardJustification, setFlashcardJustification] = useState('');
-  const [flashcardCommonMistakesText, setFlashcardCommonMistakesText] = useState('');
+  const [flashcardCommonMistakes, setFlashcardCommonMistakes] = useState<FlashcardCommonMistake[]>([
+    createEmptyCommonMistake(),
+  ]);
   const [editingFlashcardId, setEditingFlashcardId] = useState<string | null>(null);
   const [editFlashcardQuestion, setEditFlashcardQuestion] = useState('');
   const [editFlashcardAnswer, setEditFlashcardAnswer] = useState('');
   const [editFlashcardDifficulty, setEditFlashcardDifficulty] = useState('3');
   const [editFlashcardJustification, setEditFlashcardJustification] = useState('');
-  const [editFlashcardCommonMistakesText, setEditFlashcardCommonMistakesText] = useState('');
+  const [editFlashcardCommonMistakes, setEditFlashcardCommonMistakes] = useState<FlashcardCommonMistake[]>([
+    createEmptyCommonMistake(),
+  ]);
   const [noteTitle, setNoteTitle] = useState('');
   const [noteContent, setNoteContent] = useState('');
   const [noteLink, setNoteLink] = useState('');
@@ -1533,22 +1558,28 @@ const App: React.FC = () => {
     },
   ].filter(Boolean) as { id: string; title: string; description: string; action: () => void }[];
 
-  const parseCommonMistakesText = (value: string): FlashcardCommonMistake[] =>
-    value
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) => {
-        const [answerPart, ...explanationParts] = line.split('::');
-        return {
-          answer: (answerPart || '').trim(),
-          explanation: explanationParts.join('::').trim(),
-        };
-      })
-      .filter((entry) => entry.answer && entry.explanation);
+  const updateDraftCommonMistake = (
+    scope: 'create' | 'edit',
+    index: number,
+    field: keyof FlashcardCommonMistake,
+    value: string,
+  ) => {
+    const setter = scope === 'create' ? setFlashcardCommonMistakes : setEditFlashcardCommonMistakes;
+    setter((prev) => prev.map((item, itemIndex) => (itemIndex === index ? { ...item, [field]: value } : item)));
+  };
 
-  const formatCommonMistakesText = (items: FlashcardCommonMistake[] = []) =>
-    items.map((item) => `${item.answer} :: ${item.explanation}`).join('\n');
+  const addDraftCommonMistake = (scope: 'create' | 'edit') => {
+    const setter = scope === 'create' ? setFlashcardCommonMistakes : setEditFlashcardCommonMistakes;
+    setter((prev) => [...prev, createEmptyCommonMistake()]);
+  };
+
+  const removeDraftCommonMistake = (scope: 'create' | 'edit', index: number) => {
+    const setter = scope === 'create' ? setFlashcardCommonMistakes : setEditFlashcardCommonMistakes;
+    setter((prev) => {
+      const next = prev.filter((_, itemIndex) => itemIndex !== index);
+      return next.length ? next : [createEmptyCommonMistake()];
+    });
+  };
 
   const persistOrder = async (entityType: OrderEntityType, courseId: string, orderedIds: string[]) => {
     await saveCourseOrder(entityType, courseId, orderedIds);
@@ -2215,7 +2246,7 @@ const App: React.FC = () => {
     const answer = flashcardAnswer.trim();
     const difficulty = normalizeFlashcardDifficulty(flashcardDifficulty);
     const justification = flashcardJustification.trim();
-    const commonMistakes = parseCommonMistakesText(flashcardCommonMistakesText);
+    const commonMistakes = normalizeCommonMistakes(flashcardCommonMistakes);
     if (!question || !answer) return;
 
     try {
@@ -2242,7 +2273,7 @@ const App: React.FC = () => {
       setFlashcardAnswer('');
       setFlashcardDifficulty('3');
       setFlashcardJustification('');
-      setFlashcardCommonMistakesText('');
+      setFlashcardCommonMistakes([createEmptyCommonMistake()]);
     } catch (error) {
       console.error(error);
       handleAuthError(error);
@@ -2256,7 +2287,7 @@ const App: React.FC = () => {
     setEditFlashcardAnswer(card.answer);
     setEditFlashcardDifficulty(String(normalizeFlashcardDifficulty(card.difficulty)));
     setEditFlashcardJustification(card.justification || '');
-    setEditFlashcardCommonMistakesText(formatCommonMistakesText(card.commonMistakes || []));
+    setEditFlashcardCommonMistakes(ensureCommonMistakeDraftRows(card.commonMistakes || []));
   };
 
   const cancelEditFlashcard = () => {
@@ -2265,7 +2296,7 @@ const App: React.FC = () => {
     setEditFlashcardAnswer('');
     setEditFlashcardDifficulty('3');
     setEditFlashcardJustification('');
-    setEditFlashcardCommonMistakesText('');
+    setEditFlashcardCommonMistakes([createEmptyCommonMistake()]);
   };
 
   const saveEditFlashcard = async (card: Flashcard) => {
@@ -2273,7 +2304,7 @@ const App: React.FC = () => {
     const answer = editFlashcardAnswer.trim();
     const difficulty = normalizeFlashcardDifficulty(editFlashcardDifficulty);
     const justification = editFlashcardJustification.trim();
-    const commonMistakes = parseCommonMistakesText(editFlashcardCommonMistakesText);
+    const commonMistakes = normalizeCommonMistakes(editFlashcardCommonMistakes);
     if (!question || !answer || !resourceCourseId) return;
 
     try {
@@ -5389,19 +5420,60 @@ const App: React.FC = () => {
                             </p>
                           </label>
 
-                          <label className="block">
-                            <span className="text-sm font-semibold text-slate-700">Mauvaises réponses fréquentes</span>
-                            <textarea
-                              value={flashcardCommonMistakesText}
-                              onChange={(event) => setFlashcardCommonMistakesText(event.target.value)}
-                              rows={4}
-                              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                              placeholder={"Une ligne par réponse fréquente.\nExemple :\nRelations médias :: Trop large, ce n'est pas la relation avec la presse uniquement\nPublicité :: Ce n'est pas de l'achat média, mais une relation avec les journalistes"}
-                            />
+                          <div className="block">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                              <span className="text-sm font-semibold text-slate-700">Mauvaises réponses fréquentes</span>
+                              <button
+                                type="button"
+                                onClick={() => addDraftCommonMistake('create')}
+                                className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 px-3 py-2 text-sm font-bold text-indigo-700 hover:bg-indigo-50 transition-colors"
+                              >
+                                <i className="fas fa-plus"></i>
+                                Ajouter une mauvaise réponse
+                              </button>
+                            </div>
+                            <div className="mt-3 space-y-3">
+                              {flashcardCommonMistakes.map((mistake, index) => (
+                                <div key={`create-mistake-${index}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                  <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto]">
+                                    <label className="block">
+                                      <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Mauvaise réponse</span>
+                                      <input
+                                        type="text"
+                                        value={mistake.answer}
+                                        onChange={(event) => updateDraftCommonMistake('create', index, 'answer', event.target.value)}
+                                        className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        placeholder="Ex.: Publicité"
+                                      />
+                                    </label>
+                                    <label className="block">
+                                      <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Pourquoi ce n&apos;est pas bon</span>
+                                      <input
+                                        type="text"
+                                        value={mistake.explanation}
+                                        onChange={(event) => updateDraftCommonMistake('create', index, 'explanation', event.target.value)}
+                                        className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        placeholder="Explique pourquoi cette réponse n'est pas correcte."
+                                      />
+                                    </label>
+                                    <div className="flex items-end">
+                                      <button
+                                        type="button"
+                                        onClick={() => removeDraftCommonMistake('create', index)}
+                                        className="inline-flex items-center gap-2 rounded-xl border border-rose-200 px-3 py-3 text-sm font-bold text-rose-700 hover:bg-rose-50 transition-colors"
+                                      >
+                                        <i className="fas fa-trash"></i>
+                                        Supprimer
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                             <p className="mt-2 text-sm text-slate-500">
-                              Format conseillé: <span className="font-semibold">mauvaise réponse :: pourquoi ce n&apos;est pas la bonne réponse</span>
+                              Tu peux laisser ces champs vides si tu ne veux pas afficher de mauvaises réponses fréquentes.
                             </p>
-                          </label>
+                          </div>
 
                           <button
                             type="submit"
@@ -5514,15 +5586,55 @@ const App: React.FC = () => {
                                 </p>
                               </label>
 
-                              <label className="block">
-                                <span className="text-sm font-semibold text-slate-700">Mauvaises réponses fréquentes</span>
-                                <textarea
-                                  value={editFlashcardCommonMistakesText}
-                                  onChange={(event) => setEditFlashcardCommonMistakesText(event.target.value)}
-                                  rows={4}
-                                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                />
-                              </label>
+                              <div className="block">
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                  <span className="text-sm font-semibold text-slate-700">Mauvaises réponses fréquentes</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => addDraftCommonMistake('edit')}
+                                    className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 px-3 py-2 text-sm font-bold text-indigo-700 hover:bg-indigo-50 transition-colors"
+                                  >
+                                    <i className="fas fa-plus"></i>
+                                    Ajouter une mauvaise réponse
+                                  </button>
+                                </div>
+                                <div className="mt-3 space-y-3">
+                                  {editFlashcardCommonMistakes.map((mistake, index) => (
+                                    <div key={`edit-mistake-${card.id}-${index}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto]">
+                                        <label className="block">
+                                          <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Mauvaise réponse</span>
+                                          <input
+                                            type="text"
+                                            value={mistake.answer}
+                                            onChange={(event) => updateDraftCommonMistake('edit', index, 'answer', event.target.value)}
+                                            className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                          />
+                                        </label>
+                                        <label className="block">
+                                          <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Pourquoi ce n&apos;est pas bon</span>
+                                          <input
+                                            type="text"
+                                            value={mistake.explanation}
+                                            onChange={(event) => updateDraftCommonMistake('edit', index, 'explanation', event.target.value)}
+                                            className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                          />
+                                        </label>
+                                        <div className="flex items-end">
+                                          <button
+                                            type="button"
+                                            onClick={() => removeDraftCommonMistake('edit', index)}
+                                            className="inline-flex items-center gap-2 rounded-xl border border-rose-200 px-3 py-3 text-sm font-bold text-rose-700 hover:bg-rose-50 transition-colors"
+                                          >
+                                            <i className="fas fa-trash"></i>
+                                            Supprimer
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
 
                               <div className="flex flex-wrap gap-3">
                                 <button
