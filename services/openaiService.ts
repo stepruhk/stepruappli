@@ -258,6 +258,7 @@ export async function createCourseFlashcard(payload: {
   courseId: string;
   question: string;
   answer: string;
+  difficulty?: number;
   justification?: string;
   commonMistakes?: { answer: string; explanation: string }[];
 }): Promise<Flashcard> {
@@ -271,6 +272,7 @@ export async function updateCourseFlashcard(
   payload: {
     question: string;
     answer: string;
+    difficulty?: number;
     justification?: string;
     commonMistakes?: { answer: string; explanation: string }[];
   },

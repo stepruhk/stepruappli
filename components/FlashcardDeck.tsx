@@ -14,6 +14,8 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ cards, onClose }) => {
   if (cards.length === 0) return <div>Pas de cartes disponibles.</div>;
 
   const currentCard = cards[currentIndex];
+  const difficultyLevel = Math.max(1, Math.min(5, Math.round(Number(currentCard.difficulty ?? 3))));
+  const difficultyPercentage = ((difficultyLevel - 1) / 4) * 100;
 
   const handleNext = () => {
     setIsFlipped(false);
@@ -47,6 +49,19 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ cards, onClose }) => {
             <div className="flashcard-face absolute inset-0 w-full h-full bg-white rounded-2xl p-8">
               <span className="absolute top-5 left-6 text-xs font-bold text-slate-400 uppercase tracking-widest">Question</span>
               <div className="h-full overflow-y-auto pt-10 pb-8 pr-2">
+                <div className="mb-5">
+                  <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-500">
+                    <span>Difficulté</span>
+                    <span>{difficultyLevel}/5</span>
+                  </div>
+                  <div className="relative mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
+                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-amber-400 to-rose-500"></div>
+                    <div
+                      className="absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border-2 border-white bg-white shadow"
+                      style={{ left: `calc(${difficultyPercentage}% - 0.5rem)` }}
+                    ></div>
+                  </div>
+                </div>
                 <p className="text-sm font-semibold leading-relaxed text-slate-800 whitespace-pre-line text-left">
                   {currentCard.question}
                 </p>
@@ -59,6 +74,19 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ cards, onClose }) => {
             <div className="flashcard-face flashcard-back absolute inset-0 w-full h-full bg-white rounded-2xl p-8 text-slate-800">
               <span className="absolute top-5 left-6 text-xs font-bold text-slate-400 uppercase tracking-widest">Réponse</span>
               <div className="h-full overflow-y-auto pt-10 pb-14 px-2 text-left">
+                <div className="mb-5">
+                  <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-500">
+                    <span>Difficulté</span>
+                    <span>{difficultyLevel}/5</span>
+                  </div>
+                  <div className="relative mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
+                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-amber-400 to-rose-500"></div>
+                    <div
+                      className="absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border-2 border-white bg-white shadow"
+                      style={{ left: `calc(${difficultyPercentage}% - 0.5rem)` }}
+                    ></div>
+                  </div>
+                </div>
                 <div className="rounded-2xl bg-indigo-50 p-5 border border-indigo-100">
                   <p className="text-xs font-bold uppercase tracking-widest text-indigo-700">Bonne réponse</p>
                   <p className="mt-3 text-sm leading-relaxed whitespace-pre-line text-slate-800">{currentCard.answer}</p>

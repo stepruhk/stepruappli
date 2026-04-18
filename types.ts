@@ -9,6 +9,7 @@ export interface Flashcard {
   courseId?: string;
   question: string;
   answer: string;
+  difficulty?: number;
   justification?: string;
   commonMistakes?: FlashcardCommonMistake[];
   createdAt?: string;

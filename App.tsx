@@ -187,6 +187,22 @@ const toArchivedResourceTitle = (title: string, archived: boolean) => {
   return archived ? `${ARCHIVED_RESOURCE_PREFIX}${clean}` : clean;
 };
 
+const normalizeFlashcardDifficulty = (value?: number | string) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 3;
+  return Math.max(1, Math.min(5, Math.round(parsed)));
+};
+
+const getFlashcardDifficultyLineStyle = (difficulty?: number | string) => {
+  const level = normalizeFlashcardDifficulty(difficulty);
+  const percentage = ((level - 1) / 4) * 100;
+  return {
+    level,
+    percentage,
+    barClassName: 'bg-gradient-to-r from-emerald-500 via-amber-400 to-rose-500',
+  };
+};
+
 const App: React.FC = () => {
   const visibleTopics = INITIAL_TOPICS;
   const [view, setView] = useState<AppView>(AppView.DASHBOARD);
@@ -210,11 +226,13 @@ const App: React.FC = () => {
   const [flashcardsByCourse, setFlashcardsByCourse] = useState<Record<string, Flashcard[]>>({});
   const [flashcardQuestion, setFlashcardQuestion] = useState('');
   const [flashcardAnswer, setFlashcardAnswer] = useState('');
+  const [flashcardDifficulty, setFlashcardDifficulty] = useState('3');
   const [flashcardJustification, setFlashcardJustification] = useState('');
   const [flashcardCommonMistakesText, setFlashcardCommonMistakesText] = useState('');
   const [editingFlashcardId, setEditingFlashcardId] = useState<string | null>(null);
   const [editFlashcardQuestion, setEditFlashcardQuestion] = useState('');
   const [editFlashcardAnswer, setEditFlashcardAnswer] = useState('');
+  const [editFlashcardDifficulty, setEditFlashcardDifficulty] = useState('3');
   const [editFlashcardJustification, setEditFlashcardJustification] = useState('');
   const [editFlashcardCommonMistakesText, setEditFlashcardCommonMistakesText] = useState('');
   const [noteTitle, setNoteTitle] = useState('');
@@ -2088,6 +2106,7 @@ const App: React.FC = () => {
     if (!resourceCourseId) return;
     const question = flashcardQuestion.trim();
     const answer = flashcardAnswer.trim();
+    const difficulty = normalizeFlashcardDifficulty(flashcardDifficulty);
     const justification = flashcardJustification.trim();
     const commonMistakes = parseCommonMistakesText(flashcardCommonMistakesText);
     if (!question || !answer) return;
@@ -2097,6 +2116,7 @@ const App: React.FC = () => {
         courseId: resourceCourseId,
         question,
         answer,
+        difficulty,
         justification: justification || undefined,
         commonMistakes,
       });
@@ -2113,6 +2133,7 @@ const App: React.FC = () => {
       }));
       setFlashcardQuestion('');
       setFlashcardAnswer('');
+      setFlashcardDifficulty('3');
       setFlashcardJustification('');
       setFlashcardCommonMistakesText('');
     } catch (error) {
@@ -2126,6 +2147,7 @@ const App: React.FC = () => {
     setEditingFlashcardId(card.id);
     setEditFlashcardQuestion(card.question);
     setEditFlashcardAnswer(card.answer);
+    setEditFlashcardDifficulty(String(normalizeFlashcardDifficulty(card.difficulty)));
     setEditFlashcardJustification(card.justification || '');
     setEditFlashcardCommonMistakesText(formatCommonMistakesText(card.commonMistakes || []));
   };
@@ -2134,6 +2156,7 @@ const App: React.FC = () => {
     setEditingFlashcardId(null);
     setEditFlashcardQuestion('');
     setEditFlashcardAnswer('');
+    setEditFlashcardDifficulty('3');
     setEditFlashcardJustification('');
     setEditFlashcardCommonMistakesText('');
   };
@@ -2141,6 +2164,7 @@ const App: React.FC = () => {
   const saveEditFlashcard = async (card: Flashcard) => {
     const question = editFlashcardQuestion.trim();
     const answer = editFlashcardAnswer.trim();
+    const difficulty = normalizeFlashcardDifficulty(editFlashcardDifficulty);
     const justification = editFlashcardJustification.trim();
     const commonMistakes = parseCommonMistakesText(editFlashcardCommonMistakesText);
     if (!question || !answer || !resourceCourseId) return;
@@ -2149,6 +2173,7 @@ const App: React.FC = () => {
       const updated = await updateCourseFlashcard(card.id, {
         question,
         answer,
+        difficulty,
         justification: justification || undefined,
         commonMistakes,
       });
@@ -5240,6 +5265,23 @@ const App: React.FC = () => {
                             />
                           </label>
 
+                          <label className="block max-w-xs">
+                            <span className="text-sm font-semibold text-slate-700">Niveau de difficulté (1 à 5)</span>
+                            <input
+                              type="number"
+                              min={1}
+                              max={5}
+                              step={1}
+                              value={flashcardDifficulty}
+                              onChange={(event) => setFlashcardDifficulty(event.target.value)}
+                              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              placeholder="3"
+                            />
+                            <p className="mt-2 text-sm text-slate-500">
+                              1 = facile <span className="font-semibold text-emerald-600">vert</span>, 3 = moyen <span className="font-semibold text-amber-500">jaune</span>, 5 = difficile <span className="font-semibold text-rose-600">rouge</span>.
+                            </p>
+                          </label>
+
                           <label className="block">
                             <span className="text-sm font-semibold text-slate-700">Mauvaises réponses fréquentes</span>
                             <textarea
@@ -5297,8 +5339,23 @@ const App: React.FC = () => {
                           Aucune carte mémo pour ce cours pour le moment.
                         </div>
                       )}
-                      {canEditResources ? courseFlashcards.map((card) => (
+                      {canEditResources ? courseFlashcards.map((card) => {
+                        const difficultyMeta = getFlashcardDifficultyLineStyle(card.difficulty);
+                        return (
                         <article key={card.id} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                          <div className="mb-5">
+                            <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-500">
+                              <span>Difficulté</span>
+                              <span>{difficultyMeta.level}/5</span>
+                            </div>
+                            <div className="relative mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
+                              <div className={`absolute inset-0 ${difficultyMeta.barClassName}`}></div>
+                              <div
+                                className="absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border-2 border-white bg-white shadow"
+                                style={{ left: `calc(${difficultyMeta.percentage}% - 0.5rem)` }}
+                              ></div>
+                            </div>
+                          </div>
                           {editingFlashcardId === card.id ? (
                             <div className="space-y-4">
                               <label className="block">
@@ -5332,6 +5389,22 @@ const App: React.FC = () => {
                                   rows={4}
                                   className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                 />
+                              </label>
+
+                              <label className="block max-w-xs">
+                                <span className="text-sm font-semibold text-slate-700">Niveau de difficulté (1 à 5)</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={5}
+                                  step={1}
+                                  value={editFlashcardDifficulty}
+                                  onChange={(event) => setEditFlashcardDifficulty(event.target.value)}
+                                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                />
+                                <p className="mt-2 text-sm text-slate-500">
+                                  1 = facile <span className="font-semibold text-emerald-600">vert</span>, 3 = moyen <span className="font-semibold text-amber-500">jaune</span>, 5 = difficile <span className="font-semibold text-rose-600">rouge</span>.
+                                </p>
                               </label>
 
                               <label className="block">
@@ -5441,8 +5514,30 @@ const App: React.FC = () => {
                             </>
                           )}
                         </article>
-                      )) : (
+                      )}) : (
                         <div className="bg-white rounded-2xl border border-slate-200 p-6 text-slate-600">
+                          {!!courseFlashcards.length && (
+                            <div className="mb-4 space-y-3">
+                              {courseFlashcards.map((card) => {
+                                const difficultyMeta = getFlashcardDifficultyLineStyle(card.difficulty);
+                                return (
+                                  <div key={card.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                    <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-500">
+                                      <span>Difficulté</span>
+                                      <span>{difficultyMeta.level}/5</span>
+                                    </div>
+                                    <div className="relative mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
+                                      <div className={`absolute inset-0 ${difficultyMeta.barClassName}`}></div>
+                                      <div
+                                        className="absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border-2 border-white bg-white shadow"
+                                        style={{ left: `calc(${difficultyMeta.percentage}% - 0.5rem)` }}
+                                      ></div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                           <p className="font-semibold text-slate-800">
                             {courseFlashcards.length} cartes sont prêtes pour ce cours.
                           </p>
