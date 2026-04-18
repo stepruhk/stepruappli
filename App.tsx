@@ -230,6 +230,15 @@ const ensureCommonMistakeDraftRows = (items: FlashcardCommonMistake[] = []): Fla
   return normalized.length ? normalized : [createEmptyCommonMistake()];
 };
 
+const shuffleFlashcards = (cards: Flashcard[]): Flashcard[] => {
+  const next = [...cards];
+  for (let index = next.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [next[index], next[swapIndex]] = [next[swapIndex], next[index]];
+  }
+  return next;
+};
+
 const App: React.FC = () => {
   const visibleTopics = INITIAL_TOPICS;
   const [view, setView] = useState<AppView>(AppView.DASHBOARD);
@@ -239,6 +248,7 @@ const App: React.FC = () => {
   const [sessionData, setSessionData] = useState<Record<string, StudySession>>({});
   const [loading, setLoading] = useState<string | null>(null);
   const [showFlashcards, setShowFlashcards] = useState(false);
+  const [flashcardModalCards, setFlashcardModalCards] = useState<Flashcard[]>([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userRole, setUserRole] = useState<UserRole>('student');
   const [authChecked, setAuthChecked] = useState(false);
@@ -1257,9 +1267,6 @@ const App: React.FC = () => {
   const archivedGeneralContentItems = filteredContentItems.filter((item) => isArchivedResource(item));
   const activeSelectedTopicContentItems = selectedTopicContentItems.filter((item) => !isArchivedResource(item));
   const archivedSelectedTopicContentItems = selectedTopicContentItems.filter((item) => isArchivedResource(item));
-  const flashcardsForModal = menuSection === 'MEMO'
-    ? ((sessionData[resourceCourseId]?.flashcards?.length ? sessionData[resourceCourseId]?.flashcards : courseFlashcards) || [])
-    : (currentSession?.flashcards || []);
   const cardAccentStyles = [
     {
       icon: 'bg-indigo-600 text-white',
@@ -2620,26 +2627,31 @@ const App: React.FC = () => {
 
   const openFlashcardReview = async () => {
     if (!resourceCourseId) return;
+    const prepareCardsForReview = (cards: Flashcard[]) => {
+      const nextCards = userRole === 'student' ? shuffleFlashcards(cards) : cards;
+      setFlashcardModalCards(nextCards);
+      setShowFlashcards(true);
+    };
     if (courseFlashcards.length) {
       recordFlashcardReview(resourceCourseId, courseFlashcards.length);
       setSessionData((prev) => ({
         ...prev,
         [resourceCourseId]: { topicId: resourceCourseId, summary: '', flashcards: courseFlashcards },
       }));
-      setShowFlashcards(true);
+      prepareCardsForReview(courseFlashcards);
       return;
     }
     const existingCards = sessionData[resourceCourseId]?.flashcards || [];
     if (existingCards.length) {
       recordFlashcardReview(resourceCourseId, existingCards.length);
-      setShowFlashcards(true);
+      prepareCardsForReview(existingCards);
       return;
     }
 
     const loadedCards = await ensureCourseSession(resourceCourseId);
     if (loadedCards.length) {
       recordFlashcardReview(resourceCourseId, loadedCards.length);
-      setShowFlashcards(true);
+      prepareCardsForReview(loadedCards);
     }
   };
 
@@ -6299,10 +6311,13 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {showFlashcards && flashcardsForModal.length > 0 && (
+      {showFlashcards && flashcardModalCards.length > 0 && (
         <FlashcardDeck 
-          cards={flashcardsForModal} 
-          onClose={() => setShowFlashcards(false)} 
+          cards={flashcardModalCards} 
+          onClose={() => {
+            setShowFlashcards(false);
+            setFlashcardModalCards([]);
+          }} 
         />
       )}
 
