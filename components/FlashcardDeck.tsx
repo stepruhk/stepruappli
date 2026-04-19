@@ -41,14 +41,14 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ cards, onClose }) => {
           </button>
         </div>
 
-        <div 
-          className="relative h-[28rem] w-full cursor-pointer perspective-1000"
-          onClick={() => setIsFlipped(!isFlipped)}
-        >
+        <div className="relative h-[28rem] w-full perspective-1000">
           <div className={`flashcard-inner relative w-full h-full transition-transform duration-500 shadow-2xl rounded-2xl ${isFlipped ? 'flashcard-flipped' : ''}`}>
-            <div className="flashcard-face absolute inset-0 w-full h-full bg-white rounded-2xl p-8">
+            <div className="flashcard-face absolute inset-0 flex h-full w-full flex-col bg-white rounded-2xl p-8">
               <span className="absolute top-5 left-6 text-xs font-bold text-slate-400 uppercase tracking-widest">Question</span>
-              <div className="h-full overflow-y-auto pt-10 pb-8 pr-2">
+              <div
+                className="mt-10 flex-1 min-h-0 overflow-y-auto overscroll-contain pr-2 pb-4"
+                style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
+              >
                 <div className="mb-5">
                   <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-500">
                     <span>Difficulté</span>
@@ -66,14 +66,21 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ cards, onClose }) => {
                   {currentCard.question}
                 </p>
               </div>
-              <p className="absolute bottom-4 left-1/2 -translate-x-1/2 text-sm font-semibold text-indigo-600">
+              <button
+                type="button"
+                onClick={() => setIsFlipped(true)}
+                className="mt-3 text-sm font-bold text-indigo-600 hover:text-indigo-700 transition-colors"
+              >
                 Cliquez pour voir la réponse
-              </p>
+              </button>
             </div>
 
-            <div className="flashcard-face flashcard-back absolute inset-0 w-full h-full bg-white rounded-2xl p-8 text-slate-800">
+            <div className="flashcard-face flashcard-back absolute inset-0 flex h-full w-full flex-col bg-white rounded-2xl p-8 text-slate-800">
               <span className="absolute top-5 left-6 text-xs font-bold text-slate-400 uppercase tracking-widest">Réponse</span>
-              <div className="h-full overflow-y-auto pt-10 pb-14 px-2 text-left">
+              <div
+                className="mt-10 flex-1 min-h-0 overflow-y-auto overscroll-contain px-2 pb-4 text-left"
+                style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
+              >
                 <div className="rounded-2xl bg-indigo-50 p-5 border border-indigo-100">
                   <p className="text-xs font-bold uppercase tracking-widest text-indigo-700">Bonne réponse</p>
                   <p className="mt-3 text-sm leading-relaxed whitespace-pre-line text-slate-800">{currentCard.answer}</p>
@@ -98,8 +105,14 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ cards, onClose }) => {
                   </div>
                 )}
               </div>
-              <div className="absolute inset-x-0 bottom-0 rounded-b-2xl bg-gradient-to-t from-white via-white/95 to-transparent px-6 pb-4 pt-8">
-                <p className="text-center text-xs font-medium text-indigo-600">Cliquez pour revenir à la question</p>
+              <div className="mt-3 rounded-b-2xl bg-gradient-to-t from-white via-white/95 to-transparent">
+                <button
+                  type="button"
+                  onClick={() => setIsFlipped(false)}
+                  className="w-full text-center text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
+                >
+                  Cliquez pour revenir à la question
+                </button>
               </div>
             </div>
           </div>
