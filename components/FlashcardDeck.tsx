@@ -31,6 +31,81 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ cards, onClose }) => {
     }, 150);
   };
 
+  const renderQuestionFace = () => (
+    <div className="flex h-full w-full flex-col bg-white rounded-2xl p-6 md:p-8">
+      <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Question</span>
+      <div
+        className="mt-5 flex-1 min-h-0 overflow-y-auto overscroll-contain pr-1 md:pr-2 pb-4"
+        style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
+      >
+        <div className="mb-5">
+          <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-500">
+            <span>Difficulté</span>
+            <span>{difficultyLevel}/5</span>
+          </div>
+          <div className="relative mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
+            <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-amber-400 to-rose-500"></div>
+            <div
+              className="absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border-2 border-white bg-white shadow"
+              style={{ left: `calc(${difficultyPercentage}% - 0.5rem)` }}
+            ></div>
+          </div>
+        </div>
+        <p className="text-sm font-normal leading-relaxed text-slate-800 whitespace-pre-line text-left">
+          {currentCard.question}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={() => setIsFlipped(true)}
+        className="mt-3 text-sm font-bold text-indigo-600 hover:text-indigo-700 transition-colors"
+      >
+        Cliquez pour voir la réponse
+      </button>
+    </div>
+  );
+
+  const renderAnswerFace = () => (
+    <div className="flex h-full w-full flex-col bg-white rounded-2xl p-6 md:p-8 text-slate-800">
+      <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Réponse</span>
+      <div
+        className="mt-5 flex-1 min-h-0 overflow-y-auto overscroll-contain px-1 md:px-2 pb-4 text-left"
+        style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
+      >
+        <div className="rounded-2xl bg-indigo-50 p-5 border border-indigo-100">
+          <p className="text-xs font-bold uppercase tracking-widest text-indigo-700">Bonne réponse</p>
+          <p className="mt-3 text-sm leading-relaxed whitespace-pre-line text-slate-800">{currentCard.answer}</p>
+        </div>
+        {currentCard.justification && (
+          <div className="mt-4 rounded-2xl bg-slate-50 p-5 text-left border border-slate-100">
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-600">Pourquoi c&apos;est la bonne réponse</p>
+            <p className="mt-2 text-sm leading-relaxed text-slate-700 whitespace-pre-line">{currentCard.justification}</p>
+          </div>
+        )}
+        {!!currentCard.commonMistakes?.length && (
+          <div className="mt-4 rounded-2xl bg-rose-50 p-5 text-left border border-rose-100">
+            <p className="text-xs font-bold uppercase tracking-widest text-rose-700">Mauvaises réponses fréquentes</p>
+            <div className="mt-3 space-y-3">
+              {currentCard.commonMistakes.map((mistake, index) => (
+                <div key={`${currentCard.id}-mistake-${index}`} className="rounded-xl bg-white p-3 border border-rose-100">
+                  <p className="font-bold text-slate-800">{mistake.answer}</p>
+                  <p className="mt-1 text-sm leading-relaxed text-slate-700 whitespace-pre-line">{mistake.explanation}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={() => setIsFlipped(false)}
+        className="mt-3 w-full text-center text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
+      >
+        Cliquez pour revenir à la question
+      </button>
+    </div>
+  );
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
       <div className="w-full max-w-2xl">
@@ -41,81 +116,8 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ cards, onClose }) => {
           </button>
         </div>
 
-        <div className="relative h-[28rem] w-full perspective-1000">
-          <div className={`flashcard-inner relative w-full h-full transition-transform duration-500 shadow-2xl rounded-2xl ${isFlipped ? 'flashcard-flipped' : ''}`}>
-            <div className="flashcard-face absolute inset-0 flex h-full w-full flex-col bg-white rounded-2xl p-8">
-              <span className="absolute top-5 left-6 text-xs font-bold text-slate-400 uppercase tracking-widest">Question</span>
-              <div
-                className="mt-10 flex-1 min-h-0 overflow-y-auto overscroll-contain pr-2 pb-4"
-                style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
-              >
-                <div className="mb-5">
-                  <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-500">
-                    <span>Difficulté</span>
-                    <span>{difficultyLevel}/5</span>
-                  </div>
-                  <div className="relative mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
-                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-amber-400 to-rose-500"></div>
-                    <div
-                      className="absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border-2 border-white bg-white shadow"
-                      style={{ left: `calc(${difficultyPercentage}% - 0.5rem)` }}
-                    ></div>
-                  </div>
-                </div>
-                <p className="text-sm font-normal leading-relaxed text-slate-800 whitespace-pre-line text-left">
-                  {currentCard.question}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsFlipped(true)}
-                className="mt-3 text-sm font-bold text-indigo-600 hover:text-indigo-700 transition-colors"
-              >
-                Cliquez pour voir la réponse
-              </button>
-            </div>
-
-            <div className="flashcard-face flashcard-back absolute inset-0 flex h-full w-full flex-col bg-white rounded-2xl p-8 text-slate-800">
-              <span className="absolute top-5 left-6 text-xs font-bold text-slate-400 uppercase tracking-widest">Réponse</span>
-              <div
-                className="mt-10 flex-1 min-h-0 overflow-y-auto overscroll-contain px-2 pb-4 text-left"
-                style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
-              >
-                <div className="rounded-2xl bg-indigo-50 p-5 border border-indigo-100">
-                  <p className="text-xs font-bold uppercase tracking-widest text-indigo-700">Bonne réponse</p>
-                  <p className="mt-3 text-sm leading-relaxed whitespace-pre-line text-slate-800">{currentCard.answer}</p>
-                </div>
-                {currentCard.justification && (
-                  <div className="mt-4 rounded-2xl bg-slate-50 p-5 text-left border border-slate-100">
-                    <p className="text-xs font-bold uppercase tracking-widest text-slate-600">Pourquoi c&apos;est la bonne réponse</p>
-                    <p className="mt-2 text-sm leading-relaxed text-slate-700 whitespace-pre-line">{currentCard.justification}</p>
-                  </div>
-                )}
-                {!!currentCard.commonMistakes?.length && (
-                  <div className="mt-4 rounded-2xl bg-rose-50 p-5 text-left border border-rose-100">
-                    <p className="text-xs font-bold uppercase tracking-widest text-rose-700">Mauvaises réponses fréquentes</p>
-                    <div className="mt-3 space-y-3">
-                      {currentCard.commonMistakes.map((mistake, index) => (
-                        <div key={`${currentCard.id}-mistake-${index}`} className="rounded-xl bg-white p-3 border border-rose-100">
-                          <p className="font-bold text-slate-800">{mistake.answer}</p>
-                          <p className="mt-1 text-sm leading-relaxed text-slate-700 whitespace-pre-line">{mistake.explanation}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="mt-3 rounded-b-2xl bg-gradient-to-t from-white via-white/95 to-transparent">
-                <button
-                  type="button"
-                  onClick={() => setIsFlipped(false)}
-                  className="w-full text-center text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
-                >
-                  Cliquez pour revenir à la question
-                </button>
-              </div>
-            </div>
-          </div>
+        <div className="relative h-[min(70vh,34rem)] w-full overflow-hidden rounded-2xl bg-white shadow-2xl">
+          {isFlipped ? renderAnswerFace() : renderQuestionFace()}
         </div>
 
         <div className="flex justify-between items-center mt-8 px-4">
