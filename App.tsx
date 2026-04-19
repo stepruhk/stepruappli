@@ -1102,7 +1102,7 @@ const App: React.FC = () => {
       setCoursePasswordValue('');
       if (menuSection === 'MEMO') {
         setResourceCourseId(topicToOpen.id);
-        await ensureCourseSession(topicToOpen.id);
+        await ensureCourseSession(topicToOpen.id, true);
       } else {
         openTopic(topicToOpen);
       }
@@ -2599,10 +2599,10 @@ const App: React.FC = () => {
     setShowOnboarding(false);
   };
 
-  const ensureCourseSession = async (courseId: string): Promise<Flashcard[]> => {
+  const ensureCourseSession = async (courseId: string, skipLockCheck = false): Promise<Flashcard[]> => {
     const topic = visibleTopics.find((item) => item.id === courseId);
     if (!topic) return [];
-    if (isStudentLockedCourse(courseId)) {
+    if (!skipLockCheck && isStudentLockedCourse(courseId)) {
       setCoursePasswordTopic(topic);
       setCoursePasswordValue('');
       setCoursePasswordError(null);
