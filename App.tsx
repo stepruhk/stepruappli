@@ -44,7 +44,7 @@ import {
 } from './services/openaiService.ts';
 import FlashcardDeck from './components/FlashcardDeck.tsx';
 
-type MenuSection = 'ACCUEIL' | 'CONTENU' | 'ANNONCES' | 'MEMO' | 'BALADO' | 'BLOG' | 'ASSISTANT' | 'RECRUTEMENT' | 'CONTACT';
+type MenuSection = 'ACCUEIL' | 'COURS' | 'ANNONCES' | 'MEMO' | 'BALADO' | 'BLOG' | 'ASSISTANT' | 'RECRUTEMENT' | 'CONTACT';
 type PodcastEpisode = {
   title: string;
   link?: string;
@@ -751,22 +751,6 @@ const App: React.FC = () => {
   }, [isAuthenticated, effectiveUserRole, menuSection, evernoteNotesByCourse, announcementsLastSeenAt]);
 
   useEffect(() => {
-    if (!isAuthenticated || effectiveUserRole !== 'student' || menuSection !== 'CONTENU') return;
-    const currentNotes = evernoteNotesByCourse[resourceCourseId] || [];
-    const currentContentItems = contentItemsByCourse[resourceCourseId] || [];
-    const currentActiveContentItems = currentContentItems.filter((item) => !isArchivedResource(item));
-    const latestContentTimestamp = [
-      ...currentActiveContentItems.map((item) => item.createdAt),
-      ...currentNotes.map((note) => note.createdAt),
-    ]
-      .filter(Boolean)
-      .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
-    if (!latestContentTimestamp || latestContentTimestamp === contentLastSeenAt) return;
-    writeLocalObject(CONTENT_LAST_SEEN_STORAGE_KEY, latestContentTimestamp);
-    setContentLastSeenAt(latestContentTimestamp);
-  }, [isAuthenticated, effectiveUserRole, menuSection, evernoteNotesByCourse, contentItemsByCourse, resourceCourseId, contentLastSeenAt]);
-
-  useEffect(() => {
     if (!isAuthenticated || effectiveUserRole !== 'student' || menuSection !== 'RECRUTEMENT') return;
     const latestVisibleOffer = [...recruitmentOffers]
       .filter((offer) => !isOfferExpired(offer))
@@ -1302,10 +1286,9 @@ const App: React.FC = () => {
     'text-violet-600',
   ];
   const mainMenuItems = [
+    { label: 'Accueil', icon: 'fa-border-all', key: 'ACCUEIL' as const },
     { label: 'Annonces', icon: 'fa-bullhorn', key: 'ANNONCES' as const },
     { label: 'Recrutement', icon: 'fa-briefcase', key: 'RECRUTEMENT' as const },
-    { label: 'Accueil', icon: 'fa-border-all', key: 'ACCUEIL' as const },
-    { label: 'Contenu', icon: 'fa-file-lines', key: 'CONTENU' as const },
     { label: 'Cours', icon: 'fa-graduation-cap', key: 'COURS' as const },
     { label: 'Cartes mémo', icon: 'fa-bolt', key: 'MEMO' as const },
     { label: 'Balado', icon: 'fa-podcast', key: 'BALADO' as const },
@@ -1354,7 +1337,6 @@ const App: React.FC = () => {
     : 0;
   const getMenuBadgeCount = (key: typeof mainMenuItems[number]['key']) => {
     if (key === 'ANNONCES') return unseenAnnouncementCount;
-    if (key === 'CONTENU') return unseenGeneralContentCount;
     if (key === 'RECRUTEMENT') {
       return effectiveUserRole === 'student'
         ? visibleRecruitmentOffers.filter((offer) => {
@@ -2590,7 +2572,7 @@ const App: React.FC = () => {
       const topic = visibleTopics.find((entry) => entry.id === result.courseId);
       if (topic) void startTopic(topic);
     } else {
-      navigateToMenuSection('CONTENU');
+      navigateToMenuSection('COURS');
     }
   };
 
@@ -2662,15 +2644,15 @@ const App: React.FC = () => {
       setSelectedTopic(null);
       return;
     }
-    if (section === 'CONTENU') {
-      setView(AppView.DASHBOARD);
-      setResourceCourseId(GENERAL_COURSE_ID);
-      setMenuSection(section);
-      return;
-    }
     if (section === 'ANNONCES') {
       setView(AppView.DASHBOARD);
       setResourceCourseId(ANNOUNCEMENTS_COURSE_ID);
+      setMenuSection(section);
+      return;
+    }
+    if (section === 'COURS') {
+      setView(AppView.DASHBOARD);
+      setSelectedTopic(null);
       setMenuSection(section);
       return;
     }
@@ -3021,7 +3003,7 @@ const App: React.FC = () => {
                                     return;
                                   }
                                 }
-                                navigateToMenuSection('CONTENU');
+                                navigateToMenuSection('COURS');
                               }}
                               className="w-full text-left rounded-2xl border border-slate-200 p-4 hover:border-indigo-300 hover:shadow-sm transition-all"
                             >
@@ -3971,455 +3953,6 @@ const App: React.FC = () => {
                           </div>
                         </div>
 
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {menuSection === 'CONTENU' && (
-                  <div className="space-y-8">
-                    <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-                      <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">Contenu</h1>
-                      <p className="text-slate-600 text-lg">
-                        {canEditResources
-                          ? 'Ajoute ici des documents et liens généraux.'
-                          : 'Documents généraux ajoutés par le professeur.'}
-                      </p>
-                    </div>
-
-                    {canEditResources && (
-                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-                        <h2 className="text-2xl font-black text-slate-900 mb-6">Ajouter un hyperlien</h2>
-                        <form onSubmit={addContentLink} className="space-y-4">
-                          <label className="block">
-                            <span className="text-sm font-semibold text-slate-700">Titre</span>
-                            <input
-                              type="text"
-                              value={contentTitle}
-                              onChange={(event) => setContentTitle(event.target.value)}
-                              placeholder="Ex: Guide de communication"
-                              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                              required
-                            />
-                          </label>
-                          <label className="block">
-                            <span className="text-sm font-semibold text-slate-700">URL</span>
-                            <input
-                              type="url"
-                              value={contentUrl}
-                              onChange={(event) => setContentUrl(event.target.value)}
-                              placeholder="https://..."
-                              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                              required
-                            />
-                          </label>
-                          <button
-                            type="submit"
-                            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-white font-bold hover:bg-indigo-700 transition-colors"
-                          >
-                            <i className="fas fa-link"></i>
-                            Ajouter le lien
-                          </button>
-                        </form>
-                      </div>
-
-                      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-                        <h2 className="text-2xl font-black text-slate-900 mb-6">Ajouter un PDF</h2>
-                        <form onSubmit={addPdfContent} className="space-y-4">
-                          <label className="block">
-                            <span className="text-sm font-semibold text-slate-700">Titre</span>
-                            <input
-                              type="text"
-                              value={pdfTitle}
-                              onChange={(event) => setPdfTitle(event.target.value)}
-                              placeholder="Ex: Plan de cours Semaine 1"
-                              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                              required
-                            />
-                          </label>
-                          <label className="block">
-                            <span className="text-sm font-semibold text-slate-700">Document PDF</span>
-                            <input
-                              type="file"
-                              name="pdf-file"
-                              accept="application/pdf"
-                              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 bg-white"
-                              required
-                            />
-                          </label>
-                          <button
-                            type="submit"
-                            disabled={uploadingPdf}
-                            className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-white font-bold hover:bg-emerald-700 transition-colors disabled:opacity-60"
-                          >
-                            <i className="fas fa-file-pdf"></i>
-                            {uploadingPdf ? 'Import en cours...' : 'Ajouter le PDF'}
-                          </button>
-                        </form>
-                      </div>
-                      </div>
-                    )}
-
-                    <div className="space-y-4">
-                      <h2 className="text-2xl font-black text-slate-900">
-                        Contenus généraux ({activeGeneralContentItems.length})
-                      </h2>
-                      {activeGeneralContentItems.length === 0 && (
-                        <div className="bg-white rounded-2xl border border-slate-200 p-6 text-slate-500">
-                          Aucun document ou lien général pour le moment.
-                        </div>
-                      )}
-                      {activeGeneralContentItems.map((item, index) => (
-                        <article key={item.id} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                          {canEditResources && editingContentId === item.id ? (
-                            <form
-                              onSubmit={(event) => {
-                                event.preventDefault();
-                                void saveEditContent(item);
-                              }}
-                              className="space-y-3"
-                            >
-                              <input
-                                type="text"
-                                value={editContentTitle}
-                                onChange={(event) => setEditContentTitle(event.target.value)}
-                                className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                required
-                              />
-                              {editContentType === 'LIEN' ? (
-                                <input
-                                  type="url"
-                                  value={editContentUrl}
-                                  onChange={(event) => setEditContentUrl(event.target.value)}
-                                  className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                  required
-                                />
-                              ) : (
-                                <p className="text-xs text-slate-500">
-                                  Pour remplacer le PDF, supprimez-le puis ajoutez un nouveau fichier.
-                                </p>
-                              )}
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="submit"
-                                  className="rounded-xl bg-indigo-600 px-4 py-2 text-white text-sm font-bold hover:bg-indigo-700"
-                                >
-                                  Enregistrer
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={cancelEditContent}
-                                  className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100"
-                                >
-                                  Annuler
-                                </button>
-                              </div>
-                            </form>
-                          ) : (
-                            <div className="flex items-start justify-between gap-4">
-                              <div>
-                                <div className="flex items-center gap-2 mb-2">
-                                  <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ${item.type === 'PDF' ? 'bg-rose-50 text-rose-600' : 'bg-indigo-50 text-indigo-600'}`}>
-                                    {item.type}
-                                  </span>
-                                </div>
-                                <h3 className="text-xl font-black text-slate-900">{stripArchivedResourceTitle(item.title)}</h3>
-                                <p className="text-sm text-slate-400 mt-1">
-                                  {new Date(item.createdAt).toLocaleString('fr-FR')}
-                                </p>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    void openContentItem(item);
-                                  }}
-                                  className="inline-flex items-center gap-2 mt-3 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
-                                >
-                                  <i className="fas fa-up-right-from-square"></i>
-                                  Ouvrir
-                                </button>
-                              </div>
-                              {canEditResources ? (
-                                <div className="flex items-center gap-3">
-                                  <button
-                                    type="button"
-                                    onClick={() => { void moveContentItem(item.courseId, item.id, 'up'); }}
-                                    disabled={index === 0}
-                                    className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
-                                    title="Monter"
-                                  >
-                                    <i className="fas fa-arrow-up"></i>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => { void moveContentItem(item.courseId, item.id, 'down', (entry) => !isArchivedResource(entry)); }}
-                                    disabled={index === activeGeneralContentItems.length - 1}
-                                    className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
-                                    title="Descendre"
-                                  >
-                                    <i className="fas fa-arrow-down"></i>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => startEditContent(item)}
-                                    className="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
-                                  >
-                                    Modifier
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => startDuplicateItem(item, 'content')}
-                                    className="text-sm font-semibold text-slate-600 hover:text-slate-800"
-                                  >
-                                    Dupliquer
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => { void toggleArchiveContentItem(item); }}
-                                    className="text-sm font-semibold text-amber-600 hover:text-amber-700"
-                                  >
-                                    Archiver
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => deleteContentItem(item.id)}
-                                    className="text-sm font-semibold text-rose-600 hover:text-rose-700"
-                                  >
-                                    Supprimer
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => toggleFavorite({
-                                    id: item.id,
-                                    kind: 'resource',
-                                    courseId: item.courseId,
-                                    title: stripArchivedResourceTitle(item.title),
-                                    url: item.url,
-                                  })}
-                                  className={`text-sm font-semibold ${isFavorite(item.id, 'resource') ? 'text-amber-500' : 'text-slate-400 hover:text-amber-500'}`}
-                                  title="Enregistrer pour plus tard"
-                                >
-                                  <i className={`fas ${isFavorite(item.id, 'resource') ? 'fa-star' : 'fa-star-half-stroke'}`}></i>
-                                </button>
-                              )}
-                            </div>
-                          )}
-                        </article>
-                      ))}
-                      {canEditResources && archivedGeneralContentItems.length > 0 && (
-                        <div className="mt-6">
-                          <h3 className="text-lg font-black text-slate-900 mb-3">Contenus archivés</h3>
-                          <div className="space-y-3">
-                            {archivedGeneralContentItems.map((item) => (
-                              <article key={`archived-${item.id}`} className="bg-slate-50 rounded-2xl border border-slate-200 p-5">
-                                <div className="flex items-center justify-between gap-3">
-                                  <div>
-                                    <h4 className="font-black text-slate-900">{stripArchivedResourceTitle(item.title)}</h4>
-                                    <p className="text-sm text-slate-500 mt-1">Archivé</p>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => { void toggleArchiveContentItem(item); }}
-                                    className="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
-                                  >
-                                    Restaurer
-                                  </button>
-                                </div>
-                              </article>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-                      <h2 className="text-2xl font-black text-slate-900 mb-2">Notes générales</h2>
-                      <p className="text-slate-600 text-lg mb-6">
-                        {canEditResources
-                          ? 'Ajoute ici des notes générales pour tous les cours.'
-                          : 'Notes générales ajoutées par le professeur.'}
-                      </p>
-
-                      {canEditResources && (
-                        <form onSubmit={addEvernoteNote} className="space-y-4 mb-8">
-                          <label className="block">
-                            <span className="text-sm font-semibold text-slate-700">Titre</span>
-                            <input
-                              type="text"
-                              value={noteTitle}
-                              onChange={(event) => setNoteTitle(event.target.value)}
-                              placeholder="Ex: Plan de relations médias"
-                              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                              required
-                            />
-                          </label>
-                          <label className="block">
-                            <span className="text-sm font-semibold text-slate-700">Contenu</span>
-                            <textarea
-                              value={noteContent}
-                              onChange={(event) => setNoteContent(event.target.value)}
-                              placeholder="Optionnel si tu mets un lien Evernote"
-                              className="mt-2 w-full min-h-36 rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            />
-                          </label>
-                          <label className="block">
-                            <span className="text-sm font-semibold text-slate-700">Lien Evernote</span>
-                            <input
-                              type="url"
-                              value={noteLink}
-                              onChange={(event) => setNoteLink(event.target.value)}
-                              placeholder="https://www.evernote.com/..."
-                              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            />
-                          </label>
-                          <p className="text-xs text-slate-500">Ajoute du contenu, un lien Evernote, ou les deux.</p>
-
-                          <button
-                            type="submit"
-                            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-white font-bold hover:bg-indigo-700 transition-colors"
-                          >
-                            <i className="fas fa-plus"></i>
-                            Ajouter la note
-                          </button>
-                        </form>
-                      )}
-
-                      <div className="space-y-4">
-                        <h3 className="text-xl font-black text-slate-900">
-                          Notes générales ({filteredEvernoteNotes.length})
-                        </h3>
-                        {filteredEvernoteNotes.length === 0 && (
-                          <div className="bg-white rounded-2xl border border-slate-200 p-6 text-slate-500">
-                            Aucune note générale pour le moment.
-                          </div>
-                        )}
-                        {filteredEvernoteNotes.map((note, index) => (
-                          <article key={note.id} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                            {canEditResources && editingNoteId === note.id ? (
-                              <form
-                                onSubmit={(event) => {
-                                  event.preventDefault();
-                                  void saveEditNote(note);
-                                }}
-                                className="space-y-3"
-                              >
-                                <input
-                                  type="text"
-                                  value={editNoteTitle}
-                                  onChange={(event) => setEditNoteTitle(event.target.value)}
-                                  className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                  required
-                                />
-                                <textarea
-                                  value={editNoteContent}
-                                  onChange={(event) => setEditNoteContent(event.target.value)}
-                                  className="w-full min-h-24 rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                  placeholder="Contenu (optionnel si lien)"
-                                />
-                                <input
-                                  type="url"
-                                  value={editNoteLink}
-                                  onChange={(event) => setEditNoteLink(event.target.value)}
-                                  className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                  placeholder="https://www.evernote.com/..."
-                                />
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    type="submit"
-                                    className="rounded-xl bg-indigo-600 px-4 py-2 text-white text-sm font-bold hover:bg-indigo-700"
-                                  >
-                                    Enregistrer
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={cancelEditNote}
-                                    className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100"
-                                  >
-                                    Annuler
-                                  </button>
-                                </div>
-                              </form>
-                            ) : (
-                              <>
-                                <div className="flex items-start justify-between gap-4">
-                                  <div>
-                                    <h3 className="text-xl font-black text-slate-900">{note.title}</h3>
-                                    <p className="text-sm text-slate-400 mt-1">
-                                      {new Date(note.createdAt).toLocaleString('fr-FR')}
-                                    </p>
-                                    {note.link && (
-                                      <a
-                                        href={note.link}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="inline-flex items-center gap-2 mt-3 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
-                                      >
-                                        <i className="fas fa-up-right-from-square"></i>
-                                        Ouvrir le lien Evernote
-                                      </a>
-                                    )}
-                                  </div>
-                                  {canEditResources ? (
-                                    <div className="flex items-center gap-3">
-                                      <button
-                                        type="button"
-                                        onClick={() => { void moveNoteItem(note.courseId, note.id, 'up'); }}
-                                        disabled={index === 0}
-                                        className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
-                                        title="Monter"
-                                      >
-                                        <i className="fas fa-arrow-up"></i>
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => { void moveNoteItem(note.courseId, note.id, 'down'); }}
-                                        disabled={index === filteredEvernoteNotes.length - 1}
-                                        className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
-                                        title="Descendre"
-                                      >
-                                        <i className="fas fa-arrow-down"></i>
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => startEditNote(note)}
-                                        className="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
-                                      >
-                                        Modifier
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => deleteEvernoteNote(note.id)}
-                                        className="text-sm font-semibold text-rose-600 hover:text-rose-700"
-                                      >
-                                        Supprimer
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      onClick={() => toggleFavorite({
-                                        id: note.id,
-                                        kind: 'note',
-                                        courseId: note.courseId,
-                                        title: note.title,
-                                        url: note.link,
-                                      })}
-                                      className={`text-sm font-semibold ${isFavorite(note.id, 'note') ? 'text-amber-500' : 'text-slate-400 hover:text-amber-500'}`}
-                                      title="Enregistrer pour plus tard"
-                                    >
-                                      <i className={`fas ${isFavorite(note.id, 'note') ? 'fa-star' : 'fa-star-half-stroke'}`}></i>
-                                    </button>
-                                  )}
-                                </div>
-                                {note.content && (
-                                  <p className="text-slate-700 mt-4 whitespace-pre-line">{note.content}</p>
-                                )}
-                              </>
-                            )}
-                          </article>
-                        ))}
                       </div>
                     </div>
                   </div>
@@ -6205,7 +5738,7 @@ const App: React.FC = () => {
               </div>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
                 <h3 className="font-black text-slate-900">Où trouver vos contenus</h3>
-                <p className="mt-2 text-slate-600">Les documents généraux sont dans Contenu. Chaque cours possède aussi son propre contenu, ses lectures et ses cartes mémo.</p>
+                <p className="mt-2 text-slate-600">Chaque cours possède son propre contenu, ses lectures et ses cartes mémo. La section Cours est le meilleur point de départ.</p>
               </div>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
                 <h3 className="font-black text-slate-900">Comment réviser avec les cartes mémo</h3>
