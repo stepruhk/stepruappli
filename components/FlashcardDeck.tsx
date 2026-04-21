@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Flashcard } from '../types.ts';
 
 interface FlashcardDeckProps {
@@ -11,6 +10,7 @@ interface FlashcardDeckProps {
 const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ cards, onClose, preventCopy = false }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
+  const modalRef = useRef<HTMLDivElement | null>(null);
 
   if (cards.length === 0) return <div>Pas de cartes disponibles.</div>;
 
@@ -23,8 +23,41 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ cards, onClose, preventCo
         onCut: (event: React.ClipboardEvent) => event.preventDefault(),
         onPaste: (event: React.ClipboardEvent) => event.preventDefault(),
         onContextMenu: (event: React.MouseEvent) => event.preventDefault(),
+        onSelectStart: (event: React.SyntheticEvent) => event.preventDefault(),
+        onDragStart: (event: React.DragEvent) => event.preventDefault(),
       }
     : {};
+
+  useEffect(() => {
+    if (!preventCopy) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const isModifierPressed = event.metaKey || event.ctrlKey;
+      if (!isModifierPressed) return;
+      const key = event.key.toLowerCase();
+      if (key === 'c' || key === 'x' || key === 'a') {
+        event.preventDefault();
+      }
+    };
+
+    const clearSelectionIfInsideModal = () => {
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0) return;
+      const anchorNode = selection.anchorNode;
+      if (!anchorNode) return;
+      if (modalRef.current?.contains(anchorNode)) {
+        selection.removeAllRanges();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown, true);
+    document.addEventListener('selectionchange', clearSelectionIfInsideModal);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown, true);
+      document.removeEventListener('selectionchange', clearSelectionIfInsideModal);
+    };
+  }, [preventCopy]);
 
   const handleNext = () => {
     setIsFlipped(false);
@@ -119,7 +152,12 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ cards, onClose, preventCo
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-      <div className="w-full max-w-2xl">
+      <div
+        ref={modalRef}
+        className="w-full max-w-2xl"
+        style={preventCopy ? { userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' } : undefined}
+        {...protectedInteractionProps}
+      >
         <div className="flex justify-between items-center mb-6 text-white">
           <h2 className="text-xl font-bold">Révision par Flashcards</h2>
           <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
