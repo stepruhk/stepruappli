@@ -5847,6 +5847,7 @@ const App: React.FC = () => {
       {showFlashcards && flashcardModalCards.length > 0 && (
         <FlashcardDeck 
           cards={flashcardModalCards} 
+          preventCopy={effectiveUserRole === 'student'}
           onClose={() => {
             setShowFlashcards(false);
             setFlashcardModalCards([]);

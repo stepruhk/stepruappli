@@ -5,9 +5,10 @@ import { Flashcard } from '../types.ts';
 interface FlashcardDeckProps {
   cards: Flashcard[];
   onClose: () => void;
+  preventCopy?: boolean;
 }
 
-const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ cards, onClose }) => {
+const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ cards, onClose, preventCopy = false }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
 
@@ -16,6 +17,14 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ cards, onClose }) => {
   const currentCard = cards[currentIndex];
   const difficultyLevel = Math.max(1, Math.min(5, Math.round(Number(currentCard.difficulty ?? 3))));
   const difficultyPercentage = ((difficultyLevel - 1) / 4) * 100;
+  const protectedInteractionProps = preventCopy
+    ? {
+        onCopy: (event: React.ClipboardEvent) => event.preventDefault(),
+        onCut: (event: React.ClipboardEvent) => event.preventDefault(),
+        onPaste: (event: React.ClipboardEvent) => event.preventDefault(),
+        onContextMenu: (event: React.MouseEvent) => event.preventDefault(),
+      }
+    : {};
 
   const handleNext = () => {
     setIsFlipped(false);
@@ -37,6 +46,7 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ cards, onClose }) => {
       <div
         className="mt-5 flex-1 min-h-0 overflow-y-auto overscroll-contain pr-1 md:pr-2 pb-4"
         style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
+        {...protectedInteractionProps}
       >
         <div className="mb-5">
           <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-500">
@@ -51,7 +61,7 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ cards, onClose }) => {
             ></div>
           </div>
         </div>
-        <p className="text-sm font-normal leading-relaxed text-slate-800 whitespace-pre-line text-left">
+        <p className={`text-sm font-normal leading-relaxed text-slate-800 whitespace-pre-line text-left ${preventCopy ? 'select-none' : ''}`}>
           {currentCard.question}
         </p>
       </div>
@@ -71,15 +81,16 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ cards, onClose }) => {
       <div
         className="mt-5 flex-1 min-h-0 overflow-y-auto overscroll-contain px-1 md:px-2 pb-4 text-left"
         style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
+        {...protectedInteractionProps}
       >
         <div className="rounded-2xl bg-indigo-50 p-5 border border-indigo-100">
           <p className="text-xs font-bold uppercase tracking-widest text-indigo-700">Bonne réponse</p>
-          <p className="mt-3 text-sm leading-relaxed whitespace-pre-line text-slate-800">{currentCard.answer}</p>
+          <p className={`mt-3 text-sm leading-relaxed whitespace-pre-line text-slate-800 ${preventCopy ? 'select-none' : ''}`}>{currentCard.answer}</p>
         </div>
         {currentCard.justification && (
           <div className="mt-4 rounded-2xl bg-slate-50 p-5 text-left border border-slate-100">
             <p className="text-xs font-bold uppercase tracking-widest text-slate-600">Pourquoi c&apos;est la bonne réponse</p>
-            <p className="mt-2 text-sm leading-relaxed text-slate-700 whitespace-pre-line">{currentCard.justification}</p>
+            <p className={`mt-2 text-sm leading-relaxed text-slate-700 whitespace-pre-line ${preventCopy ? 'select-none' : ''}`}>{currentCard.justification}</p>
           </div>
         )}
         {!!currentCard.commonMistakes?.length && (
@@ -88,8 +99,8 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ cards, onClose }) => {
             <div className="mt-3 space-y-3">
               {currentCard.commonMistakes.map((mistake, index) => (
                 <div key={`${currentCard.id}-mistake-${index}`} className="rounded-xl bg-white p-3 border border-rose-100">
-                  <p className="font-bold text-slate-800">{mistake.answer}</p>
-                  <p className="mt-1 text-sm leading-relaxed text-slate-700 whitespace-pre-line">{mistake.explanation}</p>
+                  <p className={`font-bold text-slate-800 ${preventCopy ? 'select-none' : ''}`}>{mistake.answer}</p>
+                  <p className={`mt-1 text-sm leading-relaxed text-slate-700 whitespace-pre-line ${preventCopy ? 'select-none' : ''}`}>{mistake.explanation}</p>
                 </div>
               ))}
             </div>
