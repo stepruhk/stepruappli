@@ -796,16 +796,18 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (!isAuthenticated || effectiveUserRole !== 'student' || menuSection !== 'MAITRISE') return;
+    const generalContentItems = (contentItemsByCourse[GENERAL_COURSE_ID] || []).filter((item) => !isArchivedResource(item));
+    const generalNotes = evernoteNotesByCourse[GENERAL_COURSE_ID] || [];
     const latestSeen = [
-      ...activeGeneralContentItems.map((item) => item.createdAt),
-      ...filteredEvernoteNotes.map((note) => note.createdAt),
+      ...generalContentItems.map((item) => item.createdAt),
+      ...generalNotes.map((note) => note.createdAt),
     ]
       .filter(Boolean)
       .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] || '';
     if (!latestSeen || latestSeen === contentLastSeenAt) return;
     writeLocalObject(CONTENT_LAST_SEEN_STORAGE_KEY, latestSeen);
     setContentLastSeenAt(latestSeen);
-  }, [isAuthenticated, effectiveUserRole, menuSection, activeGeneralContentItems, filteredEvernoteNotes, contentLastSeenAt]);
+  }, [isAuthenticated, effectiveUserRole, menuSection, contentItemsByCourse, evernoteNotesByCourse, contentLastSeenAt]);
 
   useEffect(() => {
     if (!isAuthenticated || effectiveUserRole !== 'student' || menuSection !== 'BALADO') return;
