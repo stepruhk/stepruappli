@@ -167,6 +167,28 @@ const MASTERS_PATHWAYS = [
   },
 ];
 
+const QuebecFlagIcon: React.FC = () => (
+  <svg
+    viewBox="0 0 64 64"
+    aria-hidden="true"
+    className="h-9 w-9"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <rect x="6" y="10" width="52" height="44" rx="8" fill="#0F766E" />
+    <rect x="28" y="14" width="8" height="36" fill="white" />
+    <rect x="10" y="28" width="44" height="8" fill="white" />
+    <rect x="10" y="14" width="14" height="14" fill="#0F766E" />
+    <rect x="40" y="14" width="14" height="14" fill="#0F766E" />
+    <rect x="10" y="36" width="14" height="14" fill="#0F766E" />
+    <rect x="40" y="36" width="14" height="14" fill="#0F766E" />
+    <path d="M17 18L18.6 21.6H22.5L19.3 23.8L20.5 27.6L17 25.3L13.5 27.6L14.7 23.8L11.5 21.6H15.4L17 18Z" fill="white" />
+    <path d="M47 18L48.6 21.6H52.5L49.3 23.8L50.5 27.6L47 25.3L43.5 27.6L44.7 23.8L41.5 21.6H45.4L47 18Z" fill="white" />
+    <path d="M17 40L18.6 43.6H22.5L19.3 45.8L20.5 49.6L17 47.3L13.5 49.6L14.7 45.8L11.5 43.6H15.4L17 40Z" fill="white" />
+    <path d="M47 40L48.6 43.6H52.5L49.3 45.8L50.5 49.6L47 47.3L43.5 49.6L44.7 45.8L41.5 43.6H45.4L47 40Z" fill="white" />
+  </svg>
+);
+
 const isRecentDate = (value?: string, days = NEW_ITEM_WINDOW_DAYS) => {
   if (!value) return false;
   const timestamp = new Date(value).getTime();
@@ -3211,7 +3233,7 @@ const App: React.FC = () => {
                           <article key={pathway.title} className="bg-white rounded-3xl border border-slate-200 p-7 shadow-sm">
                             <div className="w-14 h-14 rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700 flex items-center justify-center mb-5">
                               {pathway.title === 'Maîtrises en communication au Québec' ? (
-                                <i className="fas fa-fleur-de-lis text-[2rem] leading-none text-teal-700 drop-shadow-[0_1px_0_rgba(255,255,255,0.45)]"></i>
+                                <QuebecFlagIcon />
                               ) : (
                                 <i className={`fas ${pathway.icon} text-2xl`}></i>
                               )}
