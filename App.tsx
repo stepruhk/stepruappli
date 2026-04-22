@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Topic, AppView, StudySession, Flashcard, FlashcardCommonMistake } from './types.ts';
 import { INITIAL_TOPICS } from './constants.ts';
 import ciLogo from './assets/ci-logo.png';
+import maitrisePhoto1 from './src-maitrise-photo-1.png';
 import {
   checkAuthStatus,
   createRecruitmentOffer,
@@ -44,7 +45,7 @@ import {
 } from './services/openaiService.ts';
 import FlashcardDeck from './components/FlashcardDeck.tsx';
 
-type MenuSection = 'ACCUEIL' | 'COURS' | 'ANNONCES' | 'MEMO' | 'BALADO' | 'BLOG' | 'ASSISTANT' | 'RECRUTEMENT' | 'CONTACT';
+type MenuSection = 'ACCUEIL' | 'COURS' | 'ANNONCES' | 'MEMO' | 'BALADO' | 'BLOG' | 'ASSISTANT' | 'RECRUTEMENT' | 'MAITRISE' | 'CONTACT';
 type PodcastEpisode = {
   title: string;
   link?: string;
@@ -133,6 +134,38 @@ const RECRUITMENT_EXPERIENCE_OPTIONS = [
   "Nouveaux diplômé(e)s, moins de 1 an d'expérience en communication",
   "2 ans d'expérience professionnelle en communication",
   "3 ans d'expérience professionnelle en communication",
+];
+const MASTERS_PATHWAYS = [
+  {
+    icon: 'fa-signs-post',
+    title: 'Faire une maîtrise ou non ?',
+    description: "Avantages, défis, débouchés : prenez une décision éclairée en fonction de vos objectifs.",
+  },
+  {
+    icon: 'fa-book-open',
+    title: 'Programmes de maîtrise en communication',
+    description: 'Découvrez les différents programmes offerts et leurs spécificités.',
+  },
+  {
+    icon: 'fa-fleur-de-lis',
+    title: 'Maîtrises en communication au Québec',
+    description: "Universités, conditions d’admission, coûts, financement et plus.",
+  },
+  {
+    icon: 'fa-globe',
+    title: 'Étudier ailleurs',
+    description: 'Options en France, en Belgique, en Suisse et partout dans le monde.',
+  },
+  {
+    icon: 'fa-flask',
+    title: 'Maîtrises en sciences de la communication',
+    description: "Pour celles et ceux qui s’intéressent à la recherche et à l’enseignement.",
+  },
+  {
+    icon: 'fa-briefcase',
+    title: 'MBA et autres maîtrises professionnelles',
+    description: 'Pour développer vos compétences en gestion et en leadership.',
+  },
 ];
 
 const isRecentDate = (value?: string, days = NEW_ITEM_WINDOW_DAYS) => {
@@ -762,6 +795,19 @@ const App: React.FC = () => {
   }, [isAuthenticated, effectiveUserRole, menuSection, recruitmentOffers, recruitmentLastSeenAt]);
 
   useEffect(() => {
+    if (!isAuthenticated || effectiveUserRole !== 'student' || menuSection !== 'MAITRISE') return;
+    const latestSeen = [
+      ...activeGeneralContentItems.map((item) => item.createdAt),
+      ...filteredEvernoteNotes.map((note) => note.createdAt),
+    ]
+      .filter(Boolean)
+      .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] || '';
+    if (!latestSeen || latestSeen === contentLastSeenAt) return;
+    writeLocalObject(CONTENT_LAST_SEEN_STORAGE_KEY, latestSeen);
+    setContentLastSeenAt(latestSeen);
+  }, [isAuthenticated, effectiveUserRole, menuSection, activeGeneralContentItems, filteredEvernoteNotes, contentLastSeenAt]);
+
+  useEffect(() => {
     if (!isAuthenticated || effectiveUserRole !== 'student' || menuSection !== 'BALADO') return;
     const latestEpisode = [...podcastEpisodes].sort((a, b) => {
       const aTime = a.pubDate ? new Date(a.pubDate).getTime() : 0;
@@ -1289,6 +1335,7 @@ const App: React.FC = () => {
     { label: 'Accueil', icon: 'fa-border-all', key: 'ACCUEIL' as const },
     { label: 'Annonces', icon: 'fa-bullhorn', key: 'ANNONCES' as const },
     { label: 'Recrutement', icon: 'fa-briefcase', key: 'RECRUTEMENT' as const },
+    { label: 'Maîtrise en comm', icon: 'fa-user-graduate', key: 'MAITRISE' as const },
     { label: 'Cours', icon: 'fa-graduation-cap', key: 'COURS' as const },
     { label: 'Cartes mémo', icon: 'fa-bolt', key: 'MEMO' as const },
     { label: 'Balado', icon: 'fa-podcast', key: 'BALADO' as const },
@@ -1337,6 +1384,7 @@ const App: React.FC = () => {
     : 0;
   const getMenuBadgeCount = (key: typeof mainMenuItems[number]['key']) => {
     if (key === 'ANNONCES') return unseenAnnouncementCount;
+    if (key === 'MAITRISE') return unseenGeneralContentCount;
     if (key === 'RECRUTEMENT') {
       return effectiveUserRole === 'student'
         ? visibleRecruitmentOffers.filter((offer) => {
@@ -2560,6 +2608,10 @@ const App: React.FC = () => {
     if (result.kind === 'content') {
       const item = Object.values(contentItemsByCourse).flat().find((entry) => entry.id === result.id);
       if (item) {
+        if (item.courseId === GENERAL_COURSE_ID) {
+          navigateToMenuSection('MAITRISE');
+          return;
+        }
         void openContentItem(item);
       }
       return;
@@ -2572,7 +2624,7 @@ const App: React.FC = () => {
       const topic = visibleTopics.find((entry) => entry.id === result.courseId);
       if (topic) void startTopic(topic);
     } else {
-      navigateToMenuSection('COURS');
+      navigateToMenuSection('MAITRISE');
     }
   };
 
@@ -2647,6 +2699,13 @@ const App: React.FC = () => {
     if (section === 'ANNONCES') {
       setView(AppView.DASHBOARD);
       setResourceCourseId(ANNOUNCEMENTS_COURSE_ID);
+      setMenuSection(section);
+      return;
+    }
+    if (section === 'MAITRISE') {
+      setView(AppView.DASHBOARD);
+      setSelectedTopic(null);
+      setResourceCourseId(GENERAL_COURSE_ID);
       setMenuSection(section);
       return;
     }
@@ -2996,6 +3055,10 @@ const App: React.FC = () => {
                                   window.open(favorite.url, '_blank', 'noopener,noreferrer');
                                   return;
                                 }
+                                if (favorite.courseId === GENERAL_COURSE_ID) {
+                                  navigateToMenuSection('MAITRISE');
+                                  return;
+                                }
                                 if (favorite.courseId && favorite.courseId !== GENERAL_COURSE_ID) {
                                   const topic = visibleTopics.find((entry) => entry.id === favorite.courseId);
                                   if (topic) {
@@ -3003,7 +3066,7 @@ const App: React.FC = () => {
                                     return;
                                   }
                                 }
-                                navigateToMenuSection('COURS');
+                                navigateToMenuSection('MAITRISE');
                               }}
                               className="w-full text-left rounded-2xl border border-slate-200 p-4 hover:border-indigo-300 hover:shadow-sm transition-all"
                             >
@@ -3122,6 +3185,363 @@ const App: React.FC = () => {
                       </div>
                     </div>
 
+                  </div>
+                )}
+
+                {menuSection === 'MAITRISE' && (
+                  <div className="space-y-8">
+                    <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                      <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-4">Maîtrises en communication</h1>
+                      <p className="text-slate-600 text-lg leading-relaxed max-w-5xl">
+                        Apprenez rapidement sur les programmes de maîtrise en communication. Choisissez la maîtrise qui correspond à votre ambition et qui vous sera utile dans votre début de carrière. Comparez les programmes au Québec et à l’international, avec recherche ou non, maîtrises en sciences, programmes courts, ou MBA. Accédez à des réponses concrètes pour faire un choix stratégique.
+                      </p>
+                    </div>
+
+                    <div className="bg-white rounded-3xl border border-slate-200 p-4 md:p-6 shadow-sm overflow-hidden">
+                      <img
+                        src={maitrisePhoto1}
+                        alt="Informations fiables pour faire les bons choix en maîtrise en communication"
+                        className="w-full rounded-2xl object-cover"
+                      />
+                    </div>
+
+                    <div className="space-y-5">
+                      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                        <h2 className="text-2xl font-black text-slate-900 mb-2">Explorer les différents parcours</h2>
+                        <p className="text-slate-600 text-lg">
+                          Voici les grandes pistes à comparer pour avancer rapidement vers la maîtrise qui te conviendra le mieux.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                        {MASTERS_PATHWAYS.map((pathway) => (
+                          <article key={pathway.title} className="bg-white rounded-3xl border border-slate-200 p-7 shadow-sm">
+                            <div className="w-14 h-14 rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700 flex items-center justify-center mb-5">
+                              <i className={`fas ${pathway.icon} text-2xl`}></i>
+                            </div>
+                            <h3 className="text-2xl font-black text-slate-900 leading-tight mb-4">{pathway.title}</h3>
+                            <p className="text-slate-600 text-lg leading-relaxed">{pathway.description}</p>
+                          </article>
+                        ))}
+                      </div>
+                    </div>
+
+                    {canEditResources && (
+                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                        <form onSubmit={addContentLink} className="space-y-3 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                          <h2 className="text-2xl font-black text-slate-900">Ajouter un hyperlien</h2>
+                          <p className="text-slate-600">
+                            Ajoute une page web, un site universitaire ou un comparatif utile pour les étudiant(e)s.
+                          </p>
+                          <input
+                            type="text"
+                            value={contentTitle}
+                            onChange={(event) => setContentTitle(event.target.value)}
+                            placeholder="Titre du lien"
+                            className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            required
+                          />
+                          <input
+                            type="url"
+                            value={contentUrl}
+                            onChange={(event) => setContentUrl(event.target.value)}
+                            placeholder="https://..."
+                            className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            required
+                          />
+                          <button
+                            type="submit"
+                            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-white font-bold hover:bg-indigo-700 transition-colors"
+                          >
+                            <i className="fas fa-link"></i>
+                            Ajouter le lien
+                          </button>
+                        </form>
+
+                        <form onSubmit={addEvernoteNote} className="space-y-3 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                          <h2 className="text-2xl font-black text-slate-900">Ajouter une note</h2>
+                          <p className="text-slate-600">
+                            Ajoute une note Evernote, un résumé ou une page de conseils pratiques.
+                          </p>
+                          <input
+                            type="text"
+                            value={noteTitle}
+                            onChange={(event) => setNoteTitle(event.target.value)}
+                            placeholder="Titre de la note"
+                            className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            required
+                          />
+                          <textarea
+                            value={noteContent}
+                            onChange={(event) => setNoteContent(event.target.value)}
+                            placeholder="Contenu de la note (optionnel si lien Evernote)"
+                            className="w-full min-h-28 rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                          <input
+                            type="url"
+                            value={noteLink}
+                            onChange={(event) => setNoteLink(event.target.value)}
+                            placeholder="https://www.evernote.com/... ou autre lien"
+                            className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                          <button
+                            type="submit"
+                            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-white font-bold hover:bg-indigo-700 transition-colors"
+                          >
+                            <i className="fas fa-plus"></i>
+                            Ajouter la note
+                          </button>
+                        </form>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                        <h2 className="text-2xl font-black text-slate-900 mb-2">Ressources et liens utiles</h2>
+                        <p className="text-slate-600 mb-6">
+                          Pages web, comparatifs, programmes et ressources de référence.
+                        </p>
+
+                        <div className="space-y-3">
+                          {activeGeneralContentItems.length === 0 && (
+                            <div className="rounded-2xl border border-slate-200 p-4 text-slate-500">
+                              Aucun lien ou document pour le moment.
+                            </div>
+                          )}
+                          {activeGeneralContentItems.map((item, index) => (
+                            <article key={item.id} className="rounded-2xl border border-slate-200 p-4">
+                              {canEditResources && editingContentId === item.id ? (
+                                <form
+                                  onSubmit={(event) => {
+                                    event.preventDefault();
+                                    void saveEditContent(item);
+                                  }}
+                                  className="space-y-3"
+                                >
+                                  <input
+                                    type="text"
+                                    value={editContentTitle}
+                                    onChange={(event) => setEditContentTitle(event.target.value)}
+                                    className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    required
+                                  />
+                                  {editContentType === 'LIEN' ? (
+                                    <input
+                                      type="url"
+                                      value={editContentUrl}
+                                      onChange={(event) => setEditContentUrl(event.target.value)}
+                                      className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                      required
+                                    />
+                                  ) : (
+                                    <p className="text-xs text-slate-500">
+                                      Pour remplacer le PDF, supprimez-le puis ajoutez un nouveau fichier.
+                                    </p>
+                                  )}
+                                  <div className="flex items-center gap-2">
+                                    <button type="submit" className="rounded-xl bg-indigo-600 px-4 py-2 text-white text-sm font-bold hover:bg-indigo-700">
+                                      Enregistrer
+                                    </button>
+                                    <button type="button" onClick={cancelEditContent} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100">
+                                      Annuler
+                                    </button>
+                                  </div>
+                                </form>
+                              ) : (
+                                <div className="flex items-start justify-between gap-4">
+                                  <div>
+                                    <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ${item.type === 'PDF' ? 'bg-rose-50 text-rose-600' : 'bg-indigo-50 text-indigo-600'}`}>
+                                      {item.type}
+                                    </span>
+                                    <h3 className="text-lg font-black text-slate-900 mt-2">{stripArchivedResourceTitle(item.title)}</h3>
+                                    <button
+                                      type="button"
+                                      onClick={() => { void openContentItem(item); }}
+                                      className="inline-flex items-center gap-2 mt-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                                    >
+                                      <i className="fas fa-up-right-from-square"></i>
+                                      Ouvrir
+                                    </button>
+                                  </div>
+                                  {canEditResources ? (
+                                    <div className="flex items-center gap-3">
+                                      <button
+                                        type="button"
+                                        onClick={() => { void moveContentItem(item.courseId, item.id, 'up', (entry) => !isArchivedResource(entry)); }}
+                                        disabled={index === 0}
+                                        className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                                        title="Monter"
+                                      >
+                                        <i className="fas fa-arrow-up"></i>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => { void moveContentItem(item.courseId, item.id, 'down', (entry) => !isArchivedResource(entry)); }}
+                                        disabled={index === activeGeneralContentItems.length - 1}
+                                        className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                                        title="Descendre"
+                                      >
+                                        <i className="fas fa-arrow-down"></i>
+                                      </button>
+                                      <button type="button" onClick={() => startDuplicateItem(item, 'content')} className="text-sm font-semibold text-slate-600 hover:text-slate-800">
+                                        Dupliquer
+                                      </button>
+                                      <button type="button" onClick={() => { void toggleArchiveContentItem(item); }} className="text-sm font-semibold text-amber-600 hover:text-amber-700">
+                                        Archiver
+                                      </button>
+                                      <button type="button" onClick={() => startEditContent(item)} className="text-sm font-semibold text-indigo-600 hover:text-indigo-700">
+                                        Modifier
+                                      </button>
+                                      <button type="button" onClick={() => deleteContentItem(item.id)} className="text-sm font-semibold text-rose-600 hover:text-rose-700">
+                                        Supprimer
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleFavorite({
+                                        id: item.id,
+                                        kind: 'resource',
+                                        courseId: item.courseId,
+                                        title: stripArchivedResourceTitle(item.title),
+                                        url: item.url,
+                                      })}
+                                      className={`text-sm font-semibold ${isFavorite(item.id, 'resource') ? 'text-amber-500' : 'text-slate-400 hover:text-amber-500'}`}
+                                      title="Enregistrer pour plus tard"
+                                    >
+                                      <i className={`fas ${isFavorite(item.id, 'resource') ? 'fa-star' : 'fa-star-half-stroke'}`}></i>
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </article>
+                          ))}
+                        </div>
+
+                        {canEditResources && archivedGeneralContentItems.length > 0 && (
+                          <div className="rounded-2xl border border-dashed border-slate-300 p-4 mt-4">
+                            <h3 className="font-black text-slate-900 mb-3">Contenus archivés</h3>
+                            <div className="space-y-2">
+                              {archivedGeneralContentItems.map((item) => (
+                                <div key={`general-archived-${item.id}`} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-4 py-3">
+                                  <span className="font-semibold text-slate-700">{stripArchivedResourceTitle(item.title)}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => { void toggleArchiveContentItem(item); }}
+                                    className="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                                  >
+                                    Restaurer
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                        <h2 className="text-2xl font-black text-slate-900 mb-2">Notes et repères utiles</h2>
+                        <p className="text-slate-600 mb-6">
+                          Notes de synthèse, pages Evernote et conseils pour orienter ton choix.
+                        </p>
+
+                        <div className="space-y-3">
+                          {filteredEvernoteNotes.length === 0 && (
+                            <div className="rounded-2xl border border-slate-200 p-4 text-slate-500">
+                              Aucune note pour le moment.
+                            </div>
+                          )}
+                          {filteredEvernoteNotes.map((note) => (
+                            <article key={note.id} className="rounded-2xl border border-slate-200 p-4">
+                              {canEditResources && editingNoteId === note.id ? (
+                                <form
+                                  onSubmit={(event) => {
+                                    event.preventDefault();
+                                    void saveEditNote(note);
+                                  }}
+                                  className="space-y-3"
+                                >
+                                  <input
+                                    type="text"
+                                    value={editNoteTitle}
+                                    onChange={(event) => setEditNoteTitle(event.target.value)}
+                                    className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    required
+                                  />
+                                  <textarea
+                                    value={editNoteContent}
+                                    onChange={(event) => setEditNoteContent(event.target.value)}
+                                    className="w-full min-h-24 rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="Contenu (optionnel si lien)"
+                                  />
+                                  <input
+                                    type="url"
+                                    value={editNoteLink}
+                                    onChange={(event) => setEditNoteLink(event.target.value)}
+                                    className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="https://www.evernote.com/..."
+                                  />
+                                  <div className="flex items-center gap-2">
+                                    <button type="submit" className="rounded-xl bg-indigo-600 px-4 py-2 text-white text-sm font-bold hover:bg-indigo-700">
+                                      Enregistrer
+                                    </button>
+                                    <button type="button" onClick={cancelEditNote} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100">
+                                      Annuler
+                                    </button>
+                                  </div>
+                                </form>
+                              ) : (
+                                <div className="flex items-start justify-between gap-4">
+                                  <div className="space-y-2">
+                                    <h3 className="text-lg font-black text-slate-900">{note.title}</h3>
+                                    {note.content ? (
+                                      <p className="text-slate-600 whitespace-pre-line leading-relaxed">
+                                        {note.content}
+                                      </p>
+                                    ) : null}
+                                    {note.link ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => openNoteLink(note)}
+                                        className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                                      >
+                                        <i className="fas fa-up-right-from-square"></i>
+                                        Ouvrir la note
+                                      </button>
+                                    ) : null}
+                                  </div>
+                                  {canEditResources ? (
+                                    <div className="flex items-center gap-3">
+                                      <button type="button" onClick={() => startEditNote(note)} className="text-sm font-semibold text-indigo-600 hover:text-indigo-700">
+                                        Modifier
+                                      </button>
+                                      <button type="button" onClick={() => deleteEvernoteNote(note.id)} className="text-sm font-semibold text-rose-600 hover:text-rose-700">
+                                        Supprimer
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleFavorite({
+                                        id: note.id,
+                                        kind: 'note',
+                                        courseId: note.courseId,
+                                        title: note.title,
+                                        url: note.link,
+                                      })}
+                                      className={`text-sm font-semibold ${isFavorite(note.id, 'note') ? 'text-amber-500' : 'text-slate-400 hover:text-amber-500'}`}
+                                      title="Enregistrer pour plus tard"
+                                    >
+                                      <i className={`fas ${isFavorite(note.id, 'note') ? 'fa-star' : 'fa-star-half-stroke'}`}></i>
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </article>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
 
