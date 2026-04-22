@@ -3,7 +3,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Topic, AppView, StudySession, Flashcard, FlashcardCommonMistake } from './types.ts';
 import { INITIAL_TOPICS } from './constants.ts';
 import ciLogo from './assets/ci-logo.png';
-import maitrisePhoto1 from './src-maitrise-photo-1.png';
 import {
   checkAuthStatus,
   createRecruitmentOffer,
@@ -1337,7 +1336,7 @@ const App: React.FC = () => {
     { label: 'Accueil', icon: 'fa-border-all', key: 'ACCUEIL' as const },
     { label: 'Annonces', icon: 'fa-bullhorn', key: 'ANNONCES' as const },
     { label: 'Recrutement', icon: 'fa-briefcase', key: 'RECRUTEMENT' as const },
-    { label: 'Maîtrise en comm', icon: 'fa-user-graduate', key: 'MAITRISE' as const },
+    { label: 'Maîtrise', icon: 'fa-user-graduate', key: 'MAITRISE' as const },
     { label: 'Cours', icon: 'fa-graduation-cap', key: 'COURS' as const },
     { label: 'Cartes mémo', icon: 'fa-bolt', key: 'MEMO' as const },
     { label: 'Balado', icon: 'fa-podcast', key: 'BALADO' as const },
@@ -3193,23 +3192,15 @@ const App: React.FC = () => {
                 {menuSection === 'MAITRISE' && (
                   <div className="space-y-8">
                     <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-                      <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-4">Maîtrises en communication</h1>
+                      <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-4">Maîtrise en communication</h1>
                       <p className="text-slate-600 text-lg leading-relaxed max-w-5xl">
                         Apprenez rapidement sur les programmes de maîtrise en communication. Choisissez la maîtrise qui correspond à votre ambition et qui vous sera utile dans votre début de carrière. Comparez les programmes au Québec et à l’international, avec recherche ou non, maîtrises en sciences, programmes courts, ou MBA. Accédez à des réponses concrètes pour faire un choix stratégique.
                       </p>
                     </div>
 
-                    <div className="bg-white rounded-3xl border border-slate-200 p-4 md:p-6 shadow-sm overflow-hidden">
-                      <img
-                        src={maitrisePhoto1}
-                        alt="Informations fiables pour faire les bons choix en maîtrise en communication"
-                        className="w-full rounded-2xl object-cover"
-                      />
-                    </div>
-
                     <div className="space-y-5">
                       <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-                        <h2 className="text-2xl font-black text-slate-900 mb-2">Explorer les différents parcours</h2>
+                        <h2 className="text-2xl font-black text-slate-900 mb-2">Explorer les options</h2>
                         <p className="text-slate-600 text-lg">
                           Voici les grandes pistes à comparer pour avancer rapidement vers la maîtrise qui te conviendra le mieux.
                         </p>
@@ -3219,7 +3210,11 @@ const App: React.FC = () => {
                         {MASTERS_PATHWAYS.map((pathway) => (
                           <article key={pathway.title} className="bg-white rounded-3xl border border-slate-200 p-7 shadow-sm">
                             <div className="w-14 h-14 rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700 flex items-center justify-center mb-5">
-                              <i className={`fas ${pathway.icon} text-2xl`}></i>
+                              {pathway.title === 'Maîtrises en communication au Québec' ? (
+                                <span className="text-3xl leading-none">⚜</span>
+                              ) : (
+                                <i className={`fas ${pathway.icon} text-2xl`}></i>
+                              )}
                             </div>
                             <h3 className="text-2xl font-black text-slate-900 leading-tight mb-4">{pathway.title}</h3>
                             <p className="text-slate-600 text-lg leading-relaxed">{pathway.description}</p>
