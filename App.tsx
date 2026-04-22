@@ -3423,7 +3423,7 @@ const App: React.FC = () => {
                           </article>
                         ))}
 
-                        {filteredEvernoteNotes.map((note) => (
+                        {filteredEvernoteNotes.map((note, index) => (
                           <article key={note.id} className="rounded-2xl border border-slate-200 p-4">
                             {canEditResources && editingNoteId === note.id ? (
                               <form
@@ -3484,6 +3484,24 @@ const App: React.FC = () => {
                                 </div>
                                 {canEditResources ? (
                                   <div className="flex items-center gap-3">
+                                    <button
+                                      type="button"
+                                      onClick={() => { void moveNoteItem(note.courseId, note.id, 'up'); }}
+                                      disabled={index === 0}
+                                      className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                                      title="Monter"
+                                    >
+                                      <i className="fas fa-arrow-up"></i>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => { void moveNoteItem(note.courseId, note.id, 'down'); }}
+                                      disabled={index === filteredEvernoteNotes.length - 1}
+                                      className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                                      title="Descendre"
+                                    >
+                                      <i className="fas fa-arrow-down"></i>
+                                    </button>
                                     <button type="button" onClick={() => startEditNote(note)} className="text-sm font-semibold text-indigo-600 hover:text-indigo-700">
                                       Modifier
                                     </button>
