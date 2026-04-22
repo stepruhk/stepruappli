@@ -63,6 +63,7 @@ type AnnouncementItem = EvernoteNote & AnnouncementMeta;
 type RecruitmentOpportunityType = RecruitmentOffer['opportunityType'];
 type RecruitmentEmploymentType = NonNullable<RecruitmentOffer['employmentType']>;
 type FavoriteKind = 'resource' | 'note' | 'literature';
+type MaitriseLinkCategory = 'INFO' | 'PROGRAMMES_MAITRISES' | 'PROGRAMMES_MBA';
 type FavoriteItem = {
   id: string;
   kind: FavoriteKind;
@@ -107,6 +108,13 @@ const RECRUITMENT_LAST_SEEN_STORAGE_KEY = 'eduboost_recruitment_last_seen_v1';
 const PODCAST_LAST_SEEN_STORAGE_KEY = 'eduboost_podcast_last_seen_v1';
 const BLOG_LAST_SEEN_STORAGE_KEY = 'eduboost_blog_last_seen_v1';
 const NEW_ITEM_WINDOW_DAYS = 7;
+const MAITRISE_CATEGORY_PREFIX = '[[MAITRISE_CATEGORY:';
+const MAITRISE_DEFAULT_CATEGORY: MaitriseLinkCategory = 'PROGRAMMES_MAITRISES';
+const MAITRISE_CATEGORY_OPTIONS: { value: MaitriseLinkCategory; label: string }[] = [
+  { value: 'INFO', label: 'Information et liens utiles' },
+  { value: 'PROGRAMMES_MAITRISES', label: 'Programmes de maîtrises' },
+  { value: 'PROGRAMMES_MBA', label: 'Programmes de MBA' },
+];
 const CONTACT_GENERAL_OPTION = 'Mot de passe général de l’appli';
 const CONTACT_MASTERS_OPTION = 'Discutez des programmes de maîtrise en communication';
 const CONTACT_COURSE_OPTIONS = [
@@ -269,6 +277,30 @@ const createEmptyCommonMistake = (): FlashcardCommonMistake => ({
   explanation: '',
 });
 
+const parseMaitriseNoteMeta = (note: EvernoteNote): { category: MaitriseLinkCategory; content: string } => {
+  const raw = note.content || '';
+  if (raw.startsWith(MAITRISE_CATEGORY_PREFIX)) {
+    const endIndex = raw.indexOf(']]');
+    if (endIndex !== -1) {
+      const rawCategory = raw.slice(MAITRISE_CATEGORY_PREFIX.length, endIndex).trim() as MaitriseLinkCategory;
+      const content = raw.slice(endIndex + 2).trimStart();
+      if (MAITRISE_CATEGORY_OPTIONS.some((option) => option.value === rawCategory)) {
+        return { category: rawCategory, content };
+      }
+    }
+  }
+
+  return {
+    category: note.link ? MAITRISE_DEFAULT_CATEGORY : 'INFO',
+    content: raw,
+  };
+};
+
+const serializeMaitriseNoteContent = (content: string, category: MaitriseLinkCategory) => {
+  const cleanContent = content.trim();
+  return `${MAITRISE_CATEGORY_PREFIX}${category}]]${cleanContent ? `\n${cleanContent}` : ''}`;
+};
+
 const normalizeCommonMistakes = (items: FlashcardCommonMistake[] = []): FlashcardCommonMistake[] => {
   const normalized = items
     .map((item) => ({
@@ -334,10 +366,12 @@ const App: React.FC = () => {
   const [noteTitle, setNoteTitle] = useState('');
   const [noteContent, setNoteContent] = useState('');
   const [noteLink, setNoteLink] = useState('');
+  const [maitriseNoteCategory, setMaitriseNoteCategory] = useState<MaitriseLinkCategory>(MAITRISE_DEFAULT_CATEGORY);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editNoteTitle, setEditNoteTitle] = useState('');
   const [editNoteContent, setEditNoteContent] = useState('');
   const [editNoteLink, setEditNoteLink] = useState('');
+  const [editMaitriseNoteCategory, setEditMaitriseNoteCategory] = useState<MaitriseLinkCategory>(MAITRISE_DEFAULT_CATEGORY);
   const [evernoteNotesByCourse, setEvernoteNotesByCourse] = useState<Record<string, EvernoteNote[]>>({});
   const [contentTitle, setContentTitle] = useState('');
   const [contentUrl, setContentUrl] = useState('');
@@ -1332,6 +1366,13 @@ const App: React.FC = () => {
   const professorPublications = professorSectionItems.filter((item) => item.title.startsWith(PROFESSOR_PUBLICATION_PREFIX));
   const activeGeneralContentItems = filteredContentItems.filter((item) => !isArchivedResource(item));
   const archivedGeneralContentItems = filteredContentItems.filter((item) => isArchivedResource(item));
+  const categorizedMaitriseNotes = filteredEvernoteNotes.map((note) => ({
+    note,
+    ...parseMaitriseNoteMeta(note),
+  }));
+  const maitriseInfoNotes = categorizedMaitriseNotes.filter((entry) => entry.category === 'INFO');
+  const maitriseProgramNotes = categorizedMaitriseNotes.filter((entry) => entry.category === 'PROGRAMMES_MAITRISES');
+  const maitriseMbaNotes = categorizedMaitriseNotes.filter((entry) => entry.category === 'PROGRAMMES_MBA');
   const activeSelectedTopicContentItems = selectedTopicContentItems.filter((item) => !isArchivedResource(item));
   const archivedSelectedTopicContentItems = selectedTopicContentItems.filter((item) => isArchivedResource(item));
   const cardAccentStyles = [
@@ -1764,6 +1805,7 @@ const App: React.FC = () => {
     if (!courseId) return;
     const title = noteTitle.trim();
     const content = noteContent.trim();
+    const shouldUseMaitriseCategory = menuSection === 'MAITRISE' && courseId === GENERAL_COURSE_ID;
     const rawLink = noteLink.trim();
     const link = rawLink
       ? rawLink.startsWith('http://') || rawLink.startsWith('https://')
@@ -1776,7 +1818,7 @@ const App: React.FC = () => {
       const newNote = await createEvernoteNote({
         courseId,
         title,
-        content,
+        content: shouldUseMaitriseCategory ? serializeMaitriseNoteContent(content, maitriseNoteCategory) : content,
         link: link || undefined,
       });
       setEvernoteNotesByCourse((prev) => ({
@@ -1786,6 +1828,7 @@ const App: React.FC = () => {
       setNoteTitle('');
       setNoteContent('');
       setNoteLink('');
+      setMaitriseNoteCategory(MAITRISE_DEFAULT_CATEGORY);
     } catch (error) {
       console.error(error);
       handleAuthError(error);
@@ -2234,10 +2277,15 @@ const App: React.FC = () => {
   };
 
   const startEditNote = (note: EvernoteNote) => {
+    const maitriseMeta =
+      menuSection === 'MAITRISE' && note.courseId === GENERAL_COURSE_ID
+        ? parseMaitriseNoteMeta(note)
+        : null;
     setEditingNoteId(note.id);
     setEditNoteTitle(note.title);
-    setEditNoteContent(note.content || '');
+    setEditNoteContent(maitriseMeta ? maitriseMeta.content : note.content || '');
     setEditNoteLink(note.link || '');
+    setEditMaitriseNoteCategory(maitriseMeta?.category || MAITRISE_DEFAULT_CATEGORY);
   };
 
   const cancelEditNote = () => {
@@ -2245,6 +2293,7 @@ const App: React.FC = () => {
     setEditNoteTitle('');
     setEditNoteContent('');
     setEditNoteLink('');
+    setEditMaitriseNoteCategory(MAITRISE_DEFAULT_CATEGORY);
   };
 
   const saveEditNote = async (note: EvernoteNote) => {
@@ -2261,7 +2310,10 @@ const App: React.FC = () => {
     try {
       const updated = await updateEvernoteNote(note.id, {
         title,
-        content,
+        content:
+          menuSection === 'MAITRISE' && note.courseId === GENERAL_COURSE_ID
+            ? serializeMaitriseNoteContent(content, editMaitriseNoteCategory)
+            : content,
         link: link || undefined,
       });
       setEvernoteNotesByCourse((prev) => ({
@@ -3275,6 +3327,17 @@ const App: React.FC = () => {
                           <p className="text-slate-600">
                             Ajoute un lien accompagné d&apos;une courte description pour aider les étudiant(e)s à comparer leurs options.
                           </p>
+                          <select
+                            value={maitriseNoteCategory}
+                            onChange={(event) => setMaitriseNoteCategory(event.target.value as MaitriseLinkCategory)}
+                            className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          >
+                            {MAITRISE_CATEGORY_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
                           <input
                             type="text"
                             value={noteTitle}
@@ -3308,7 +3371,7 @@ const App: React.FC = () => {
                       )}
 
                       <div className="space-y-3">
-                        {activeGeneralContentItems.length === 0 && filteredEvernoteNotes.length === 0 && (
+                        {activeGeneralContentItems.length === 0 && maitriseInfoNotes.length === 0 && (
                           <div className="rounded-2xl border border-slate-200 p-4 text-slate-500">
                             Aucun lien ou repère utile pour le moment.
                           </div>
@@ -3423,7 +3486,7 @@ const App: React.FC = () => {
                           </article>
                         ))}
 
-                        {filteredEvernoteNotes.map((note, index) => (
+                        {maitriseInfoNotes.map(({ note, content }, index) => (
                           <article key={note.id} className="rounded-2xl border border-slate-200 p-4">
                             {canEditResources && editingNoteId === note.id ? (
                               <form
@@ -3440,6 +3503,17 @@ const App: React.FC = () => {
                                   className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                   required
                                 />
+                                <select
+                                  value={editMaitriseNoteCategory}
+                                  onChange={(event) => setEditMaitriseNoteCategory(event.target.value as MaitriseLinkCategory)}
+                                  className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                >
+                                  {MAITRISE_CATEGORY_OPTIONS.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </select>
                                 <textarea
                                   value={editNoteContent}
                                   onChange={(event) => setEditNoteContent(event.target.value)}
@@ -3466,9 +3540,9 @@ const App: React.FC = () => {
                               <div className="flex items-start justify-between gap-4">
                                 <div className="space-y-2">
                                   <h3 className="text-lg font-black text-slate-900">{note.title}</h3>
-                                  {note.content ? (
+                                  {content ? (
                                     <p className="text-slate-600 whitespace-pre-line leading-relaxed">
-                                      {note.content}
+                                      {content}
                                     </p>
                                   ) : null}
                                   {note.link ? (
@@ -3486,7 +3560,7 @@ const App: React.FC = () => {
                                   <div className="flex items-center gap-3">
                                     <button
                                       type="button"
-                                      onClick={() => { void moveNoteItem(note.courseId, note.id, 'up'); }}
+                                      onClick={() => { void moveNoteItem(note.courseId, note.id, 'up', (entry) => parseMaitriseNoteMeta(entry).category === 'INFO'); }}
                                       disabled={index === 0}
                                       className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
                                       title="Monter"
@@ -3495,8 +3569,8 @@ const App: React.FC = () => {
                                     </button>
                                     <button
                                       type="button"
-                                      onClick={() => { void moveNoteItem(note.courseId, note.id, 'down'); }}
-                                      disabled={index === filteredEvernoteNotes.length - 1}
+                                      onClick={() => { void moveNoteItem(note.courseId, note.id, 'down', (entry) => parseMaitriseNoteMeta(entry).category === 'INFO'); }}
+                                      disabled={index === maitriseInfoNotes.length - 1}
                                       className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
                                       title="Descendre"
                                     >
@@ -3550,6 +3624,242 @@ const App: React.FC = () => {
                           </div>
                         </div>
                       )}
+                    </div>
+
+                    <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                      <h2 className="text-2xl font-black text-slate-900 mb-2">Programmes de maîtrises</h2>
+                      <p className="text-slate-600 mb-6 text-lg">
+                        Compare les programmes de maîtrise déjà repérés et ajoute-en d&apos;autres au même endroit.
+                      </p>
+
+                      <div className="space-y-3">
+                        {maitriseProgramNotes.length === 0 && (
+                          <div className="rounded-2xl border border-slate-200 p-4 text-slate-500">
+                            Aucun programme de maîtrise pour le moment.
+                          </div>
+                        )}
+
+                        {maitriseProgramNotes.map(({ note, content }, index) => (
+                          <article key={`maitrise-program-${note.id}`} className="rounded-2xl border border-slate-200 p-4">
+                            {canEditResources && editingNoteId === note.id ? (
+                              <form
+                                onSubmit={(event) => {
+                                  event.preventDefault();
+                                  void saveEditNote(note);
+                                }}
+                                className="space-y-3"
+                              >
+                                <input
+                                  type="text"
+                                  value={editNoteTitle}
+                                  onChange={(event) => setEditNoteTitle(event.target.value)}
+                                  className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  required
+                                />
+                                <select
+                                  value={editMaitriseNoteCategory}
+                                  onChange={(event) => setEditMaitriseNoteCategory(event.target.value as MaitriseLinkCategory)}
+                                  className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                >
+                                  {MAITRISE_CATEGORY_OPTIONS.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </select>
+                                <textarea
+                                  value={editNoteContent}
+                                  onChange={(event) => setEditNoteContent(event.target.value)}
+                                  className="w-full min-h-24 rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  placeholder="Courte description"
+                                />
+                                <input
+                                  type="url"
+                                  value={editNoteLink}
+                                  onChange={(event) => setEditNoteLink(event.target.value)}
+                                  className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  placeholder="https://..."
+                                />
+                                <div className="flex items-center gap-2">
+                                  <button type="submit" className="rounded-xl bg-indigo-600 px-4 py-2 text-white text-sm font-bold hover:bg-indigo-700">
+                                    Enregistrer
+                                  </button>
+                                  <button type="button" onClick={cancelEditNote} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100">
+                                    Annuler
+                                  </button>
+                                </div>
+                              </form>
+                            ) : (
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="space-y-2">
+                                  <h3 className="text-lg font-black text-slate-900">{note.title}</h3>
+                                  {content ? (
+                                    <p className="text-slate-600 whitespace-pre-line leading-relaxed">
+                                      {content}
+                                    </p>
+                                  ) : null}
+                                  {note.link ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => openNoteLink(note)}
+                                      className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                                    >
+                                      <i className="fas fa-up-right-from-square"></i>
+                                      Ouvrir le lien
+                                    </button>
+                                  ) : null}
+                                </div>
+                                {canEditResources ? (
+                                  <div className="flex items-center gap-3">
+                                    <button
+                                      type="button"
+                                      onClick={() => { void moveNoteItem(note.courseId, note.id, 'up', (entry) => parseMaitriseNoteMeta(entry).category === 'PROGRAMMES_MAITRISES'); }}
+                                      disabled={index === 0}
+                                      className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                                      title="Monter"
+                                    >
+                                      <i className="fas fa-arrow-up"></i>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => { void moveNoteItem(note.courseId, note.id, 'down', (entry) => parseMaitriseNoteMeta(entry).category === 'PROGRAMMES_MAITRISES'); }}
+                                      disabled={index === maitriseProgramNotes.length - 1}
+                                      className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                                      title="Descendre"
+                                    >
+                                      <i className="fas fa-arrow-down"></i>
+                                    </button>
+                                    <button type="button" onClick={() => startEditNote(note)} className="text-sm font-semibold text-indigo-600 hover:text-indigo-700">
+                                      Modifier
+                                    </button>
+                                    <button type="button" onClick={() => deleteEvernoteNote(note.id)} className="text-sm font-semibold text-rose-600 hover:text-rose-700">
+                                      Supprimer
+                                    </button>
+                                  </div>
+                                ) : null}
+                              </div>
+                            )}
+                          </article>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                      <h2 className="text-2xl font-black text-slate-900 mb-2">Programmes de MBA</h2>
+                      <p className="text-slate-600 mb-6 text-lg">
+                        Une catégorie distincte pour regrouper les MBA et les autres options de gestion que tu ajouteras ensuite.
+                      </p>
+
+                      <div className="space-y-3">
+                        {maitriseMbaNotes.length === 0 && (
+                          <div className="rounded-2xl border border-slate-200 p-4 text-slate-500">
+                            Aucun programme de MBA pour le moment.
+                          </div>
+                        )}
+
+                        {maitriseMbaNotes.map(({ note, content }, index) => (
+                          <article key={`maitrise-mba-${note.id}`} className="rounded-2xl border border-slate-200 p-4">
+                            {canEditResources && editingNoteId === note.id ? (
+                              <form
+                                onSubmit={(event) => {
+                                  event.preventDefault();
+                                  void saveEditNote(note);
+                                }}
+                                className="space-y-3"
+                              >
+                                <input
+                                  type="text"
+                                  value={editNoteTitle}
+                                  onChange={(event) => setEditNoteTitle(event.target.value)}
+                                  className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  required
+                                />
+                                <select
+                                  value={editMaitriseNoteCategory}
+                                  onChange={(event) => setEditMaitriseNoteCategory(event.target.value as MaitriseLinkCategory)}
+                                  className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                >
+                                  {MAITRISE_CATEGORY_OPTIONS.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </select>
+                                <textarea
+                                  value={editNoteContent}
+                                  onChange={(event) => setEditNoteContent(event.target.value)}
+                                  className="w-full min-h-24 rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  placeholder="Courte description"
+                                />
+                                <input
+                                  type="url"
+                                  value={editNoteLink}
+                                  onChange={(event) => setEditNoteLink(event.target.value)}
+                                  className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  placeholder="https://..."
+                                />
+                                <div className="flex items-center gap-2">
+                                  <button type="submit" className="rounded-xl bg-indigo-600 px-4 py-2 text-white text-sm font-bold hover:bg-indigo-700">
+                                    Enregistrer
+                                  </button>
+                                  <button type="button" onClick={cancelEditNote} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100">
+                                    Annuler
+                                  </button>
+                                </div>
+                              </form>
+                            ) : (
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="space-y-2">
+                                  <h3 className="text-lg font-black text-slate-900">{note.title}</h3>
+                                  {content ? (
+                                    <p className="text-slate-600 whitespace-pre-line leading-relaxed">
+                                      {content}
+                                    </p>
+                                  ) : null}
+                                  {note.link ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => openNoteLink(note)}
+                                      className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                                    >
+                                      <i className="fas fa-up-right-from-square"></i>
+                                      Ouvrir le lien
+                                    </button>
+                                  ) : null}
+                                </div>
+                                {canEditResources ? (
+                                  <div className="flex items-center gap-3">
+                                    <button
+                                      type="button"
+                                      onClick={() => { void moveNoteItem(note.courseId, note.id, 'up', (entry) => parseMaitriseNoteMeta(entry).category === 'PROGRAMMES_MBA'); }}
+                                      disabled={index === 0}
+                                      className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                                      title="Monter"
+                                    >
+                                      <i className="fas fa-arrow-up"></i>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => { void moveNoteItem(note.courseId, note.id, 'down', (entry) => parseMaitriseNoteMeta(entry).category === 'PROGRAMMES_MBA'); }}
+                                      disabled={index === maitriseMbaNotes.length - 1}
+                                      className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                                      title="Descendre"
+                                    >
+                                      <i className="fas fa-arrow-down"></i>
+                                    </button>
+                                    <button type="button" onClick={() => startEditNote(note)} className="text-sm font-semibold text-indigo-600 hover:text-indigo-700">
+                                      Modifier
+                                    </button>
+                                    <button type="button" onClick={() => deleteEvernoteNote(note.id)} className="text-sm font-semibold text-rose-600 hover:text-rose-700">
+                                      Supprimer
+                                    </button>
+                                  </div>
+                                ) : null}
+                              </div>
+                            )}
+                          </article>
+                        ))}
+                      </div>
                     </div>
 
                     <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
