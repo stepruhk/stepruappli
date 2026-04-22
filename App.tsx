@@ -3211,7 +3211,7 @@ const App: React.FC = () => {
                           <article key={pathway.title} className="bg-white rounded-3xl border border-slate-200 p-7 shadow-sm">
                             <div className="w-14 h-14 rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700 flex items-center justify-center mb-5">
                               {pathway.title === 'Maîtrises en communication au Québec' ? (
-                                <span className="text-3xl leading-none">⚜</span>
+                                <i className="fas fa-fleur-de-lis text-[2rem] leading-none text-teal-700 drop-shadow-[0_1px_0_rgba(255,255,255,0.45)]"></i>
                               ) : (
                                 <i className={`fas ${pathway.icon} text-2xl`}></i>
                               )}
