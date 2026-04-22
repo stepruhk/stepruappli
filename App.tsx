@@ -108,6 +108,7 @@ const PODCAST_LAST_SEEN_STORAGE_KEY = 'eduboost_podcast_last_seen_v1';
 const BLOG_LAST_SEEN_STORAGE_KEY = 'eduboost_blog_last_seen_v1';
 const NEW_ITEM_WINDOW_DAYS = 7;
 const CONTACT_GENERAL_OPTION = 'Mot de passe général de l’appli';
+const CONTACT_MASTERS_OPTION = 'Discutez des programmes de maîtrise en communication';
 const CONTACT_COURSE_OPTIONS = [
   'Relations médias et influenceurs',
   'Relations de presse',
@@ -1233,6 +1234,19 @@ const App: React.FC = () => {
           placeholder="Écris ton message ici, même si tu ne choisis aucun cours ci-dessous."
         />
       </label>
+
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+        <p className="text-sm font-semibold text-slate-700 mb-3">Sujet suggéré</p>
+        <label className="flex items-start gap-3 rounded-xl bg-white border border-slate-200 px-4 py-3 cursor-pointer hover:border-indigo-300">
+          <input
+            type="checkbox"
+            checked={contactSelections.includes(CONTACT_MASTERS_OPTION)}
+            onChange={() => toggleContactSelection(CONTACT_MASTERS_OPTION)}
+            className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+          />
+          <span className="text-slate-800 font-medium">{CONTACT_MASTERS_OPTION}</span>
+        </label>
+      </div>
 
       <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
         <p className="text-sm font-semibold text-slate-700 mb-3">Choisis un ou plusieurs sujets si c’est utile</p>
@@ -3560,6 +3574,21 @@ const App: React.FC = () => {
                           ))}
                         </div>
                       </div>
+                    </div>
+
+                    <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                      <h2 className="text-2xl font-black text-slate-900 mb-3">Discutez de vos options avec Stéphane Prud&apos;homme</h2>
+                      <p className="text-slate-600 text-lg leading-relaxed mb-5">
+                        Utilisez la page Contact pour poser vos questions sur les programmes, les options de parcours ou le choix stratégique d&apos;une maîtrise en communication.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => openStudentContactForm({ selections: [CONTACT_MASTERS_OPTION] })}
+                        className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-5 py-3 text-white font-bold hover:bg-indigo-700 transition-colors"
+                      >
+                        <i className="fas fa-envelope"></i>
+                        Aller à la page Contact
+                      </button>
                     </div>
                   </div>
                 )}
