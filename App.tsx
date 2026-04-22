@@ -372,6 +372,7 @@ const App: React.FC = () => {
   const [editNoteContent, setEditNoteContent] = useState('');
   const [editNoteLink, setEditNoteLink] = useState('');
   const [editMaitriseNoteCategory, setEditMaitriseNoteCategory] = useState<MaitriseLinkCategory>(MAITRISE_DEFAULT_CATEGORY);
+  const [expandedMaitriseDescriptions, setExpandedMaitriseDescriptions] = useState<Record<string, boolean>>({});
   const [evernoteNotesByCourse, setEvernoteNotesByCourse] = useState<Record<string, EvernoteNote[]>>({});
   const [contentTitle, setContentTitle] = useState('');
   const [contentUrl, setContentUrl] = useState('');
@@ -1373,6 +1374,23 @@ const App: React.FC = () => {
   const maitriseInfoNotes = categorizedMaitriseNotes.filter((entry) => entry.category === 'INFO');
   const maitriseProgramNotes = categorizedMaitriseNotes.filter((entry) => entry.category === 'PROGRAMMES_MAITRISES');
   const maitriseMbaNotes = categorizedMaitriseNotes.filter((entry) => entry.category === 'PROGRAMMES_MBA');
+  const toggleMaitriseDescription = (noteId: string) => {
+    setExpandedMaitriseDescriptions((prev) => ({
+      ...prev,
+      [noteId]: !prev[noteId],
+    }));
+  };
+  const getCollapsedMaitriseDescriptionStyle = (noteId: string): React.CSSProperties | undefined => {
+    if (canEditResources || expandedMaitriseDescriptions[noteId]) {
+      return undefined;
+    }
+    return {
+      display: '-webkit-box',
+      WebkitLineClamp: 3,
+      WebkitBoxOrient: 'vertical',
+      overflow: 'hidden',
+    };
+  };
   const activeSelectedTopicContentItems = selectedTopicContentItems.filter((item) => !isArchivedResource(item));
   const archivedSelectedTopicContentItems = selectedTopicContentItems.filter((item) => isArchivedResource(item));
   const cardAccentStyles = [
@@ -3541,9 +3559,23 @@ const App: React.FC = () => {
                                 <div className="space-y-2">
                                   <h3 className="text-lg font-black text-slate-900">{note.title}</h3>
                                   {content ? (
-                                    <p className="text-slate-600 whitespace-pre-line leading-relaxed">
-                                      {content}
-                                    </p>
+                                    <div className="space-y-2">
+                                      <p
+                                        className="text-slate-600 whitespace-pre-line leading-relaxed"
+                                        style={getCollapsedMaitriseDescriptionStyle(note.id)}
+                                      >
+                                        {content}
+                                      </p>
+                                      {!canEditResources && content.length > 180 ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => toggleMaitriseDescription(note.id)}
+                                          className="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                                        >
+                                          {expandedMaitriseDescriptions[note.id] ? 'Réduire' : 'Continuer à lire...'}
+                                        </button>
+                                      ) : null}
+                                    </div>
                                   ) : null}
                                   {note.link ? (
                                     <button
@@ -3628,10 +3660,6 @@ const App: React.FC = () => {
 
                     <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
                       <h2 className="text-2xl font-black text-slate-900 mb-2">Programmes de maîtrises</h2>
-                      <p className="text-slate-600 mb-6 text-lg">
-                        Compare les programmes de maîtrise déjà repérés et ajoute-en d&apos;autres au même endroit.
-                      </p>
-
                       <div className="space-y-3">
                         {maitriseProgramNotes.length === 0 && (
                           <div className="rounded-2xl border border-slate-200 p-4 text-slate-500">
@@ -3694,9 +3722,23 @@ const App: React.FC = () => {
                                 <div className="space-y-2">
                                   <h3 className="text-lg font-black text-slate-900">{note.title}</h3>
                                   {content ? (
-                                    <p className="text-slate-600 whitespace-pre-line leading-relaxed">
-                                      {content}
-                                    </p>
+                                    <div className="space-y-2">
+                                      <p
+                                        className="text-slate-600 whitespace-pre-line leading-relaxed"
+                                        style={getCollapsedMaitriseDescriptionStyle(note.id)}
+                                      >
+                                        {content}
+                                      </p>
+                                      {!canEditResources && content.length > 180 ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => toggleMaitriseDescription(note.id)}
+                                          className="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                                        >
+                                          {expandedMaitriseDescriptions[note.id] ? 'Réduire' : 'Continuer à lire...'}
+                                        </button>
+                                      ) : null}
+                                    </div>
                                   ) : null}
                                   {note.link ? (
                                     <button
@@ -3746,10 +3788,6 @@ const App: React.FC = () => {
 
                     <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
                       <h2 className="text-2xl font-black text-slate-900 mb-2">Programmes de MBA</h2>
-                      <p className="text-slate-600 mb-6 text-lg">
-                        Une catégorie distincte pour regrouper les MBA et les autres options de gestion que tu ajouteras ensuite.
-                      </p>
-
                       <div className="space-y-3">
                         {maitriseMbaNotes.length === 0 && (
                           <div className="rounded-2xl border border-slate-200 p-4 text-slate-500">
@@ -3812,9 +3850,23 @@ const App: React.FC = () => {
                                 <div className="space-y-2">
                                   <h3 className="text-lg font-black text-slate-900">{note.title}</h3>
                                   {content ? (
-                                    <p className="text-slate-600 whitespace-pre-line leading-relaxed">
-                                      {content}
-                                    </p>
+                                    <div className="space-y-2">
+                                      <p
+                                        className="text-slate-600 whitespace-pre-line leading-relaxed"
+                                        style={getCollapsedMaitriseDescriptionStyle(note.id)}
+                                      >
+                                        {content}
+                                      </p>
+                                      {!canEditResources && content.length > 180 ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => toggleMaitriseDescription(note.id)}
+                                          className="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                                        >
+                                          {expandedMaitriseDescriptions[note.id] ? 'Réduire' : 'Continuer à lire...'}
+                                        </button>
+                                      ) : null}
+                                    </div>
                                   ) : null}
                                   {note.link ? (
                                     <button
