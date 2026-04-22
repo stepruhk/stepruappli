@@ -1443,6 +1443,10 @@ const App: React.FC = () => {
     analyticsSummary?.pageViews.find((entry) => entry.section === 'RECRUTEMENT')?.count || 0;
   const monthlyRecruitmentPageViews =
     analyticsSummary?.monthly.pageViews.find((entry) => entry.section === 'RECRUTEMENT')?.count || 0;
+  const mastersPageViews =
+    analyticsSummary?.pageViews.find((entry) => entry.section === 'MAITRISE')?.count || 0;
+  const monthlyMastersPageViews =
+    analyticsSummary?.monthly.pageViews.find((entry) => entry.section === 'MAITRISE')?.count || 0;
 
   const filteredAnnouncements = parsedAnnouncements.filter((announcement) => {
     if (effectiveUserRole === 'student' && announcement.expiresAt && new Date(announcement.expiresAt).getTime() < Date.now()) {
@@ -6098,6 +6102,14 @@ const App: React.FC = () => {
                                 </div>
 
                                 <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
+                                  <h4 className="font-black text-slate-900 mb-4">Maîtrise en communication</h4>
+                                  <div className="flex items-center justify-between gap-4">
+                                    <span className="text-slate-700">Ouvertures de la page</span>
+                                    <span className="font-black text-slate-900">{mastersPageViews}</span>
+                                  </div>
+                                </div>
+
+                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
                                   <h4 className="font-black text-slate-900 mb-4">Clics externes</h4>
                                   <div className="space-y-3">
                                     <div className="flex items-center justify-between gap-4">
@@ -6175,6 +6187,14 @@ const App: React.FC = () => {
                                   <div className="flex items-center justify-between gap-4">
                                     <span className="text-slate-700">Ouvertures de la page</span>
                                     <span className="font-black text-slate-900">{monthlyRecruitmentPageViews}</span>
+                                  </div>
+                                </div>
+
+                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
+                                  <h4 className="font-black text-slate-900 mb-4">Maîtrise en communication</h4>
+                                  <div className="flex items-center justify-between gap-4">
+                                    <span className="text-slate-700">Ouvertures de la page</span>
+                                    <span className="font-black text-slate-900">{monthlyMastersPageViews}</span>
                                   </div>
                                 </div>
 
