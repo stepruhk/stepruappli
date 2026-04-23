@@ -3302,7 +3302,7 @@ const App: React.FC = () => {
                 {menuSection === 'MAITRISE' && (
                   <div className="space-y-8">
                     <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-                      <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-4">Maîtrise en communication</h1>
+                      <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-4">Maîtrises en communication et MBA spécialisés</h1>
                       <p className="text-slate-600 text-lg leading-relaxed max-w-5xl">
                         Apprenez rapidement sur les programmes de maîtrise en communication. Choisissez la maîtrise qui correspond à votre ambition et qui vous sera utile dans votre début de carrière. Comparez les programmes au Québec et à l’international, avec recherche ou non, maîtrises en sciences, programmes courts, ou MBA. Accédez à des réponses concrètes pour faire un choix stratégique.
                       </p>
@@ -3330,6 +3330,21 @@ const App: React.FC = () => {
                             <p className="text-slate-600 text-lg leading-relaxed">{pathway.description}</p>
                           </article>
                         ))}
+                      </div>
+
+                      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                        <h2 className="text-2xl font-black text-slate-900 mb-3">Discutez de vos options avec Stéphane Prud&apos;homme</h2>
+                        <p className="text-slate-600 text-lg leading-relaxed mb-5">
+                          Utilisez la page Contact pour poser vos questions sur les programmes, les options de parcours ou le choix stratégique d&apos;une maîtrise en communication.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => openStudentContactForm({ selections: [CONTACT_MASTERS_OPTION] })}
+                          className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-5 py-3 text-white font-bold hover:bg-indigo-700 transition-colors"
+                        >
+                          <i className="fas fa-envelope"></i>
+                          Aller à la page Contact
+                        </button>
                       </div>
                     </div>
 
@@ -3912,21 +3927,6 @@ const App: React.FC = () => {
                           </article>
                         ))}
                       </div>
-                    </div>
-
-                    <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-                      <h2 className="text-2xl font-black text-slate-900 mb-3">Discutez de vos options avec Stéphane Prud&apos;homme</h2>
-                      <p className="text-slate-600 text-lg leading-relaxed mb-5">
-                        Utilisez la page Contact pour poser vos questions sur les programmes, les options de parcours ou le choix stratégique d&apos;une maîtrise en communication.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => openStudentContactForm({ selections: [CONTACT_MASTERS_OPTION] })}
-                        className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-5 py-3 text-white font-bold hover:bg-indigo-700 transition-colors"
-                      >
-                        <i className="fas fa-envelope"></i>
-                        Aller à la page Contact
-                      </button>
                     </div>
                   </div>
                 )}
