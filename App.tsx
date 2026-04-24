@@ -44,7 +44,7 @@ import {
 } from './services/openaiService.ts';
 import FlashcardDeck from './components/FlashcardDeck.tsx';
 
-type MenuSection = 'ACCUEIL' | 'COURS' | 'ANNONCES' | 'MEMO' | 'BALADO' | 'BLOG' | 'ASSISTANT' | 'RECRUTEMENT' | 'MAITRISE' | 'CONTACT';
+type MenuSection = 'ACCUEIL' | 'COURS' | 'ANNONCES' | 'MEMO' | 'BALADO' | 'BLOG' | 'ASSISTANT' | 'RECRUTEMENT' | 'MAITRISE' | 'MEDIAS' | 'CONTACT';
 type PodcastEpisode = {
   title: string;
   link?: string;
@@ -92,6 +92,7 @@ type DuplicateModalState =
 
 const GENERAL_COURSE_ID = 'general';
 const ANNOUNCEMENTS_COURSE_ID = 'announcements';
+const MEDIA_COURSE_ID = 'media';
 const PROFESSOR_PROFILE_PREFIX = 'professor-profile:';
 const PROFESSOR_BIO_TITLE = '__PROF_BIO__';
 const PROFESSOR_SOCIAL_PREFIX = '[SOCIAL] ';
@@ -538,7 +539,7 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (resourceCourseId === GENERAL_COURSE_ID || resourceCourseId === ANNOUNCEMENTS_COURSE_ID) return;
+    if (resourceCourseId === GENERAL_COURSE_ID || resourceCourseId === ANNOUNCEMENTS_COURSE_ID || resourceCourseId === MEDIA_COURSE_ID) return;
     if (!visibleTopics.some((topic) => topic.id === resourceCourseId)) {
       setResourceCourseId(visibleTopics[0]?.id || '');
     }
@@ -1437,6 +1438,7 @@ const App: React.FC = () => {
     { label: 'Balado', icon: 'fa-podcast', key: 'BALADO' as const },
     { label: 'Blog', icon: 'fa-newspaper', key: 'BLOG' as const },
     { label: 'Assistant IA', icon: 'fa-robot', key: 'ASSISTANT' as const },
+    { label: 'Dans les médias', icon: 'fa-newspaper', key: 'MEDIAS' as const },
     { label: 'Contact', icon: 'fa-envelope', key: 'CONTACT' as const },
   ];
   const unreadContactRequestsCount = isProfessor
@@ -2820,13 +2822,20 @@ const App: React.FC = () => {
       setMenuSection(section);
       return;
     }
+    if (section === 'MEDIAS') {
+      setView(AppView.DASHBOARD);
+      setSelectedTopic(null);
+      setResourceCourseId(MEDIA_COURSE_ID);
+      setMenuSection(section);
+      return;
+    }
     if (section === 'COURS') {
       setView(AppView.DASHBOARD);
       setSelectedTopic(null);
       setMenuSection(section);
       return;
     }
-    if (section === 'MEMO' && resourceCourseId === GENERAL_COURSE_ID) {
+    if (section === 'MEMO' && !visibleTopics.some((topic) => topic.id === resourceCourseId)) {
       setResourceCourseId(visibleTopics[0]?.id || '');
     }
     setMenuSection(section);
@@ -3404,120 +3413,11 @@ const App: React.FC = () => {
                       )}
 
                       <div className="space-y-3">
-                        {activeGeneralContentItems.length === 0 && maitriseInfoNotes.length === 0 && (
+                        {maitriseInfoNotes.length === 0 && (
                           <div className="rounded-2xl border border-slate-200 p-4 text-slate-500">
                             Aucun lien ou repère utile pour le moment.
                           </div>
                         )}
-
-                        {activeGeneralContentItems.map((item, index) => (
-                          <article key={item.id} className="rounded-2xl border border-slate-200 p-4">
-                            {canEditResources && editingContentId === item.id ? (
-                              <form
-                                onSubmit={(event) => {
-                                  event.preventDefault();
-                                  void saveEditContent(item);
-                                }}
-                                className="space-y-3"
-                              >
-                                <input
-                                  type="text"
-                                  value={editContentTitle}
-                                  onChange={(event) => setEditContentTitle(event.target.value)}
-                                  className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                  required
-                                />
-                                {editContentType === 'LIEN' ? (
-                                  <input
-                                    type="url"
-                                    value={editContentUrl}
-                                    onChange={(event) => setEditContentUrl(event.target.value)}
-                                    className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                    required
-                                  />
-                                ) : (
-                                  <p className="text-xs text-slate-500">
-                                    Pour remplacer le PDF, supprimez-le puis ajoutez un nouveau fichier.
-                                  </p>
-                                )}
-                                <div className="flex items-center gap-2">
-                                  <button type="submit" className="rounded-xl bg-indigo-600 px-4 py-2 text-white text-sm font-bold hover:bg-indigo-700">
-                                    Enregistrer
-                                  </button>
-                                  <button type="button" onClick={cancelEditContent} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100">
-                                    Annuler
-                                  </button>
-                                </div>
-                              </form>
-                            ) : (
-                              <div className="flex items-start justify-between gap-4">
-                                <div>
-                                  <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ${item.type === 'PDF' ? 'bg-rose-50 text-rose-600' : 'bg-indigo-50 text-indigo-600'}`}>
-                                    {item.type}
-                                  </span>
-                                  <h3 className="text-lg font-black text-slate-900 mt-2">{stripArchivedResourceTitle(item.title)}</h3>
-                                  <button
-                                    type="button"
-                                    onClick={() => { void openContentItem(item); }}
-                                    className="inline-flex items-center gap-2 mt-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
-                                  >
-                                    <i className="fas fa-up-right-from-square"></i>
-                                    Ouvrir
-                                  </button>
-                                </div>
-                                {canEditResources ? (
-                                  <div className="flex items-center gap-3">
-                                    <button
-                                      type="button"
-                                      onClick={() => { void moveContentItem(item.courseId, item.id, 'up', (entry) => !isArchivedResource(entry)); }}
-                                      disabled={index === 0}
-                                      className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
-                                      title="Monter"
-                                    >
-                                      <i className="fas fa-arrow-up"></i>
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => { void moveContentItem(item.courseId, item.id, 'down', (entry) => !isArchivedResource(entry)); }}
-                                      disabled={index === activeGeneralContentItems.length - 1}
-                                      className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
-                                      title="Descendre"
-                                    >
-                                      <i className="fas fa-arrow-down"></i>
-                                    </button>
-                                    <button type="button" onClick={() => startDuplicateItem(item, 'content')} className="text-sm font-semibold text-slate-600 hover:text-slate-800">
-                                      Dupliquer
-                                    </button>
-                                    <button type="button" onClick={() => { void toggleArchiveContentItem(item); }} className="text-sm font-semibold text-amber-600 hover:text-amber-700">
-                                      Archiver
-                                    </button>
-                                    <button type="button" onClick={() => startEditContent(item)} className="text-sm font-semibold text-indigo-600 hover:text-indigo-700">
-                                      Modifier
-                                    </button>
-                                    <button type="button" onClick={() => deleteContentItem(item.id)} className="text-sm font-semibold text-rose-600 hover:text-rose-700">
-                                      Supprimer
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleFavorite({
-                                      id: item.id,
-                                      kind: 'resource',
-                                      courseId: item.courseId,
-                                      title: stripArchivedResourceTitle(item.title),
-                                      url: item.url,
-                                    })}
-                                    className={`text-sm font-semibold ${isFavorite(item.id, 'resource') ? 'text-amber-500' : 'text-slate-400 hover:text-amber-500'}`}
-                                    title="Enregistrer pour plus tard"
-                                  >
-                                    <i className={`fas ${isFavorite(item.id, 'resource') ? 'fa-star' : 'fa-star-half-stroke'}`}></i>
-                                  </button>
-                                )}
-                              </div>
-                            )}
-                          </article>
-                        ))}
 
                         {maitriseInfoNotes.map(({ note, content }, index) => (
                           <article key={note.id} className="rounded-2xl border border-slate-200 p-4">
@@ -3652,25 +3552,6 @@ const App: React.FC = () => {
                         ))}
                       </div>
 
-                      {canEditResources && archivedGeneralContentItems.length > 0 && (
-                        <div className="rounded-2xl border border-dashed border-slate-300 p-4 mt-4">
-                          <h3 className="font-black text-slate-900 mb-3">Contenus archivés</h3>
-                          <div className="space-y-2">
-                            {archivedGeneralContentItems.map((item) => (
-                              <div key={`general-archived-${item.id}`} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-4 py-3">
-                                <span className="font-semibold text-slate-700">{stripArchivedResourceTitle(item.title)}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => { void toggleArchiveContentItem(item); }}
-                                  className="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
-                                >
-                                  Restaurer
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                     </div>
 
                     <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
@@ -6146,6 +6027,180 @@ const App: React.FC = () => {
                         <i className="fas fa-robot"></i>
                         Ouvrir l'Assistant IA
                       </a>
+                    </div>
+                  </div>
+                )}
+
+                {menuSection === 'MEDIAS' && (
+                  <div className="space-y-8">
+                    <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                      <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">Dans les médias</h1>
+                      <p className="text-slate-600 text-lg">
+                        Nouvelles médiatiques, courts résumés et liens web utiles partagés avec les étudiant(e)s.
+                      </p>
+                    </div>
+
+                    {canEditResources && (
+                      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                        <h2 className="text-2xl font-black text-slate-900 mb-2">Publier une nouvelle médiatique</h2>
+                        <p className="text-slate-600 mb-6">
+                          Ajoute un titre, un court résumé et le lien web vers la nouvelle.
+                        </p>
+
+                        <form onSubmit={addEvernoteNote} className="space-y-4">
+                          <input
+                            type="text"
+                            value={noteTitle}
+                            onChange={(event) => setNoteTitle(event.target.value)}
+                            placeholder="Titre de la nouvelle"
+                            className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            required
+                          />
+                          <textarea
+                            value={noteContent}
+                            onChange={(event) => setNoteContent(event.target.value)}
+                            placeholder="Court résumé"
+                            className="w-full min-h-32 rounded-2xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            required
+                          />
+                          <input
+                            type="url"
+                            value={noteLink}
+                            onChange={(event) => setNoteLink(event.target.value)}
+                            placeholder="https://..."
+                            className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            required
+                          />
+                          <button
+                            type="submit"
+                            className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-5 py-3 text-white font-bold hover:bg-indigo-700 transition-colors"
+                          >
+                            <i className="fas fa-plus"></i>
+                            Publier la nouvelle
+                          </button>
+                        </form>
+                      </div>
+                    )}
+
+                    <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                      <h2 className="text-2xl font-black text-slate-900 mb-6">Nouvelles médiatiques ({filteredEvernoteNotes.length})</h2>
+
+                      <div className="space-y-4">
+                        {filteredEvernoteNotes.length === 0 && (
+                          <div className="rounded-2xl border border-slate-200 p-5 text-slate-500">
+                            Aucune nouvelle médiatique pour le moment.
+                          </div>
+                        )}
+
+                        {filteredEvernoteNotes.map((note, index) => (
+                          <article key={note.id} className="rounded-2xl border border-slate-200 p-5">
+                            {canEditResources && editingNoteId === note.id ? (
+                              <form
+                                onSubmit={(event) => {
+                                  event.preventDefault();
+                                  void saveEditNote(note);
+                                }}
+                                className="space-y-3"
+                              >
+                                <input
+                                  type="text"
+                                  value={editNoteTitle}
+                                  onChange={(event) => setEditNoteTitle(event.target.value)}
+                                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  required
+                                />
+                                <textarea
+                                  value={editNoteContent}
+                                  onChange={(event) => setEditNoteContent(event.target.value)}
+                                  className="w-full min-h-28 rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  placeholder="Court résumé"
+                                  required
+                                />
+                                <input
+                                  type="url"
+                                  value={editNoteLink}
+                                  onChange={(event) => setEditNoteLink(event.target.value)}
+                                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  placeholder="https://..."
+                                  required
+                                />
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="submit"
+                                    className="rounded-xl bg-indigo-600 px-4 py-2 text-white text-sm font-bold hover:bg-indigo-700"
+                                  >
+                                    Enregistrer
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={cancelEditNote}
+                                    className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100"
+                                  >
+                                    Annuler
+                                  </button>
+                                </div>
+                              </form>
+                            ) : (
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="space-y-3">
+                                  <h3 className="text-xl font-black text-slate-900">{note.title}</h3>
+                                  {note.content ? (
+                                    <p className="text-slate-600 leading-relaxed whitespace-pre-line max-w-4xl">
+                                      {note.content}
+                                    </p>
+                                  ) : null}
+                                  {note.link ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => openNoteLink(note)}
+                                      className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                                    >
+                                      <i className="fas fa-up-right-from-square"></i>
+                                      Lire la nouvelle
+                                    </button>
+                                  ) : null}
+                                </div>
+                                {canEditResources ? (
+                                  <div className="flex items-center gap-3">
+                                    <button
+                                      type="button"
+                                      onClick={() => { void moveNoteItem(note.courseId, note.id, 'up'); }}
+                                      disabled={index === 0}
+                                      className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                                      title="Monter"
+                                    >
+                                      <i className="fas fa-arrow-up"></i>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => { void moveNoteItem(note.courseId, note.id, 'down'); }}
+                                      disabled={index === filteredEvernoteNotes.length - 1}
+                                      className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                                      title="Descendre"
+                                    >
+                                      <i className="fas fa-arrow-down"></i>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => startEditNote(note)}
+                                      className="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                                    >
+                                      Modifier
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => deleteEvernoteNote(note.id)}
+                                      className="text-sm font-semibold text-rose-600 hover:text-rose-700"
+                                    >
+                                      Supprimer
+                                    </button>
+                                  </div>
+                                ) : null}
+                              </div>
+                            )}
+                          </article>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}
