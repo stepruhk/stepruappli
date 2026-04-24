@@ -108,6 +108,7 @@ const CONTENT_LAST_SEEN_STORAGE_KEY = 'eduboost_content_last_seen_v1';
 const RECRUITMENT_LAST_SEEN_STORAGE_KEY = 'eduboost_recruitment_last_seen_v1';
 const PODCAST_LAST_SEEN_STORAGE_KEY = 'eduboost_podcast_last_seen_v1';
 const BLOG_LAST_SEEN_STORAGE_KEY = 'eduboost_blog_last_seen_v1';
+const MEDIA_LAST_SEEN_STORAGE_KEY = 'eduboost_media_last_seen_v1';
 const NEW_ITEM_WINDOW_DAYS = 7;
 const MAITRISE_CATEGORY_PREFIX = '[[MAITRISE_CATEGORY:';
 const MAITRISE_DEFAULT_CATEGORY: MaitriseLinkCategory = 'PROGRAMMES_MAITRISES';
@@ -446,6 +447,9 @@ const App: React.FC = () => {
   );
   const [blogLastSeenAt, setBlogLastSeenAt] = useState<string>(
     () => readLocalObject<string>(BLOG_LAST_SEEN_STORAGE_KEY, ''),
+  );
+  const [mediaLastSeenAt, setMediaLastSeenAt] = useState<string>(
+    () => readLocalObject<string>(MEDIA_LAST_SEEN_STORAGE_KEY, ''),
   );
   const [recruitmentOffers, setRecruitmentOffers] = useState<RecruitmentOffer[]>([]);
   const [recruitmentLoading, setRecruitmentLoading] = useState(false);
@@ -892,6 +896,16 @@ const App: React.FC = () => {
     writeLocalObject(BLOG_LAST_SEEN_STORAGE_KEY, latestSeen);
     setBlogLastSeenAt(latestSeen);
   }, [isAuthenticated, effectiveUserRole, menuSection, blogPosts, blogLastSeenAt]);
+
+  useEffect(() => {
+    if (!isAuthenticated || effectiveUserRole !== 'student' || menuSection !== 'MEDIAS') return;
+    const latestMediaNote = [...(evernoteNotesByCourse[MEDIA_COURSE_ID] || [])]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+    const latestSeen = latestMediaNote?.createdAt || '';
+    if (!latestSeen || latestSeen === mediaLastSeenAt) return;
+    writeLocalObject(MEDIA_LAST_SEEN_STORAGE_KEY, latestSeen);
+    setMediaLastSeenAt(latestSeen);
+  }, [isAuthenticated, effectiveUserRole, menuSection, evernoteNotesByCourse, mediaLastSeenAt]);
 
   useEffect(() => {
     if (!authChecked || !isAuthenticated) return;
@@ -1480,6 +1494,13 @@ const App: React.FC = () => {
         return new Date(post.pubDate).getTime() > new Date(blogLastSeenAt).getTime();
       }).length
     : 0;
+  const unseenMediaCount = effectiveUserRole === 'student'
+    ? [...(evernoteNotesByCourse[MEDIA_COURSE_ID] || [])].filter((note) => {
+        if (!note.createdAt) return false;
+        if (!mediaLastSeenAt) return true;
+        return new Date(note.createdAt).getTime() > new Date(mediaLastSeenAt).getTime();
+      }).length
+    : 0;
   const getMenuBadgeCount = (key: typeof mainMenuItems[number]['key']) => {
     if (key === 'ANNONCES') return unseenAnnouncementCount;
     if (key === 'MAITRISE') return unseenGeneralContentCount;
@@ -1493,6 +1514,7 @@ const App: React.FC = () => {
     }
     if (key === 'BALADO') return unseenPodcastCount;
     if (key === 'BLOG') return unseenBlogCount;
+    if (key === 'MEDIAS') return unseenMediaCount;
     if (key === 'CONTACT') return unreadContactRequestsCount;
     return 0;
   };
