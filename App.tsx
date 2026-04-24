@@ -1656,6 +1656,35 @@ const App: React.FC = () => {
     return acc;
   }, {});
 
+  const visibleFavorites = useMemo(() => {
+    const existingResourceIds = new Set(
+      Object.values(contentItemsByCourse)
+        .flat()
+        .map((item) => item.id),
+    );
+    const existingNoteIds = new Set(
+      Object.values(evernoteNotesByCourse)
+        .flat()
+        .map((note) => note.id),
+    );
+
+    return favorites.filter((favorite) => {
+      if (favorite.kind === 'resource') {
+        return existingResourceIds.has(favorite.id);
+      }
+      if (favorite.kind === 'note' || favorite.kind === 'literature') {
+        return existingNoteIds.has(favorite.id);
+      }
+      return false;
+    });
+  }, [favorites, contentItemsByCourse, evernoteNotesByCourse]);
+
+  useEffect(() => {
+    if (visibleFavorites.length === favorites.length) return;
+    writeLocalObject(FAVORITES_STORAGE_KEY, visibleFavorites);
+    setFavorites(visibleFavorites);
+  }, [favorites, visibleFavorites]);
+
   const getCourseProgress = (courseId: string) => {
     const resources = (contentItemsByCourse[courseId] || []).filter((item) => !isArchivedResource(item));
     const flashcards = flashcardsByCourse[courseId] || [];
@@ -3188,7 +3217,7 @@ const App: React.FC = () => {
                       <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
                         <h2 className="text-2xl font-black text-slate-900 mb-4">Favoris / enregistrés pour plus tard</h2>
                         <div className="space-y-3">
-                          {favorites.slice(0, 5).map((favorite) => (
+                          {visibleFavorites.slice(0, 5).map((favorite) => (
                             <button
                               key={`${favorite.kind}-${favorite.id}`}
                               type="button"
@@ -3216,7 +3245,7 @@ const App: React.FC = () => {
                               <p className="mt-2 text-lg font-black text-slate-900">{favorite.title}</p>
                             </button>
                           ))}
-                          {favorites.length === 0 && (
+                          {visibleFavorites.length === 0 && (
                             <div className="rounded-2xl border border-slate-200 p-4 text-slate-500">
                               Tu n&apos;as encore rien enregistré pour plus tard.
                             </div>
