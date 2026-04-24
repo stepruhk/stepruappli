@@ -1473,7 +1473,7 @@ const App: React.FC = () => {
   const unseenGeneralContentCount = effectiveUserRole === 'student'
     ? [
         ...activeGeneralContentItems.map((item) => item.createdAt),
-        ...filteredEvernoteNotes.map((note) => note.createdAt),
+        ...(evernoteNotesByCourse[GENERAL_COURSE_ID] || []).map((note) => note.createdAt),
       ].filter((createdAt) => {
         if (!createdAt) return false;
         if (!contentLastSeenAt) return true;
