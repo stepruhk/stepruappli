@@ -6036,7 +6036,7 @@ const App: React.FC = () => {
                       <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-6">
                         <h2 className="text-2xl font-black text-slate-900 mb-3">Disponible gratuitement pour les étudiant(e)s</h2>
                         <p className="text-slate-700 text-lg">
-                          Cliquez sur le bouton ci-dessous pour ouvrir l'assistant chatGPT gratuitement et posez vos questions reliées au cours, à la communication et aux relations publiques.
+                          Cliquez sur le bouton ci-dessous pour ouvrir l'assistant chatGPT entraîné pour les étudiant(e)s en comms et RP et posez vos questions reliées au cours, à la communication et aux relations publiques.
                         </p>
                       </div>
 
