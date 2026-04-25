@@ -6579,7 +6579,6 @@ const App: React.FC = () => {
         <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/55 p-4">
           <div className="flex min-h-full items-start justify-center py-4 md:items-center">
             <div className="w-full max-w-2xl max-h-[calc(100vh-2rem)] overflow-y-auto rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl md:p-8">
-            <p className="text-sm font-bold uppercase tracking-[0.2em] text-indigo-500">Bienvenue</p>
             <h2 className="mt-2 text-3xl font-black text-slate-900">Comment utiliser la plateforme</h2>
             <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
