@@ -433,6 +433,13 @@ const App: React.FC = () => {
   const [contactRequestsLastNotifiedAt, setContactRequestsLastNotifiedAt] = useState<string>(
     () => readLocalObject<string>(CONTACT_REQUESTS_LAST_NOTIFIED_STORAGE_KEY, ''),
   );
+  const [browserNotificationPermission, setBrowserNotificationPermission] = useState<NotificationPermission | 'unsupported'>(() => {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      return 'unsupported';
+    }
+
+    return Notification.permission;
+  });
   const [announcementsLastSeenAt, setAnnouncementsLastSeenAt] = useState<string>(
     () => readLocalObject<string>(ANNOUNCEMENTS_LAST_SEEN_STORAGE_KEY, ''),
   );
@@ -766,6 +773,15 @@ const App: React.FC = () => {
   }, [isProfessor, menuSection, contactRequests, contactRequestsLastSeenAt]);
 
   useEffect(() => {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      setBrowserNotificationPermission('unsupported');
+      return;
+    }
+
+    setBrowserNotificationPermission(Notification.permission);
+  }, [authChecked, isAuthenticated, isProfessor]);
+
+  useEffect(() => {
     if (!isProfessor || !isAuthenticated || contactRequests.length === 0 || typeof window === 'undefined') return;
 
     const latestRequest = contactRequests[0];
@@ -814,18 +830,8 @@ const App: React.FC = () => {
       return;
     }
 
-    if (Notification.permission === 'default') {
-      void Notification.requestPermission().then((permission) => {
-        if (permission === 'granted') {
-          showNotification();
-        }
-        markAsNotified();
-      });
-      return;
-    }
-
     markAsNotified();
-  }, [isProfessor, isAuthenticated, contactRequests, contactRequestsLastNotifiedAt, menuSection]);
+  }, [isProfessor, isAuthenticated, contactRequests, contactRequestsLastNotifiedAt, menuSection, browserNotificationPermission]);
 
   useEffect(() => {
     const preloadDashboardData = async () => {
@@ -1183,6 +1189,21 @@ const App: React.FC = () => {
       setContactRequestsError(getErrorMessage(error));
     } finally {
       setContactDeletingId(null);
+    }
+  };
+
+  const handleEnableBrowserNotifications = async () => {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      setBrowserNotificationPermission('unsupported');
+      return;
+    }
+
+    try {
+      const permission = await Notification.requestPermission();
+      setBrowserNotificationPermission(permission);
+    } catch (error) {
+      console.error(error);
+      setBrowserNotificationPermission(Notification.permission);
     }
   };
 
@@ -6361,6 +6382,52 @@ const App: React.FC = () => {
                           </p>
 
                           {renderContactRequestForm()}
+                        </div>
+                      )}
+
+                      {canEditResources && (
+                        <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm lg:col-span-2">
+                          <h2 className="text-2xl font-black text-slate-900 mb-2 flex items-center gap-2">
+                            <i className="fas fa-bell text-indigo-600"></i>
+                            Notifications du navigateur
+                          </h2>
+                          <p className="text-slate-600 mb-5">
+                            Active les notifications pour être averti des nouvelles demandes de contact pendant que l’app est ouverte.
+                          </p>
+
+                          {browserNotificationPermission === 'granted' && (
+                            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-700 font-medium">
+                              Les notifications du navigateur sont activées.
+                            </div>
+                          )}
+
+                          {browserNotificationPermission === 'default' && (
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-4">
+                              <p className="text-slate-700">
+                                Safari a besoin d’un clic explicite pour autoriser les notifications.
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => { void handleEnableBrowserNotifications(); }}
+                                className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-white font-bold hover:bg-indigo-700 transition-colors"
+                              >
+                                <i className="fas fa-bell"></i>
+                                Activer les notifications
+                              </button>
+                            </div>
+                          )}
+
+                          {browserNotificationPermission === 'denied' && (
+                            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-700 font-medium">
+                              Les notifications sont bloquées dans le navigateur. Il faut les réautoriser dans les réglages du navigateur.
+                            </div>
+                          )}
+
+                          {browserNotificationPermission === 'unsupported' && (
+                            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-600 font-medium">
+                              Ce navigateur ne prend pas en charge les notifications pour cette app.
+                            </div>
+                          )}
                         </div>
                       )}
 
