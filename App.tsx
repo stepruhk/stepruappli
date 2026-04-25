@@ -9,6 +9,7 @@ import {
   createCourseFlashcard,
   createCourseContent,
   createEvernoteNote,
+  getAnalyticsSummary,
   listBlogPosts,
   listContactRequests,
   listCourseFlashcards,
@@ -30,6 +31,7 @@ import {
   updateCourseContent,
   updateEvernoteNote,
   updateRecruitmentOffer,
+  type AnalyticsSummary,
   type BlogPost,
   type ContactRequest,
   type EvernoteNote,
@@ -408,6 +410,9 @@ const App: React.FC = () => {
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
   const [blogLoading, setBlogLoading] = useState(false);
   const [blogError, setBlogError] = useState<string | null>(null);
+  const [analyticsSummary, setAnalyticsSummary] = useState<AnalyticsSummary | null>(null);
+  const [analyticsSummaryLoading, setAnalyticsSummaryLoading] = useState(false);
+  const [analyticsSummaryError, setAnalyticsSummaryError] = useState<string | null>(null);
   const [contactName, setContactName] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [contactUniversity, setContactUniversity] = useState('');
@@ -675,6 +680,27 @@ const App: React.FC = () => {
 
     void loadBlogPosts();
   }, [authChecked, isAuthenticated, menuSection]);
+
+  useEffect(() => {
+    const loadAnalyticsSummary = async () => {
+      if (!authChecked || !isAuthenticated || !isProfessor) return;
+      if (menuSection !== 'CONTACT') return;
+
+      setAnalyticsSummaryLoading(true);
+      setAnalyticsSummaryError(null);
+      try {
+        const summary = await getAnalyticsSummary();
+        setAnalyticsSummary(summary);
+      } catch (error) {
+        console.error(error);
+        setAnalyticsSummaryError('Impossible de charger les statistiques détaillées pour le moment.');
+      } finally {
+        setAnalyticsSummaryLoading(false);
+      }
+    };
+
+    void loadAnalyticsSummary();
+  }, [authChecked, isAuthenticated, menuSection, isProfessor]);
 
   useEffect(() => {
     const loadContactRequests = async (foreground = false) => {
@@ -1555,6 +1581,14 @@ const App: React.FC = () => {
     (announcement) => isRecentDate(announcement.createdAt) && (!announcement.expiresAt || new Date(announcement.expiresAt).getTime() >= Date.now()),
   ).length;
   const recentGeneralContentCount = activeGeneralContentItems.filter((item) => isRecentDate(item.createdAt)).length;
+  const recruitmentPageViews =
+    analyticsSummary?.pageViews.find((entry) => entry.section === 'RECRUTEMENT')?.count || 0;
+  const monthlyRecruitmentPageViews =
+    analyticsSummary?.monthly.pageViews.find((entry) => entry.section === 'RECRUTEMENT')?.count || 0;
+  const mastersPageViews =
+    analyticsSummary?.pageViews.find((entry) => entry.section === 'MAITRISE')?.count || 0;
+  const monthlyMastersPageViews =
+    analyticsSummary?.monthly.pageViews.find((entry) => entry.section === 'MAITRISE')?.count || 0;
   const filteredAnnouncements = parsedAnnouncements.filter((announcement) => {
     if (effectiveUserRole === 'student' && announcement.expiresAt && new Date(announcement.expiresAt).getTime() < Date.now()) {
       return false;
@@ -6327,6 +6361,188 @@ const App: React.FC = () => {
                           </p>
 
                           {renderContactRequestForm()}
+                        </div>
+                      )}
+
+                      {canEditResources && (
+                        <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm lg:col-span-2">
+                          <div>
+                            <h3 className="text-xl font-black text-slate-900 mb-2">Statistiques détaillées</h3>
+                            <p className="text-slate-600 mb-6">
+                              Pages les plus visitées, cours les plus consultés et clics externes.
+                            </p>
+
+                            {analyticsSummaryLoading && (
+                              <p className="text-slate-500">Chargement des statistiques détaillées...</p>
+                            )}
+
+                            {analyticsSummaryError && (
+                              <p className="text-rose-600">{analyticsSummaryError}</p>
+                            )}
+
+                            {!analyticsSummaryLoading && !analyticsSummaryError && analyticsSummary && (
+                              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
+                                  <h4 className="font-black text-slate-900 mb-4">Pages les plus visitées</h4>
+                                  <div className="space-y-3">
+                                    {analyticsSummary.pageViews.length > 0 ? analyticsSummary.pageViews.slice(0, 5).map((entry) => (
+                                      <div key={`page-view-${entry.section}`} className="flex items-center justify-between gap-4">
+                                        <span className="text-slate-700">{entry.section}</span>
+                                        <span className="font-black text-slate-900">{entry.count}</span>
+                                      </div>
+                                    )) : (
+                                      <p className="text-slate-500">Aucune donnée pour le moment.</p>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
+                                  <h4 className="font-black text-slate-900 mb-4">Cours les plus consultés</h4>
+                                  <div className="space-y-3">
+                                    {analyticsSummary.courseViews.length > 0 ? analyticsSummary.courseViews.slice(0, 5).map((entry) => (
+                                      <div key={`course-view-${entry.courseId}`} className="flex items-center justify-between gap-4">
+                                        <span className="text-slate-700">{visibleTopics.find((topic) => topic.id === entry.courseId)?.title || entry.courseId}</span>
+                                        <span className="font-black text-slate-900">{entry.count}</span>
+                                      </div>
+                                    )) : (
+                                      <p className="text-slate-500">Aucune donnée pour le moment.</p>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
+                                  <h4 className="font-black text-slate-900 mb-4">Balado</h4>
+                                  <div className="flex items-center justify-between gap-4">
+                                    <span className="text-slate-700">Ouvertures de la page / épisodes</span>
+                                    <span className="font-black text-slate-900">{analyticsSummary.podcastOpens}</span>
+                                  </div>
+                                </div>
+
+                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
+                                  <h4 className="font-black text-slate-900 mb-4">Recrutement</h4>
+                                  <div className="flex items-center justify-between gap-4">
+                                    <span className="text-slate-700">Ouvertures de la page</span>
+                                    <span className="font-black text-slate-900">{recruitmentPageViews}</span>
+                                  </div>
+                                </div>
+
+                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
+                                  <h4 className="font-black text-slate-900 mb-4">Maîtrise en communication</h4>
+                                  <div className="flex items-center justify-between gap-4">
+                                    <span className="text-slate-700">Ouvertures de la page</span>
+                                    <span className="font-black text-slate-900">{mastersPageViews}</span>
+                                  </div>
+                                </div>
+
+                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
+                                  <h4 className="font-black text-slate-900 mb-4">Clics externes</h4>
+                                  <div className="space-y-3">
+                                    <div className="flex items-center justify-between gap-4">
+                                      <span className="text-slate-700">Blog</span>
+                                      <span className="font-black text-slate-900">{analyticsSummary.externalClicks.blog}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-4">
+                                      <span className="text-slate-700">Contact</span>
+                                      <span className="font-black text-slate-900">{analyticsSummary.externalClicks.contact}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-4">
+                                      <span className="text-slate-700">Zoom</span>
+                                      <span className="font-black text-slate-900">{analyticsSummary.externalClicks.zoom}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="mt-8 border-t border-slate-200 pt-8">
+                            <h3 className="text-xl font-black text-slate-900 mb-2">Statistiques détaillées du mois</h3>
+                            <p className="text-slate-600 mb-6">
+                              Pages les plus visitées, cours les plus consultés et clics externes pour le mois en cours.
+                            </p>
+
+                            {analyticsSummaryLoading && (
+                              <p className="text-slate-500">Chargement des statistiques détaillées du mois...</p>
+                            )}
+
+                            {analyticsSummaryError && (
+                              <p className="text-rose-600">{analyticsSummaryError}</p>
+                            )}
+
+                            {!analyticsSummaryLoading && !analyticsSummaryError && analyticsSummary && (
+                              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
+                                  <h4 className="font-black text-slate-900 mb-4">Pages les plus visitées</h4>
+                                  <div className="space-y-3">
+                                    {analyticsSummary.monthly.pageViews.length > 0 ? analyticsSummary.monthly.pageViews.slice(0, 5).map((entry) => (
+                                      <div key={`monthly-page-view-${entry.section}`} className="flex items-center justify-between gap-4">
+                                        <span className="text-slate-700">{entry.section}</span>
+                                        <span className="font-black text-slate-900">{entry.count}</span>
+                                      </div>
+                                    )) : (
+                                      <p className="text-slate-500">Aucune donnée pour le moment.</p>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
+                                  <h4 className="font-black text-slate-900 mb-4">Cours les plus consultés</h4>
+                                  <div className="space-y-3">
+                                    {analyticsSummary.monthly.courseViews.length > 0 ? analyticsSummary.monthly.courseViews.slice(0, 5).map((entry) => (
+                                      <div key={`monthly-course-view-${entry.courseId}`} className="flex items-center justify-between gap-4">
+                                        <span className="text-slate-700">{visibleTopics.find((topic) => topic.id === entry.courseId)?.title || entry.courseId}</span>
+                                        <span className="font-black text-slate-900">{entry.count}</span>
+                                      </div>
+                                    )) : (
+                                      <p className="text-slate-500">Aucune donnée pour le moment.</p>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
+                                  <h4 className="font-black text-slate-900 mb-4">Balado</h4>
+                                  <div className="flex items-center justify-between gap-4">
+                                    <span className="text-slate-700">Ouvertures de la page / épisodes</span>
+                                    <span className="font-black text-slate-900">{analyticsSummary.monthly.podcastOpens}</span>
+                                  </div>
+                                </div>
+
+                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
+                                  <h4 className="font-black text-slate-900 mb-4">Recrutement</h4>
+                                  <div className="flex items-center justify-between gap-4">
+                                    <span className="text-slate-700">Ouvertures de la page</span>
+                                    <span className="font-black text-slate-900">{monthlyRecruitmentPageViews}</span>
+                                  </div>
+                                </div>
+
+                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
+                                  <h4 className="font-black text-slate-900 mb-4">Maîtrise en communication</h4>
+                                  <div className="flex items-center justify-between gap-4">
+                                    <span className="text-slate-700">Ouvertures de la page</span>
+                                    <span className="font-black text-slate-900">{monthlyMastersPageViews}</span>
+                                  </div>
+                                </div>
+
+                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
+                                  <h4 className="font-black text-slate-900 mb-4">Clics externes</h4>
+                                  <div className="space-y-3">
+                                    <div className="flex items-center justify-between gap-4">
+                                      <span className="text-slate-700">Blog</span>
+                                      <span className="font-black text-slate-900">{analyticsSummary.monthly.externalClicks.blog}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-4">
+                                      <span className="text-slate-700">Contact</span>
+                                      <span className="font-black text-slate-900">{analyticsSummary.monthly.externalClicks.contact}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-4">
+                                      <span className="text-slate-700">Zoom</span>
+                                      <span className="font-black text-slate-900">{analyticsSummary.monthly.externalClicks.zoom}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
 
