@@ -6433,6 +6433,84 @@ const App: React.FC = () => {
 
                       {canEditResources && (
                         <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm lg:col-span-2">
+                          <h2 className="text-2xl font-black text-slate-900 mb-2 flex items-center gap-2">
+                            <i className="fas fa-inbox text-indigo-600"></i>
+                            Demandes de contact reçues
+                          </h2>
+                          <p className="text-slate-600 mb-6">
+                            Messages envoyés depuis le formulaire étudiant.
+                          </p>
+
+                          {contactRequestsLoading && (
+                            <p className="text-slate-500">Chargement des demandes...</p>
+                          )}
+
+                          {contactRequestsError && (
+                            <p className="text-rose-600">{contactRequestsError}</p>
+                          )}
+
+                          {!contactRequestsLoading && !contactRequestsError && (
+                            <div className="space-y-4">
+                              {contactRequests.length === 0 ? (
+                                <div className="rounded-2xl border border-slate-200 p-4 text-slate-500">
+                                  Aucune demande de contact pour le moment.
+                                </div>
+                              ) : (
+                                contactRequests.map((request) => (
+                                  <article key={request.id} className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
+                                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                                      <div>
+                                        <h3 className="text-lg font-black text-slate-900">{request.name}</h3>
+                                        <p className="text-slate-600">{request.email}</p>
+                                        <p className="text-slate-600">{request.university}</p>
+                                        {request.courseGroup && (
+                                          <p className="text-slate-600">{request.courseGroup}</p>
+                                        )}
+                                      </div>
+                                      <div className="flex flex-col items-start gap-3 md:items-end">
+                                        <p className="text-sm text-slate-500">
+                                          {new Date(request.createdAt).toLocaleString('fr-FR')}
+                                        </p>
+                                        <button
+                                          type="button"
+                                          onClick={() => { void handleDeleteContactRequest(request.id); }}
+                                          disabled={contactDeletingId === request.id}
+                                          className="inline-flex items-center gap-2 rounded-xl border border-rose-200 px-3 py-2 text-sm font-bold text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-60"
+                                        >
+                                          <i className="fas fa-trash"></i>
+                                          {contactDeletingId === request.id ? 'Suppression...' : 'Supprimer'}
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    {request.message && (
+                                      <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+                                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">Message</p>
+                                        <p className="mt-2 whitespace-pre-wrap text-slate-700">{request.message}</p>
+                                      </div>
+                                    )}
+
+                                    <div className="mt-4 flex flex-wrap gap-2">
+                                      {request.selections.length > 0 ? request.selections.map((selection) => (
+                                        <span key={`${request.id}-${selection}`} className="rounded-full bg-white border border-slate-200 px-3 py-1 text-sm text-slate-700">
+                                          {selection}
+                                        </span>
+                                      )) : (
+                                        <span className="rounded-full bg-white border border-slate-200 px-3 py-1 text-sm text-slate-500">
+                                          Message libre
+                                        </span>
+                                      )}
+                                    </div>
+                                  </article>
+                                ))
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {canEditResources && (
+                        <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm lg:col-span-2">
                           <div>
                             <h3 className="text-xl font-black text-slate-900 mb-2">Statistiques détaillées</h3>
                             <p className="text-slate-600 mb-6">
@@ -6613,83 +6691,6 @@ const App: React.FC = () => {
                         </div>
                       )}
 
-                      {canEditResources && (
-                        <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm lg:col-span-2">
-                          <h2 className="text-2xl font-black text-slate-900 mb-2 flex items-center gap-2">
-                            <i className="fas fa-inbox text-indigo-600"></i>
-                            Demandes de contact reçues
-                          </h2>
-                          <p className="text-slate-600 mb-6">
-                            Messages envoyés depuis le formulaire étudiant.
-                          </p>
-
-                          {contactRequestsLoading && (
-                            <p className="text-slate-500">Chargement des demandes...</p>
-                          )}
-
-                          {contactRequestsError && (
-                            <p className="text-rose-600">{contactRequestsError}</p>
-                          )}
-
-                          {!contactRequestsLoading && !contactRequestsError && (
-                            <div className="space-y-4">
-                              {contactRequests.length === 0 ? (
-                                <div className="rounded-2xl border border-slate-200 p-4 text-slate-500">
-                                  Aucune demande de contact pour le moment.
-                                </div>
-                              ) : (
-                                contactRequests.map((request) => (
-                                  <article key={request.id} className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
-                                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                                      <div>
-                                        <h3 className="text-lg font-black text-slate-900">{request.name}</h3>
-                                        <p className="text-slate-600">{request.email}</p>
-                                        <p className="text-slate-600">{request.university}</p>
-                                        {request.courseGroup && (
-                                          <p className="text-slate-600">{request.courseGroup}</p>
-                                        )}
-                                      </div>
-                                      <div className="flex flex-col items-start gap-3 md:items-end">
-                                        <p className="text-sm text-slate-500">
-                                          {new Date(request.createdAt).toLocaleString('fr-FR')}
-                                        </p>
-                                        <button
-                                          type="button"
-                                          onClick={() => { void handleDeleteContactRequest(request.id); }}
-                                          disabled={contactDeletingId === request.id}
-                                          className="inline-flex items-center gap-2 rounded-xl border border-rose-200 px-3 py-2 text-sm font-bold text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-60"
-                                        >
-                                          <i className="fas fa-trash"></i>
-                                          {contactDeletingId === request.id ? 'Suppression...' : 'Supprimer'}
-                                        </button>
-                                      </div>
-                                    </div>
-
-                                    {request.message && (
-                                      <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
-                                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">Message</p>
-                                        <p className="mt-2 whitespace-pre-wrap text-slate-700">{request.message}</p>
-                                      </div>
-                                    )}
-
-                                    <div className="mt-4 flex flex-wrap gap-2">
-                                      {request.selections.length > 0 ? request.selections.map((selection) => (
-                                        <span key={`${request.id}-${selection}`} className="rounded-full bg-white border border-slate-200 px-3 py-1 text-sm text-slate-700">
-                                          {selection}
-                                        </span>
-                                      )) : (
-                                        <span className="rounded-full bg-white border border-slate-200 px-3 py-1 text-sm text-slate-500">
-                                          Message libre
-                                        </span>
-                                      )}
-                                    </div>
-                                  </article>
-                                ))
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      )}
 
                     </div>
                   </div>
