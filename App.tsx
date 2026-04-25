@@ -803,11 +803,6 @@ const App: React.FC = () => {
       setContactRequestsLastNotifiedAt(latestCreatedAt);
     };
 
-    if (menuSection === 'CONTACT' && document.visibilityState === 'visible') {
-      markAsNotified();
-      return;
-    }
-
     if (!('Notification' in window)) {
       markAsNotified();
       return;
@@ -1205,6 +1200,21 @@ const App: React.FC = () => {
       console.error(error);
       setBrowserNotificationPermission(Notification.permission);
     }
+  };
+
+  const handleTestBrowserNotification = () => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    if (Notification.permission !== 'granted') return;
+
+    const notification = new Notification('Notifications activées', {
+      body: 'Tu recevras maintenant les nouvelles demandes de contact ici.',
+    });
+
+    notification.onclick = () => {
+      window.focus();
+      setMenuSection('CONTACT');
+      notification.close();
+    };
   };
 
   const handleLogin = async (event: React.FormEvent) => {
@@ -6396,8 +6406,18 @@ const App: React.FC = () => {
                           </p>
 
                           {browserNotificationPermission === 'granted' && (
-                            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-700 font-medium">
-                              Les notifications du navigateur sont activées.
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4">
+                              <p className="text-emerald-700 font-medium">
+                                Les notifications du navigateur sont activées.
+                              </p>
+                              <button
+                                type="button"
+                                onClick={handleTestBrowserNotification}
+                                className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-white font-bold hover:bg-emerald-700 transition-colors"
+                              >
+                                <i className="fas fa-bell"></i>
+                                Tester une notification
+                              </button>
                             </div>
                           )}
 
