@@ -9,8 +9,6 @@ import {
   createCourseFlashcard,
   createCourseContent,
   createEvernoteNote,
-  getAccessMetrics,
-  getAnalyticsSummary,
   listBlogPosts,
   listContactRequests,
   listCourseFlashcards,
@@ -32,8 +30,6 @@ import {
   updateCourseContent,
   updateEvernoteNote,
   updateRecruitmentOffer,
-  type AccessMetrics,
-  type AnalyticsSummary,
   type BlogPost,
   type ContactRequest,
   type EvernoteNote,
@@ -103,6 +99,8 @@ const FAVORITES_STORAGE_KEY = 'eduboost_favorites_v1';
 const STUDENT_PROGRESS_STORAGE_KEY = 'eduboost_student_progress_v1';
 const ONBOARDING_STORAGE_KEY = 'eduboost_onboarding_seen_v1';
 const CONTACT_REQUESTS_LAST_SEEN_STORAGE_KEY = 'eduboost_contact_requests_last_seen_v1';
+const CONTACT_REQUESTS_LAST_NOTIFIED_STORAGE_KEY = 'eduboost_contact_requests_last_notified_v1';
+const PROFESSOR_REMEMBERED_PASSWORD_STORAGE_KEY = 'eduboost_professor_password_v1';
 const ANNOUNCEMENTS_LAST_SEEN_STORAGE_KEY = 'eduboost_announcements_last_seen_v1';
 const CONTENT_LAST_SEEN_STORAGE_KEY = 'eduboost_content_last_seen_v1';
 const RECRUITMENT_LAST_SEEN_STORAGE_KEY = 'eduboost_recruitment_last_seen_v1';
@@ -410,12 +408,6 @@ const App: React.FC = () => {
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
   const [blogLoading, setBlogLoading] = useState(false);
   const [blogError, setBlogError] = useState<string | null>(null);
-  const [accessMetrics, setAccessMetrics] = useState<AccessMetrics | null>(null);
-  const [accessMetricsLoading, setAccessMetricsLoading] = useState(false);
-  const [accessMetricsError, setAccessMetricsError] = useState<string | null>(null);
-  const [analyticsSummary, setAnalyticsSummary] = useState<AnalyticsSummary | null>(null);
-  const [analyticsSummaryLoading, setAnalyticsSummaryLoading] = useState(false);
-  const [analyticsSummaryError, setAnalyticsSummaryError] = useState<string | null>(null);
   const [contactName, setContactName] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [contactUniversity, setContactUniversity] = useState('');
@@ -432,6 +424,9 @@ const App: React.FC = () => {
   const [showContactModal, setShowContactModal] = useState(false);
   const [contactRequestsLastSeenAt, setContactRequestsLastSeenAt] = useState<string>(
     () => readLocalObject<string>(CONTACT_REQUESTS_LAST_SEEN_STORAGE_KEY, ''),
+  );
+  const [contactRequestsLastNotifiedAt, setContactRequestsLastNotifiedAt] = useState<string>(
+    () => readLocalObject<string>(CONTACT_REQUESTS_LAST_NOTIFIED_STORAGE_KEY, ''),
   );
   const [announcementsLastSeenAt, setAnnouncementsLastSeenAt] = useState<string>(
     () => readLocalObject<string>(ANNOUNCEMENTS_LAST_SEEN_STORAGE_KEY, ''),
@@ -519,7 +514,20 @@ const App: React.FC = () => {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        const auth = await checkAuthStatus();
+        let auth = await checkAuthStatus();
+
+        if (!auth.authenticated) {
+          const rememberedProfessorPassword = readLocalObject<string>(PROFESSOR_REMEMBERED_PASSWORD_STORAGE_KEY, '');
+          if (rememberedProfessorPassword) {
+            try {
+              await loginWithPassword(rememberedProfessorPassword, 'professor');
+              auth = await checkAuthStatus();
+            } catch (_error) {
+              writeLocalObject(PROFESSOR_REMEMBERED_PASSWORD_STORAGE_KEY, '');
+            }
+          }
+        }
+
         setIsAuthenticated(auth.authenticated);
         setUserRole(auth.role);
         setUnlockedCourseIds(auth.unlockedCourseIds);
@@ -669,48 +677,6 @@ const App: React.FC = () => {
   }, [authChecked, isAuthenticated, menuSection]);
 
   useEffect(() => {
-    const loadAccessMetrics = async () => {
-      if (!authChecked || !isAuthenticated || !isProfessor) return;
-      if (menuSection !== 'CONTACT') return;
-
-      setAccessMetricsLoading(true);
-      setAccessMetricsError(null);
-      try {
-        const metrics = await getAccessMetrics();
-        setAccessMetrics(metrics);
-      } catch (error) {
-        console.error(error);
-        setAccessMetricsError('Impossible de charger le compteur pour le moment.');
-      } finally {
-        setAccessMetricsLoading(false);
-      }
-    };
-
-    void loadAccessMetrics();
-  }, [authChecked, isAuthenticated, menuSection, isProfessor]);
-
-  useEffect(() => {
-    const loadAnalyticsSummary = async () => {
-      if (!authChecked || !isAuthenticated || !isProfessor) return;
-      if (menuSection !== 'CONTACT') return;
-
-      setAnalyticsSummaryLoading(true);
-      setAnalyticsSummaryError(null);
-      try {
-        const summary = await getAnalyticsSummary();
-        setAnalyticsSummary(summary);
-      } catch (error) {
-        console.error(error);
-        setAnalyticsSummaryError('Impossible de charger les statistiques détaillées pour le moment.');
-      } finally {
-        setAnalyticsSummaryLoading(false);
-      }
-    };
-
-    void loadAnalyticsSummary();
-  }, [authChecked, isAuthenticated, menuSection, isProfessor]);
-
-  useEffect(() => {
     const loadContactRequests = async (foreground = false) => {
       if (!authChecked || !isAuthenticated || !isProfessor) return;
 
@@ -772,6 +738,68 @@ const App: React.FC = () => {
     writeLocalObject(CONTACT_REQUESTS_LAST_SEEN_STORAGE_KEY, latestSeen);
     setContactRequestsLastSeenAt(latestSeen);
   }, [isProfessor, menuSection, contactRequests, contactRequestsLastSeenAt]);
+
+  useEffect(() => {
+    if (!isProfessor || !isAuthenticated || contactRequests.length === 0 || typeof window === 'undefined') return;
+
+    const latestRequest = contactRequests[0];
+    const latestCreatedAt = latestRequest?.createdAt || '';
+    if (!latestCreatedAt) return;
+
+    if (!contactRequestsLastNotifiedAt) {
+      writeLocalObject(CONTACT_REQUESTS_LAST_NOTIFIED_STORAGE_KEY, latestCreatedAt);
+      setContactRequestsLastNotifiedAt(latestCreatedAt);
+      return;
+    }
+
+    const latestTimestamp = new Date(latestCreatedAt).getTime();
+    const lastNotifiedTimestamp = new Date(contactRequestsLastNotifiedAt).getTime();
+    if (Number.isNaN(latestTimestamp) || Number.isNaN(lastNotifiedTimestamp) || latestTimestamp <= lastNotifiedTimestamp) return;
+
+    const markAsNotified = () => {
+      writeLocalObject(CONTACT_REQUESTS_LAST_NOTIFIED_STORAGE_KEY, latestCreatedAt);
+      setContactRequestsLastNotifiedAt(latestCreatedAt);
+    };
+
+    if (menuSection === 'CONTACT' && document.visibilityState === 'visible') {
+      markAsNotified();
+      return;
+    }
+
+    if (!('Notification' in window)) {
+      markAsNotified();
+      return;
+    }
+
+    const showNotification = () => {
+      const notification = new Notification('Nouvelle demande de contact', {
+        body: `${latestRequest.name} — ${latestRequest.university || latestRequest.email}`,
+      });
+      notification.onclick = () => {
+        window.focus();
+        setMenuSection('CONTACT');
+        notification.close();
+      };
+    };
+
+    if (Notification.permission === 'granted') {
+      showNotification();
+      markAsNotified();
+      return;
+    }
+
+    if (Notification.permission === 'default') {
+      void Notification.requestPermission().then((permission) => {
+        if (permission === 'granted') {
+          showNotification();
+        }
+        markAsNotified();
+      });
+      return;
+    }
+
+    markAsNotified();
+  }, [isProfessor, isAuthenticated, contactRequests, contactRequestsLastNotifiedAt, menuSection]);
 
   useEffect(() => {
     const preloadDashboardData = async () => {
@@ -1142,6 +1170,11 @@ const App: React.FC = () => {
       setUserRole(role);
       setPassword('');
       setUnlockedCourseIds([]);
+      if (role === 'professor') {
+        writeLocalObject(PROFESSOR_REMEMBERED_PASSWORD_STORAGE_KEY, password);
+      } else {
+        writeLocalObject(PROFESSOR_REMEMBERED_PASSWORD_STORAGE_KEY, '');
+      }
     } catch (error) {
       console.error(error);
       logout();
@@ -1522,15 +1555,6 @@ const App: React.FC = () => {
     (announcement) => isRecentDate(announcement.createdAt) && (!announcement.expiresAt || new Date(announcement.expiresAt).getTime() >= Date.now()),
   ).length;
   const recentGeneralContentCount = activeGeneralContentItems.filter((item) => isRecentDate(item.createdAt)).length;
-  const recruitmentPageViews =
-    analyticsSummary?.pageViews.find((entry) => entry.section === 'RECRUTEMENT')?.count || 0;
-  const monthlyRecruitmentPageViews =
-    analyticsSummary?.monthly.pageViews.find((entry) => entry.section === 'RECRUTEMENT')?.count || 0;
-  const mastersPageViews =
-    analyticsSummary?.pageViews.find((entry) => entry.section === 'MAITRISE')?.count || 0;
-  const monthlyMastersPageViews =
-    analyticsSummary?.monthly.pageViews.find((entry) => entry.section === 'MAITRISE')?.count || 0;
-
   const filteredAnnouncements = parsedAnnouncements.filter((announcement) => {
     if (effectiveUserRole === 'student' && announcement.expiresAt && new Date(announcement.expiresAt).getTime() < Date.now()) {
       return false;
@@ -3103,6 +3127,7 @@ const App: React.FC = () => {
                             type="button"
                             onClick={() => {
                               logout();
+                              writeLocalObject(PROFESSOR_REMEMBERED_PASSWORD_STORAGE_KEY, '');
                               setIsAuthenticated(false);
                               setUserRole('student');
                               setPreviewAsStudent(false);
@@ -6383,260 +6408,6 @@ const App: React.FC = () => {
                         </div>
                       )}
 
-                      {canEditResources && (
-                        <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm lg:col-span-2">
-                          <h2 className="text-2xl font-black text-slate-900 mb-2 flex items-center gap-2">
-                            <i className="fas fa-chart-line text-indigo-600"></i>
-                            Compteur d'accès à l'app
-                          </h2>
-                          <p className="text-slate-600 mb-6">
-                            Statistiques cumulées des connexions réussies (depuis le lancement).
-                          </p>
-
-                          {accessMetricsLoading && (
-                            <p className="text-slate-500">Chargement des statistiques...</p>
-                          )}
-
-                          {accessMetricsError && (
-                            <p className="text-rose-600">{accessMetricsError}</p>
-                          )}
-
-                          {!accessMetricsLoading && !accessMetricsError && accessMetrics && (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                              <div className="rounded-2xl border border-slate-200 p-4 bg-slate-50">
-                                <p className="text-xs uppercase tracking-wider text-slate-500 font-bold">Total</p>
-                                <p className="text-3xl font-black text-slate-900">{accessMetrics.total}</p>
-                              </div>
-                              <div className="rounded-2xl border border-slate-200 p-4 bg-slate-50">
-                                <p className="text-xs uppercase tracking-wider text-slate-500 font-bold">Depuis le lancement</p>
-                                <p className="text-lg font-black text-slate-900">
-                                  {accessMetrics.firstAccessAt
-                                    ? new Date(accessMetrics.firstAccessAt).toLocaleDateString('fr-FR')
-                                    : 'N/A'}
-                                </p>
-                              </div>
-                              <div className="rounded-2xl border border-slate-200 p-4 bg-slate-50">
-                                <p className="text-xs uppercase tracking-wider text-slate-500 font-bold">Étudiants</p>
-                                <p className="text-3xl font-black text-slate-900">{accessMetrics.student}</p>
-                              </div>
-                              <div className="rounded-2xl border border-slate-200 p-4 bg-slate-50">
-                                <p className="text-xs uppercase tracking-wider text-slate-500 font-bold">Professeur</p>
-                                <p className="text-3xl font-black text-slate-900">{accessMetrics.professor}</p>
-                              </div>
-                            </div>
-                          )}
-
-                          {!accessMetricsLoading && !accessMetricsError && accessMetrics && (
-                            <p className="text-sm text-slate-500 mt-4">
-                              Dernier accès: {accessMetrics.lastAccessAt
-                                ? new Date(accessMetrics.lastAccessAt).toLocaleString('fr-FR')
-                                : 'Aucun accès enregistré'}
-                            </p>
-                          )}
-
-                          {!accessMetricsLoading && !accessMetricsError && accessMetrics && (
-                            <div className="mt-8 border-t border-slate-200 pt-8">
-                              <h3 className="text-xl font-black text-slate-900 mb-2">Ce mois-ci</h3>
-                              <p className="text-slate-600 mb-6">
-                                Statistiques du mois en cours.
-                              </p>
-
-                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                <div className="rounded-2xl border border-slate-200 p-4 bg-slate-50">
-                                  <p className="text-xs uppercase tracking-wider text-slate-500 font-bold">Total</p>
-                                  <p className="text-3xl font-black text-slate-900">{accessMetrics.monthly.total}</p>
-                                </div>
-                                <div className="rounded-2xl border border-slate-200 p-4 bg-slate-50">
-                                  <p className="text-xs uppercase tracking-wider text-slate-500 font-bold">Étudiants</p>
-                                  <p className="text-3xl font-black text-slate-900">{accessMetrics.monthly.student}</p>
-                                </div>
-                                <div className="rounded-2xl border border-slate-200 p-4 bg-slate-50">
-                                  <p className="text-xs uppercase tracking-wider text-slate-500 font-bold">Professeur</p>
-                                  <p className="text-3xl font-black text-slate-900">{accessMetrics.monthly.professor}</p>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="mt-8 border-t border-slate-200 pt-8">
-                            <h3 className="text-xl font-black text-slate-900 mb-2">Statistiques détaillées</h3>
-                            <p className="text-slate-600 mb-6">
-                              Pages les plus visitées, cours les plus consultés et clics externes.
-                            </p>
-
-                            {analyticsSummaryLoading && (
-                              <p className="text-slate-500">Chargement des statistiques détaillées...</p>
-                            )}
-
-                            {analyticsSummaryError && (
-                              <p className="text-rose-600">{analyticsSummaryError}</p>
-                            )}
-
-                            {!analyticsSummaryLoading && !analyticsSummaryError && analyticsSummary && (
-                              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
-                                  <h4 className="font-black text-slate-900 mb-4">Pages les plus visitées</h4>
-                                  <div className="space-y-3">
-                                    {analyticsSummary.pageViews.length > 0 ? analyticsSummary.pageViews.slice(0, 5).map((entry) => (
-                                      <div key={`page-view-${entry.section}`} className="flex items-center justify-between gap-4">
-                                        <span className="text-slate-700">{entry.section}</span>
-                                        <span className="font-black text-slate-900">{entry.count}</span>
-                                      </div>
-                                    )) : (
-                                      <p className="text-slate-500">Aucune donnée pour le moment.</p>
-                                    )}
-                                  </div>
-                                </div>
-
-                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
-                                  <h4 className="font-black text-slate-900 mb-4">Cours les plus consultés</h4>
-                                  <div className="space-y-3">
-                                    {analyticsSummary.courseViews.length > 0 ? analyticsSummary.courseViews.slice(0, 5).map((entry) => (
-                                      <div key={`course-view-${entry.courseId}`} className="flex items-center justify-between gap-4">
-                                        <span className="text-slate-700">{visibleTopics.find((topic) => topic.id === entry.courseId)?.title || entry.courseId}</span>
-                                        <span className="font-black text-slate-900">{entry.count}</span>
-                                      </div>
-                                    )) : (
-                                      <p className="text-slate-500">Aucune donnée pour le moment.</p>
-                                    )}
-                                  </div>
-                                </div>
-
-                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
-                                  <h4 className="font-black text-slate-900 mb-4">Balado</h4>
-                                  <div className="flex items-center justify-between gap-4">
-                                    <span className="text-slate-700">Ouvertures de la page / épisodes</span>
-                                    <span className="font-black text-slate-900">{analyticsSummary.podcastOpens}</span>
-                                  </div>
-                                </div>
-
-                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
-                                  <h4 className="font-black text-slate-900 mb-4">Recrutement</h4>
-                                  <div className="flex items-center justify-between gap-4">
-                                    <span className="text-slate-700">Ouvertures de la page</span>
-                                    <span className="font-black text-slate-900">{recruitmentPageViews}</span>
-                                  </div>
-                                </div>
-
-                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
-                                  <h4 className="font-black text-slate-900 mb-4">Maîtrise en communication</h4>
-                                  <div className="flex items-center justify-between gap-4">
-                                    <span className="text-slate-700">Ouvertures de la page</span>
-                                    <span className="font-black text-slate-900">{mastersPageViews}</span>
-                                  </div>
-                                </div>
-
-                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
-                                  <h4 className="font-black text-slate-900 mb-4">Clics externes</h4>
-                                  <div className="space-y-3">
-                                    <div className="flex items-center justify-between gap-4">
-                                      <span className="text-slate-700">Blog</span>
-                                      <span className="font-black text-slate-900">{analyticsSummary.externalClicks.blog}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between gap-4">
-                                      <span className="text-slate-700">Contact</span>
-                                      <span className="font-black text-slate-900">{analyticsSummary.externalClicks.contact}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between gap-4">
-                                      <span className="text-slate-700">Zoom</span>
-                                      <span className="font-black text-slate-900">{analyticsSummary.externalClicks.zoom}</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="mt-8 border-t border-slate-200 pt-8">
-                            <h3 className="text-xl font-black text-slate-900 mb-2">Statistiques détaillées du mois</h3>
-                            <p className="text-slate-600 mb-6">
-                              Pages les plus visitées, cours les plus consultés et clics externes pour le mois en cours.
-                            </p>
-
-                            {analyticsSummaryLoading && (
-                              <p className="text-slate-500">Chargement des statistiques détaillées du mois...</p>
-                            )}
-
-                            {analyticsSummaryError && (
-                              <p className="text-rose-600">{analyticsSummaryError}</p>
-                            )}
-
-                            {!analyticsSummaryLoading && !analyticsSummaryError && analyticsSummary && (
-                              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
-                                  <h4 className="font-black text-slate-900 mb-4">Pages les plus visitées</h4>
-                                  <div className="space-y-3">
-                                    {analyticsSummary.monthly.pageViews.length > 0 ? analyticsSummary.monthly.pageViews.slice(0, 5).map((entry) => (
-                                      <div key={`monthly-page-view-${entry.section}`} className="flex items-center justify-between gap-4">
-                                        <span className="text-slate-700">{entry.section}</span>
-                                        <span className="font-black text-slate-900">{entry.count}</span>
-                                      </div>
-                                    )) : (
-                                      <p className="text-slate-500">Aucune donnée pour le moment.</p>
-                                    )}
-                                  </div>
-                                </div>
-
-                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
-                                  <h4 className="font-black text-slate-900 mb-4">Cours les plus consultés</h4>
-                                  <div className="space-y-3">
-                                    {analyticsSummary.monthly.courseViews.length > 0 ? analyticsSummary.monthly.courseViews.slice(0, 5).map((entry) => (
-                                      <div key={`monthly-course-view-${entry.courseId}`} className="flex items-center justify-between gap-4">
-                                        <span className="text-slate-700">{visibleTopics.find((topic) => topic.id === entry.courseId)?.title || entry.courseId}</span>
-                                        <span className="font-black text-slate-900">{entry.count}</span>
-                                      </div>
-                                    )) : (
-                                      <p className="text-slate-500">Aucune donnée pour le moment.</p>
-                                    )}
-                                  </div>
-                                </div>
-
-                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
-                                  <h4 className="font-black text-slate-900 mb-4">Balado</h4>
-                                  <div className="flex items-center justify-between gap-4">
-                                    <span className="text-slate-700">Ouvertures de la page / épisodes</span>
-                                    <span className="font-black text-slate-900">{analyticsSummary.monthly.podcastOpens}</span>
-                                  </div>
-                                </div>
-
-                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
-                                  <h4 className="font-black text-slate-900 mb-4">Recrutement</h4>
-                                  <div className="flex items-center justify-between gap-4">
-                                    <span className="text-slate-700">Ouvertures de la page</span>
-                                    <span className="font-black text-slate-900">{monthlyRecruitmentPageViews}</span>
-                                  </div>
-                                </div>
-
-                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
-                                  <h4 className="font-black text-slate-900 mb-4">Maîtrise en communication</h4>
-                                  <div className="flex items-center justify-between gap-4">
-                                    <span className="text-slate-700">Ouvertures de la page</span>
-                                    <span className="font-black text-slate-900">{monthlyMastersPageViews}</span>
-                                  </div>
-                                </div>
-
-                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
-                                  <h4 className="font-black text-slate-900 mb-4">Clics externes</h4>
-                                  <div className="space-y-3">
-                                    <div className="flex items-center justify-between gap-4">
-                                      <span className="text-slate-700">Blog</span>
-                                      <span className="font-black text-slate-900">{analyticsSummary.monthly.externalClicks.blog}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between gap-4">
-                                      <span className="text-slate-700">Contact</span>
-                                      <span className="font-black text-slate-900">{analyticsSummary.monthly.externalClicks.contact}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between gap-4">
-                                      <span className="text-slate-700">Zoom</span>
-                                      <span className="font-black text-slate-900">{analyticsSummary.monthly.externalClicks.zoom}</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
                     </div>
                   </div>
                 )}
