@@ -1896,28 +1896,35 @@ app.delete("/api/contact-requests/:id", async (req, res) => {
 
 app.get("/api/recruitment", async (_req, res) => {
   try {
+    const orderedIds = await readStoredOrder("notes", RECRUITMENT_COURSE_ID);
     if (hasSupabaseStorage) {
       const rows = await supabaseRequest(
         `notes?course_id=eq.${encodeURIComponent(RECRUITMENT_COURSE_ID)}&select=id,title,content,created_at&order=created_at.desc`,
         { method: "GET" },
       );
-      const offers = (Array.isArray(rows) ? rows : []).map((row) =>
-        parseRecruitmentOffer({
-          id: row.id,
-          title: row.title,
-          content: row.content || "",
-          created_at: row.created_at,
-        }),
+      const offers = applyManualOrder(
+        (Array.isArray(rows) ? rows : []).map((row) =>
+          parseRecruitmentOffer({
+            id: row.id,
+            title: row.title,
+            content: row.content || "",
+            created_at: row.created_at,
+          }),
+        ),
+        orderedIds,
       );
       res.json({ offers });
       return;
     }
 
     const store = await ensureStoreLoaded();
-    const offers = store.notes
-      .filter((note) => note.courseId === RECRUITMENT_COURSE_ID)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .map((note) => parseRecruitmentOffer(note));
+    const offers = applyManualOrder(
+      store.notes
+        .filter((note) => note.courseId === RECRUITMENT_COURSE_ID)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .map((note) => parseRecruitmentOffer(note)),
+      orderedIds,
+    );
     res.json({ offers });
   } catch (error) {
     sendError(res, error);

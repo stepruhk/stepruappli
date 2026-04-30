@@ -1988,19 +1988,9 @@ const App: React.FC = () => {
     return deadline < Date.now();
   };
 
-  const sortedRecruitmentOffers = [...recruitmentOffers].sort((a, b) => {
-    const expiredA = isOfferExpired(a) ? 1 : 0;
-    const expiredB = isOfferExpired(b) ? 1 : 0;
-    if (expiredA !== expiredB) return expiredA - expiredB;
-    const deadlineA = a.applyBy ? new Date(`${a.applyBy}T23:59:59`).getTime() : Number.MAX_SAFE_INTEGER;
-    const deadlineB = b.applyBy ? new Date(`${b.applyBy}T23:59:59`).getTime() : Number.MAX_SAFE_INTEGER;
-    if (deadlineA !== deadlineB) return deadlineA - deadlineB;
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-  });
-
   const visibleRecruitmentOffers = canEditResources
-    ? sortedRecruitmentOffers
-    : sortedRecruitmentOffers.filter((offer) => !isOfferExpired(offer));
+    ? recruitmentOffers
+    : recruitmentOffers.filter((offer) => !isOfferExpired(offer));
 
   const handleRecruitmentLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>, mode: 'create' | 'edit') => {
     const file = event.target.files?.[0];
@@ -2137,6 +2127,27 @@ const App: React.FC = () => {
       console.error(error);
       handleAuthError(error);
       alert(`Impossible de supprimer l'offre. ${getErrorMessage(error)}`);
+    }
+  };
+
+  const moveRecruitmentOffer = async (offerId: string, direction: 'up' | 'down') => {
+    const current = recruitmentOffers;
+    const index = current.findIndex((offer) => offer.id === offerId);
+    if (index === -1) return;
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= current.length) return;
+
+    const next = [...current];
+    [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+    setRecruitmentOffers(next);
+
+    try {
+      await persistOrder('notes', RECRUITMENT_COURSE_ID, next.map((offer) => offer.id));
+    } catch (error) {
+      console.error(error);
+      setRecruitmentOffers(current);
+      handleAuthError(error);
+      alert(`Impossible de changer l'ordre des offres. ${getErrorMessage(error)}`);
     }
   };
 
@@ -5542,6 +5553,26 @@ const App: React.FC = () => {
 
                               {canEditResources && (
                                 <div className="flex flex-wrap items-center gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => { void moveRecruitmentOffer(offer.id, 'up'); }}
+                                    disabled={recruitmentOffers.findIndex((entry) => entry.id === offer.id) === 0}
+                                    className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-slate-700 font-bold hover:bg-slate-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                    title="Monter"
+                                  >
+                                    <i className="fas fa-arrow-up"></i>
+                                    Monter
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => { void moveRecruitmentOffer(offer.id, 'down'); }}
+                                    disabled={recruitmentOffers.findIndex((entry) => entry.id === offer.id) === recruitmentOffers.length - 1}
+                                    className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-slate-700 font-bold hover:bg-slate-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                    title="Descendre"
+                                  >
+                                    <i className="fas fa-arrow-down"></i>
+                                    Descendre
+                                  </button>
                                   <button
                                     type="button"
                                     onClick={() => startEditRecruitmentOffer(offer)}
