@@ -99,7 +99,6 @@ const PROFESSOR_LITERATURE_PREFIX = '[LITERATURE] ';
 const ARCHIVED_RESOURCE_PREFIX = '[ARCHIVED] ';
 const FAVORITES_STORAGE_KEY = 'eduboost_favorites_v1';
 const STUDENT_PROGRESS_STORAGE_KEY = 'eduboost_student_progress_v1';
-const ONBOARDING_STORAGE_KEY = 'eduboost_onboarding_seen_v1';
 const CONTACT_REQUESTS_LAST_SEEN_STORAGE_KEY = 'eduboost_contact_requests_last_seen_v1';
 const PROFESSOR_REMEMBERED_PASSWORD_STORAGE_KEY = 'eduboost_professor_password_v1';
 const ANNOUNCEMENTS_LAST_SEEN_STORAGE_KEY = 'eduboost_announcements_last_seen_v1';
@@ -478,7 +477,6 @@ const App: React.FC = () => {
   const [previewAsStudent, setPreviewAsStudent] = useState(false);
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [studentProgressByCourse, setStudentProgressByCourse] = useState<Record<string, StudentCourseProgress>>({});
-  const [showOnboarding, setShowOnboarding] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [announcementTitle, setAnnouncementTitle] = useState('');
   const [announcementMessage, setAnnouncementMessage] = useState('');
@@ -814,12 +812,6 @@ const App: React.FC = () => {
 
     void preloadDashboardData();
   }, [authChecked, isAuthenticated, accessibleTopicIds, isProfessor]);
-
-  useEffect(() => {
-    if (!authChecked || !isAuthenticated || effectiveUserRole !== 'student') return;
-    if (readLocalObject<boolean>(ONBOARDING_STORAGE_KEY, false)) return;
-    setShowOnboarding(true);
-  }, [authChecked, isAuthenticated, effectiveUserRole]);
 
   useEffect(() => {
     if (!isAuthenticated || effectiveUserRole !== 'student' || menuSection !== 'ANNONCES') return;
@@ -2793,11 +2785,6 @@ const App: React.FC = () => {
     } else {
       navigateToMenuSection('MAITRISE');
     }
-  };
-
-  const dismissOnboarding = () => {
-    writeLocalObject(ONBOARDING_STORAGE_KEY, true);
-    setShowOnboarding(false);
   };
 
   const ensureCourseSession = async (courseId: string, skipLockCheck = false): Promise<Flashcard[]> => {
@@ -6605,43 +6592,6 @@ const App: React.FC = () => {
           </>
         )}
       </main>
-
-      {showOnboarding && effectiveUserRole === 'student' && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/55 p-4">
-          <div className="flex min-h-full items-start justify-center py-4 md:items-center">
-            <div className="w-full max-w-2xl max-h-[calc(100vh-2rem)] overflow-y-auto rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl md:p-8">
-            <h2 className="mt-2 text-3xl font-black text-slate-900">Comment utiliser la plateforme</h2>
-            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                <h3 className="font-black text-slate-900">Par où commencer</h3>
-                <p className="mt-2 text-slate-600">Va sur la page Accueil pour voir les dernières annonces, les nouveaux contenus et ce qu&apos;il y a à faire cette semaine.</p>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                <h3 className="font-black text-slate-900">Où trouver vos contenus</h3>
-                <p className="mt-2 text-slate-600">Chaque cours possède son propre contenu, ses lectures et ses cartes mémo. La section Cours est le meilleur point de départ.</p>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                <h3 className="font-black text-slate-900">Comment réviser avec les cartes mémo</h3>
-                <p className="mt-2 text-slate-600">Ouvre Cartes mémo, charge les cartes du cours puis lance la révision en mode flashcards.</p>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                <h3 className="font-black text-slate-900">Fonctions utiles</h3>
-                <p className="mt-2 text-slate-600">Tu peux enregistrer des favoris, utiliser la recherche globale, écouter le balado et consulter les annonces importantes.</p>
-              </div>
-            </div>
-            <div className="mt-6 flex justify-end">
-              <button
-                type="button"
-                onClick={dismissOnboarding}
-                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-white font-bold hover:bg-indigo-700 transition-colors"
-              >
-                C&apos;est compris
-              </button>
-            </div>
-          </div>
-          </div>
-        </div>
-      )}
 
       {showContactModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4">
