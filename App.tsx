@@ -1441,7 +1441,6 @@ const App: React.FC = () => {
     { label: 'Dans les médias', icon: 'fa-newspaper', key: 'MEDIAS' as const },
     { label: 'Contact', icon: 'fa-envelope', key: 'CONTACT' as const },
   ];
-  const isToolsLockedForStudents = effectiveUserRole === 'student';
   const unreadContactRequestsCount = isProfessor
     ? contactRequests.filter((request) => {
         if (!contactRequestsLastSeenAt) return true;
@@ -1505,8 +1504,7 @@ const App: React.FC = () => {
     if (key === 'CONTACT') return unreadContactRequestsCount;
     return 0;
   };
-  const isMenuItemDisabled = (key: typeof mainMenuItems[number]['key']) =>
-    key === 'OUTILS' && isToolsLockedForStudents;
+  const isMenuItemDisabled = (_key: typeof mainMenuItems[number]['key']) => false;
   const recentAnnouncementCount = parsedAnnouncements.filter(
     (announcement) => isRecentDate(announcement.createdAt) && (!announcement.expiresAt || new Date(announcement.expiresAt).getTime() >= Date.now()),
   ).length;
@@ -2848,9 +2846,6 @@ const App: React.FC = () => {
   };
 
   const navigateToMenuSection = (section: MenuSection) => {
-    if (section === 'OUTILS' && isToolsLockedForStudents) {
-      return;
-    }
     if (section === 'ACCUEIL') {
       setMenuSection('ACCUEIL');
       setView(AppView.DASHBOARD);
@@ -6113,26 +6108,24 @@ const App: React.FC = () => {
                     <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
                       <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">Outils</h1>
                       <p className="text-slate-600 text-lg">
-                        Section en préparation.
+                        Des outils pratiques seront ajoutés ici progressivement pour soutenir l’analyse et la planification.
                       </p>
                     </div>
 
                     <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-                      {isProfessor ? (
-                        <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-6">
-                          <h2 className="text-2xl font-black text-slate-900 mb-3">Section vide pour l’instant</h2>
-                          <p className="text-slate-700 text-lg">
-                            Tu pourras y ajouter des outils plus tard.
-                          </p>
+                      <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-6">
+                        <h2 className="text-2xl font-black text-slate-900 mb-4">Outils à venir</h2>
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-4">
+                            <i className="fas fa-project-diagram text-indigo-600"></i>
+                            <span className="text-lg font-semibold text-slate-900">Cartographie des parties prenantes</span>
+                          </div>
+                          <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-4">
+                            <i className="fas fa-sitemap text-indigo-600"></i>
+                            <span className="text-lg font-semibold text-slate-900">Cartographie des enjeux</span>
+                          </div>
                         </div>
-                      ) : (
-                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
-                          <h2 className="text-2xl font-black text-slate-900 mb-3">Section réservée au mode professeur</h2>
-                          <p className="text-slate-700 text-lg">
-                            Cette section est visible dans le menu, mais elle n’est pas accessible en mode étudiant.
-                          </p>
-                        </div>
-                      )}
+                      </div>
                     </div>
                   </div>
                 )}
