@@ -42,7 +42,7 @@ import {
 } from './services/openaiService.ts';
 import FlashcardDeck from './components/FlashcardDeck.tsx';
 
-type MenuSection = 'ACCUEIL' | 'COURS' | 'ANNONCES' | 'MEMO' | 'BALADO' | 'BLOG' | 'ASSISTANT' | 'RECRUTEMENT' | 'MAITRISE' | 'MEDIAS' | 'CONTACT';
+type MenuSection = 'ACCUEIL' | 'COURS' | 'ANNONCES' | 'MEMO' | 'BALADO' | 'BLOG' | 'ASSISTANT' | 'OUTILS' | 'RECRUTEMENT' | 'MAITRISE' | 'MEDIAS' | 'CONTACT';
 type PodcastEpisode = {
   title: string;
   link?: string;
@@ -1437,9 +1437,11 @@ const App: React.FC = () => {
     { label: 'Balado', icon: 'fa-podcast', key: 'BALADO' as const },
     { label: 'Blog', icon: 'fa-newspaper', key: 'BLOG' as const },
     { label: 'Assistant IA', icon: 'fa-robot', key: 'ASSISTANT' as const },
+    { label: 'Outils', icon: 'fa-toolbox', key: 'OUTILS' as const },
     { label: 'Dans les médias', icon: 'fa-newspaper', key: 'MEDIAS' as const },
     { label: 'Contact', icon: 'fa-envelope', key: 'CONTACT' as const },
   ];
+  const isToolsLockedForStudents = effectiveUserRole === 'student';
   const unreadContactRequestsCount = isProfessor
     ? contactRequests.filter((request) => {
         if (!contactRequestsLastSeenAt) return true;
@@ -1503,6 +1505,8 @@ const App: React.FC = () => {
     if (key === 'CONTACT') return unreadContactRequestsCount;
     return 0;
   };
+  const isMenuItemDisabled = (key: typeof mainMenuItems[number]['key']) =>
+    key === 'OUTILS' && isToolsLockedForStudents;
   const recentAnnouncementCount = parsedAnnouncements.filter(
     (announcement) => isRecentDate(announcement.createdAt) && (!announcement.expiresAt || new Date(announcement.expiresAt).getTime() >= Date.now()),
   ).length;
@@ -2844,6 +2848,9 @@ const App: React.FC = () => {
   };
 
   const navigateToMenuSection = (section: MenuSection) => {
+    if (section === 'OUTILS' && isToolsLockedForStudents) {
+      return;
+    }
     if (section === 'ACCUEIL') {
       setMenuSection('ACCUEIL');
       setView(AppView.DASHBOARD);
@@ -2973,13 +2980,17 @@ const App: React.FC = () => {
               <div className="flex gap-2 overflow-x-auto pb-2">
                 {mainMenuItems.map((item) => {
                   const badgeCount = getMenuBadgeCount(item.key);
+                  const disabled = isMenuItemDisabled(item.key);
                   return (
                     <button
                       key={`mobile-${item.label}`}
                       type="button"
                       onClick={() => navigateToMenuSection(item.key)}
+                      disabled={disabled}
                       className={`shrink-0 inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-bold border transition-colors ${
-                        menuSection === item.key
+                        disabled
+                          ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                          : menuSection === item.key
                           ? 'bg-indigo-600 text-white border-indigo-600'
                           : 'bg-white text-slate-700 border-slate-300'
                       }`}
@@ -3020,13 +3031,17 @@ const App: React.FC = () => {
                   <nav className="space-y-2">
                     {mainMenuItems.map((item) => {
                       const badgeCount = getMenuBadgeCount(item.key);
+                      const disabled = isMenuItemDisabled(item.key);
                       return (
                         <button
                           key={item.label}
                           type="button"
                           onClick={() => navigateToMenuSection(item.key)}
+                          disabled={disabled}
                           className={`w-full flex items-center gap-3 px-4 py-4 rounded-2xl text-left font-extrabold text-xl transition-colors ${
-                            item.key && menuSection === item.key
+                            disabled
+                              ? 'text-slate-600 bg-slate-900/40 cursor-not-allowed opacity-70'
+                              : item.key && menuSection === item.key
                               ? 'bg-indigo-600 text-white'
                               : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/70'
                           }`}
@@ -6089,6 +6104,35 @@ const App: React.FC = () => {
                         <i className="fas fa-robot"></i>
                         Ouvrir l'Assistant IA
                       </a>
+                    </div>
+                  </div>
+                )}
+
+                {menuSection === 'OUTILS' && (
+                  <div className="space-y-8">
+                    <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                      <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">Outils</h1>
+                      <p className="text-slate-600 text-lg">
+                        Section en préparation.
+                      </p>
+                    </div>
+
+                    <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                      {isProfessor ? (
+                        <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-6">
+                          <h2 className="text-2xl font-black text-slate-900 mb-3">Section vide pour l’instant</h2>
+                          <p className="text-slate-700 text-lg">
+                            Tu pourras y ajouter des outils plus tard.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
+                          <h2 className="text-2xl font-black text-slate-900 mb-3">Section réservée au mode professeur</h2>
+                          <p className="text-slate-700 text-lg">
+                            Cette section est visible dans le menu, mais elle n’est pas accessible en mode étudiant.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
