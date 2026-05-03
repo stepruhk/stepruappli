@@ -3014,16 +3014,16 @@ const App: React.FC = () => {
             <div className="lg:flex lg:items-start lg:gap-8">
               <aside className="hidden lg:block lg:w-64 xl:w-72 shrink-0">
                 <div
-                  className="sticky top-6 h-[calc(100vh-3rem)] rounded-[28px] border border-slate-800/70 p-4 text-slate-300 shadow-2xl shadow-slate-950/80 flex flex-col"
+                  className="sticky top-6 h-[calc(100vh-3rem)] rounded-[28px] border border-slate-800/70 p-4 text-slate-300 shadow-2xl shadow-slate-950/80 flex flex-col overflow-hidden"
                   style={{
                     backgroundColor: '#020617',
                     backgroundImage:
                       'radial-gradient(circle at 85% 0%, rgba(59,130,246,0.20) 0%, rgba(2,6,23,0) 34%), radial-gradient(circle at 0% 100%, rgba(56,189,248,0.10) 0%, rgba(2,6,23,0) 48%)',
                   }}
                 >
-                  <p className="text-xs tracking-[0.24em] font-extrabold uppercase text-slate-500 mb-4">Menu principal</p>
+                  <p className="text-[11px] tracking-[0.22em] font-extrabold uppercase text-slate-500 mb-3">Menu principal</p>
 
-                  <nav className="space-y-2">
+                  <nav className="space-y-1.5 flex-1 min-h-0 overflow-y-auto pr-1">
                     {mainMenuItems.map((item) => {
                       const badgeCount = getMenuBadgeCount(item.key);
                       const disabled = isMenuItemDisabled(item.key);
@@ -3033,7 +3033,7 @@ const App: React.FC = () => {
                           type="button"
                           onClick={() => navigateToMenuSection(item.key)}
                           disabled={disabled}
-                          className={`w-full flex items-center gap-3 px-4 py-4 rounded-2xl text-left font-extrabold text-xl transition-colors ${
+                          className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-left font-extrabold text-[1.08rem] leading-tight transition-colors ${
                             disabled
                               ? 'text-slate-600 bg-slate-900/40 cursor-not-allowed opacity-70'
                               : item.key && menuSection === item.key
@@ -3053,7 +3053,7 @@ const App: React.FC = () => {
                     })}
                   </nav>
 
-                  <div className="mt-auto pt-6">
+                  <div className="pt-4">
                     <button
                       type="button"
                       onClick={() => {
@@ -3061,7 +3061,7 @@ const App: React.FC = () => {
                         setView(AppView.DASHBOARD);
                         setSelectedTopic(null);
                       }}
-                      className="w-full flex items-center justify-center gap-2 rounded-2xl bg-slate-900/90 border border-slate-800 px-4 py-4 text-xl font-extrabold text-slate-100 hover:bg-slate-800 transition-colors"
+                      className="w-full flex items-center justify-center gap-2 rounded-2xl bg-slate-900/90 border border-slate-800 px-4 py-3 text-lg font-extrabold text-slate-100 hover:bg-slate-800 transition-colors"
                     >
                       <i className="fas fa-right-left text-base"></i>
                       Changer de cours
