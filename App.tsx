@@ -6108,7 +6108,7 @@ const App: React.FC = () => {
                     <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
                       <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">Outils</h1>
                       <p className="text-slate-600 text-lg">
-                        Des outils pratiques seront ajoutés ici progressivement pour soutenir l’analyse et la planification.
+                        Des outils pratiques et interactifs seront ajoutés ici progressivement pour soutenir l’analyse et la planification.
                       </p>
                     </div>
 
