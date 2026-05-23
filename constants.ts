@@ -60,7 +60,7 @@ export const INITIAL_TOPICS: Topic[] = [
   },
   {
     id: '6',
-    title: 'Mesure et évaluation en RP',
+    title: 'Recherche, mesure, évaluation et analyse de données',
     description: 'Contenu à venir.',
     category: 'Communication',
     icon: 'fa-book-open',
