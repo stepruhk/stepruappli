@@ -5,7 +5,7 @@ export const INITIAL_TOPICS: Topic[] = [
   {
     id: '1',
     title: 'Communication avec les médias et les influenceurs',
-    description: "Gérer l'image de marque et optimiser les collaborations stratégiques.",
+    description: "Gérer l'image et la réputation en optimisant les collaborations stratégiques avec les journalistes et les influenceurs.",
     category: 'Communication',
     icon: 'fa-book-open',
     content: `Ce module couvre les stratégies de collaboration avec les médias et les créateurs de contenu. 
