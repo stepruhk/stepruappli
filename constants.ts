@@ -4,7 +4,7 @@ import { Topic } from './types';
 export const INITIAL_TOPICS: Topic[] = [
   {
     id: '1',
-    title: 'Relations médias et influenceurs',
+    title: 'Communication avec les médias et les influenceurs',
     description: "Gérer l'image de marque et optimiser les collaborations stratégiques.",
     category: 'Communication',
     icon: 'fa-book-open',

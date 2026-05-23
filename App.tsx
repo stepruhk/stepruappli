@@ -118,7 +118,7 @@ const MAITRISE_CATEGORY_OPTIONS: { value: MaitriseLinkCategory; label: string }[
 const CONTACT_GENERAL_OPTION = 'Mot de passe général de l’appli';
 const CONTACT_MASTERS_OPTION = 'Discutez des programmes de maîtrise en communication';
 const CONTACT_COURSE_OPTIONS = [
-  'Relations médias et influenceurs',
+  'Communication avec les médias et les influenceurs',
   'Relations de presse',
   'Intro à la comm strat',
   'Théories de la communication',
