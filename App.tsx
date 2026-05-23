@@ -3950,9 +3950,11 @@ const App: React.FC = () => {
                         </span>
                       </div>
                       <h1 className="text-4xl font-black text-slate-900 mb-6 leading-tight">{selectedTopic.title}</h1>
-                      <div className="h-24 flex items-center justify-center bg-slate-50 rounded-xl text-slate-500">
-                        Contenu à venir pour ce cours.
-                      </div>
+                      {selectedTopic.id !== '1' && (
+                        <div className="h-24 flex items-center justify-center bg-slate-50 rounded-xl text-slate-500">
+                          Contenu à venir pour ce cours.
+                        </div>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
