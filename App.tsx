@@ -3952,7 +3952,7 @@ const App: React.FC = () => {
                       <h1 className="text-4xl font-black text-slate-900 mb-6 leading-tight">{selectedTopic.title}</h1>
                       {selectedTopic.id === '1' ? (
                         <p className="text-lg leading-8 text-slate-700">
-                          Les relations médias et influenceurs vous plonge dans les stratégies actuelles qui façonnent l’espace médiatique. Vous apprendrez à travailler avec les journalistes, créateur(trice)s de contenu, influenceur(e)s et leaders d’opinion afin de bâtir la confiance, la crédibilité, et la légitimité, gérer la notoriété et le rayonnement pour créer de l’influence. Le cours combine théories et cadres conceptuels, études de cas, simulations et outils concrets utilisés en communication stratégique et relations publiques.
+                          Les relations de presse vous plongent dans les stratégies actuelles qui façonnent l’espace médiatique. Vous apprendrez à travailler avec les journalistes, créateur(trice)s de contenu, influenceur(e)s et leaders d’opinion afin de bâtir la confiance, la crédibilité, et la légitimité, gérer la notoriété et le rayonnement pour créer de l’influence. Le cours combine théories et cadres conceptuels, études de cas, simulations et outils concrets utilisés en communication stratégique et relations publiques.
                         </p>
                       ) : selectedTopic.id === '8' ? (
                         <p className="text-lg leading-8 text-slate-700">
