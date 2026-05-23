@@ -15,7 +15,7 @@ export const INITIAL_TOPICS: Topic[] = [
   {
     id: '8',
     title: 'Relations de presse',
-    description: "Gérer l'image de marque et optimiser les collaborations stratégiques.",
+    description: "Gérer l'image et la réputation en optimisant les collaborations stratégiques avec les journalistes.",
     category: 'Communication',
     icon: 'fa-book-open',
     content: `Ce module couvre les stratégies de collaboration avec les médias et les créateurs de contenu. 
