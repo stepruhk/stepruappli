@@ -33,6 +33,14 @@ export const INITIAL_TOPICS: Topic[] = [
     Une partie est dédiée à la mesure des résultats et à l'optimisation continue des campagnes.`
   },
   {
+    id: '6',
+    title: 'Recherche, mesure, évaluation et analyse de données',
+    description: 'Contenu à venir.',
+    category: 'Communication',
+    icon: 'fa-book-open',
+    content: ''
+  },
+  {
     id: '3',
     title: 'Théories de la communication',
     description: "Analyse approfondie des approches, des modèles et des paradigmes appliqués dans un contexte récent.",
@@ -53,14 +61,6 @@ export const INITIAL_TOPICS: Topic[] = [
   {
     id: '5',
     title: 'Ingénierie de la crédibilité Ⓡ',
-    description: 'Contenu à venir.',
-    category: 'Communication',
-    icon: 'fa-book-open',
-    content: ''
-  },
-  {
-    id: '6',
-    title: 'Recherche, mesure, évaluation et analyse de données',
     description: 'Contenu à venir.',
     category: 'Communication',
     icon: 'fa-book-open',
