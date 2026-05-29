@@ -6142,6 +6142,10 @@ const App: React.FC = () => {
                             <i className="fas fa-chart-bar text-indigo-600"></i>
                             <span className="text-lg font-semibold text-slate-900">Diagramme de Gantt</span>
                           </div>
+                          <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-4">
+                            <i className="fas fa-bullhorn text-indigo-600"></i>
+                            <span className="text-lg font-semibold text-slate-900">Modèle de plan de rayonnement</span>
+                          </div>
                         </div>
                       </div>
                     </div>
