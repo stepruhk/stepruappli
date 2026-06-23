@@ -121,6 +121,7 @@ const CONTACT_COURSE_OPTIONS = [
   'Communication avec les médias et les influenceurs',
   'Relations de presse',
   'Intro à la comm strat',
+  'Recherche, mesure, évaluation et analyse de données',
   'Théories de la communication',
   'Gérer la réputation',
   'Influence',
