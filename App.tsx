@@ -6337,7 +6337,7 @@ const App: React.FC = () => {
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm lg:col-span-2">
+                      <div className="bg-white rounded-3xl border border-slate-200 p-5 md:p-8 shadow-sm lg:col-span-2">
                         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
                           <div className="max-w-2xl">
                             <h2 className="text-2xl font-black text-slate-900 mb-3 flex items-center gap-2">
@@ -6363,7 +6363,7 @@ const App: React.FC = () => {
                       </div>
 
                       {effectiveUserRole === 'student' && (
-                        <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm lg:col-span-2">
+                        <div className="bg-white rounded-3xl border border-slate-200 p-5 md:p-8 shadow-sm lg:col-span-2">
                           <h2 className="text-2xl font-black text-slate-900 mb-3 flex items-center gap-2">
                             <i className="fas fa-envelope text-indigo-600"></i>
                             Formulaire de contact
@@ -6654,8 +6654,8 @@ const App: React.FC = () => {
       </main>
 
       {showContactModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4">
-          <div className="w-full max-w-3xl rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/55 p-3 md:p-4">
+          <div className="mx-auto my-4 w-full max-w-3xl rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl md:my-8 md:p-8">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-sm font-bold uppercase tracking-[0.2em] text-indigo-500">Contact</p>
