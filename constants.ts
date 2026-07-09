@@ -23,6 +23,22 @@ export const INITIAL_TOPICS: Topic[] = [
     Le cours inclut aussi la gestion de crise sur les réseaux sociaux et les indicateurs de performance: portée, engagement, sentiment et conversion.`
   },
   {
+    id: '9',
+    title: 'Communication, cognition, émotions',
+    description: 'Contenu à venir.',
+    category: 'Communication',
+    icon: 'fa-book-open',
+    content: ''
+  },
+  {
+    id: '10',
+    title: 'Communication stratégique : idéation, conception et planification',
+    description: 'Contenu à venir.',
+    category: 'Communication',
+    icon: 'fa-book-open',
+    content: ''
+  },
+  {
     id: '2',
     title: 'Introduction à la comm strat',
     description: 'Les fondements et les leviers de la communication stratégique moderne.',
