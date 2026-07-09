@@ -25,6 +25,10 @@ services:
         sync: false
       - key: COURSE_PASSWORD_8
         sync: false
+      - key: COURSE_PASSWORD_9
+        sync: false
+      - key: COURSE_PASSWORD_10
+        sync: false
       - key: COURSE_PASSWORD_4
         sync: false
       - key: COURSE_PASSWORD_5
