@@ -2,7 +2,7 @@ services:
   - type: web
     name: eduboost-ai
     runtime: node
-    plan: free
+    plan: starter
     autoDeploy: true
     rootDir: .
     buildCommand: npm install && npm run build
