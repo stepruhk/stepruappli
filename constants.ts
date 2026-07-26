@@ -3,6 +3,14 @@ import { Topic } from './types';
 
 export const INITIAL_TOPICS: Topic[] = [
   {
+    id: '6',
+    title: 'Recherche, mesure, évaluation et analyse de données',
+    description: 'Contenu à venir.',
+    category: 'Communication',
+    icon: 'fa-book-open',
+    content: ''
+  },
+  {
     id: '1',
     title: 'Communication avec les médias et les influenceurs',
     description: "Gérer l'image et la réputation en optimisant les collaborations stratégiques avec les journalistes et les influenceurs.",
@@ -55,14 +63,6 @@ export const INITIAL_TOPICS: Topic[] = [
     content: `Ce cours introduit les principes essentiels de la communication stratégique: positionnement, segmentation, objectifs, message central et cohérence multicanale.
     Vous apprendrez à construire un plan de communication avec une logique d'impact, à choisir les bons canaux et à adapter le ton selon les publics.
     Une partie est dédiée à la mesure des résultats et à l'optimisation continue des campagnes.`
-  },
-  {
-    id: '6',
-    title: 'Recherche, mesure, évaluation et analyse de données',
-    description: 'Contenu à venir.',
-    category: 'Communication',
-    icon: 'fa-book-open',
-    content: ''
   },
   {
     id: '3',
