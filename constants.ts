@@ -13,6 +13,14 @@ export const INITIAL_TOPICS: Topic[] = [
     Le cours inclut aussi la gestion de crise sur les réseaux sociaux et les indicateurs de performance: portée, engagement, sentiment et conversion.`
   },
   {
+    id: '11',
+    title: 'Analyse stratégique en communication',
+    description: 'Contenu à venir.',
+    category: 'Communication',
+    icon: 'fa-book-open',
+    content: ''
+  },
+  {
     id: '8',
     title: 'Relations de presse',
     description: "Gérer l'image et la réputation en optimisant les collaborations stratégiques avec les journalistes.",
