@@ -36,6 +36,7 @@ Ces variables doivent exister dans Render -> `Environment`.
 - `COURSE_PASSWORD_8`
 - `COURSE_PASSWORD_9`
 - `COURSE_PASSWORD_10`
+- `COURSE_PASSWORD_11`
 - `COURSE_PASSWORD_4`
 - `COURSE_PASSWORD_5`
 - `COURSE_PASSWORD_6`
@@ -49,6 +50,7 @@ Correspondance actuelle:
 - `COURSE_PASSWORD_8` -> `Relations de presse`
 - `COURSE_PASSWORD_9` -> `Communication, cognition, emotions`
 - `COURSE_PASSWORD_10` -> `Communication strategique : ideation, conception et planification`
+- `COURSE_PASSWORD_11` -> `Analyse strategique en communication`
 - `COURSE_PASSWORD_4` -> `Gerer la reputation`
 - `COURSE_PASSWORD_5` -> `Ingenierie de la credibilite (R)`
 - `COURSE_PASSWORD_6` -> `Recherche, mesure, evaluation et analyse de donnees`
