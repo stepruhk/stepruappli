@@ -11,16 +11,6 @@ export const INITIAL_TOPICS: Topic[] = [
     content: ''
   },
   {
-    id: '1',
-    title: 'Communication avec les médias et les influenceurs',
-    description: "Gérer l'image et la réputation en optimisant les collaborations stratégiques avec les journalistes et les influenceurs.",
-    category: 'Communication',
-    icon: 'fa-book-open',
-    content: `Ce module couvre les stratégies de collaboration avec les médias et les créateurs de contenu. 
-    Vous étudierez la cartographie des parties prenantes, la négociation de partenariats, et les critères de sélection d'influenceurs alignés avec l'identité de marque.
-    Le cours inclut aussi la gestion de crise sur les réseaux sociaux et les indicateurs de performance: portée, engagement, sentiment et conversion.`
-  },
-  {
     id: '11',
     title: 'Analyse stratégique en communication',
     description: 'Contenu à venir.',
@@ -43,6 +33,16 @@ export const INITIAL_TOPICS: Topic[] = [
     category: 'Communication',
     icon: 'fa-book-open',
     content: ''
+  },
+  {
+    id: '1',
+    title: 'Communication avec les médias et les influenceurs',
+    description: "Gérer l'image et la réputation en optimisant les collaborations stratégiques avec les journalistes et les influenceurs.",
+    category: 'Communication',
+    icon: 'fa-book-open',
+    content: `Ce module couvre les stratégies de collaboration avec les médias et les créateurs de contenu. 
+    Vous étudierez la cartographie des parties prenantes, la négociation de partenariats, et les critères de sélection d'influenceurs alignés avec l'identité de marque.
+    Le cours inclut aussi la gestion de crise sur les réseaux sociaux et les indicateurs de performance: portée, engagement, sentiment et conversion.`
   },
   {
     id: '8',
