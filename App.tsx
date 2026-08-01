@@ -3,7 +3,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Topic, AppView, StudySession, Flashcard, FlashcardCommonMistake } from './types.ts';
 import { INITIAL_TOPICS } from './constants.ts';
 import ciLogo from './assets/ci-logo.png';
-import assistantLogo from './assets/assistant-logo.png';
 import {
   checkAuthStatus,
   createRecruitmentOffer,
@@ -3044,11 +3043,7 @@ const App: React.FC = () => {
                               : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/70'
                           }`}
                         >
-                          {item.key === 'ASSISTANT' ? (
-                            <img src={assistantLogo} alt="" className="h-6 w-6 rounded-full bg-white object-cover" />
-                          ) : (
-                            <i className={`fas ${item.icon} text-lg`}></i>
-                          )}
+                          <i className={`fas ${item.icon} text-lg`}></i>
                           <span>{item.label}</span>
                           {badgeCount > 0 && (
                             <span className="ml-auto rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">
@@ -6117,7 +6112,7 @@ const App: React.FC = () => {
                         rel="noreferrer"
                         className="mt-6 inline-flex items-center gap-3 rounded-xl bg-indigo-600 px-6 py-3 text-white font-bold hover:bg-indigo-700 transition-colors"
                       >
-                        <img src={assistantLogo} alt="" className="h-7 w-7 rounded-full bg-white object-cover" />
+                        <i className="fas fa-robot"></i>
                         Ouvrir l'Assistant IA
                       </a>
                     </div>
