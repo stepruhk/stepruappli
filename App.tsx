@@ -2924,7 +2924,10 @@ const App: React.FC = () => {
 
               <div className="w-full bg-white/95 backdrop-blur rounded-3xl shadow-2xl p-8 border border-white/70">
                 <h2 className="text-3xl font-black text-slate-900 mb-2">Accès protégé</h2>
-                <p className="text-slate-600 mb-6">Entrez le mot de passe pour accéder à l'application.</p>
+                <div className="mb-6 space-y-1 text-slate-600">
+                  <p>Entrez le mot de passe pour accéder à l'application.</p>
+                  <p>Entrez le mot de passe pour accéder à l'assistant IA gratuit.</p>
+                </div>
 
                 <form onSubmit={handleLogin} className="space-y-4">
                   <label className="block">
