@@ -6104,6 +6104,9 @@ const App: React.FC = () => {
                         <p className="text-slate-700 text-lg">
                           Cliquez sur le bouton ci-dessous pour ouvrir l'assistant chatGPT entraîné pour les étudiant(e)s en comms et RP et posez vos questions reliées au cours, à la communication et aux relations publiques.
                         </p>
+                        <p className="mt-4 text-slate-700 text-lg">
+                          Un agent conversationnel multilingue pour vous aider et guider dans votre apprentissage et dans le début de votre carrière. Il n'est pas très bon en rédaction, mais il excelle dans les Q/R et dans l'explication de haut niveau de concepts et de théories, pour vous aider à mieux apprendre. Demandez-lui n'importe quoi !
+                        </p>
                       </div>
 
                       <a
