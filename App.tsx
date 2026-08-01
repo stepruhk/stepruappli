@@ -117,15 +117,7 @@ const MAITRISE_CATEGORY_OPTIONS: { value: MaitriseLinkCategory; label: string }[
 ];
 const CONTACT_GENERAL_OPTION = 'Mot de passe général de l’appli';
 const CONTACT_MASTERS_OPTION = 'Discutez des programmes de maîtrise en communication';
-const CONTACT_COURSE_OPTIONS = [
-  'Communication avec les médias et les influenceurs',
-  'Relations de presse',
-  'Intro à la comm strat',
-  'Recherche, mesure, évaluation et analyse de données',
-  'Théories de la communication',
-  'Gérer la réputation',
-  'Influence',
-];
+const CONTACT_COURSE_OPTIONS = INITIAL_TOPICS.map((topic) => topic.title);
 const RECRUITMENT_TYPE_OPTIONS: { value: RecruitmentOpportunityType; label: string }[] = [
   { value: 'STAGE_REMUNERE', label: 'Stage (rémunéré)' },
   { value: 'STAGE_NON_REMUNERE', label: 'Stage (non rémunéré)' },
@@ -939,6 +931,15 @@ const App: React.FC = () => {
     }
     if (message.includes('UNAUTHORIZED') || message.includes('INVALID_CREDENTIALS')) {
       return 'Session expirée. Reconnecte-toi puis réessaie.';
+    }
+    if (
+      message.includes('STORAGE_UNAVAILABLE') ||
+      message.includes('STORAGE_ERROR') ||
+      message.includes('Storage backend request failed') ||
+      message.includes('fetch failed') ||
+      message.includes('Failed to fetch')
+    ) {
+      return 'La base de données est momentanément indisponible. Réessaie plus tard ou vérifie que Supabase est actif.';
     }
     return message || 'Erreur inconnue.';
   };
