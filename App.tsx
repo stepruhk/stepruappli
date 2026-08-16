@@ -394,6 +394,17 @@ const App: React.FC = () => {
   const spotifyShowUrl = 'https://open.spotify.com/show/4C0DeBIvVZjRbM6MUOylOT?si=VZGKDnooR52E7qbZZ2aweA';
   const blogUrl = 'https://stepru.wordpress.com';
   const assistantUrl = 'https://chatgpt.com/g/g-ZltU00p7B-stepru-the-comms-professor';
+  const assistantSuggestedPrompt = `Je suis étudiant(e) en communication ou en relations publiques. Aide-moi à comprendre ce concept comme un professeur patient et clair.
+
+Voici ma question :
+[écris ta question ici]
+
+Explique-moi la réponse simplement, avec :
+1. une définition claire;
+2. un exemple concret relié aux communications, aux relations publiques ou au marketing;
+3. les erreurs fréquentes à éviter;
+4. une mini-question de révision pour vérifier ma compréhension.`;
+  const [assistantPromptCopied, setAssistantPromptCopied] = useState(false);
   const zoomSchedulerUrl = 'https://scheduler.zoom.us/stephane-prudhomme';
   const [podcastEpisodes, setPodcastEpisodes] = useState<PodcastEpisode[]>([]);
   const [podcastLoading, setPodcastLoading] = useState(false);
@@ -2844,6 +2855,17 @@ const App: React.FC = () => {
     if (loadedCards.length) {
       recordFlashcardReview(resourceCourseId, loadedCards.length);
       prepareCardsForReview(loadedCards);
+    }
+  };
+
+  const copyAssistantPrompt = async () => {
+    try {
+      await navigator.clipboard.writeText(assistantSuggestedPrompt);
+      setAssistantPromptCopied(true);
+      window.setTimeout(() => setAssistantPromptCopied(false), 2200);
+    } catch (error) {
+      console.error(error);
+      setAssistantPromptCopied(false);
     }
   };
 
@@ -6110,6 +6132,28 @@ const App: React.FC = () => {
                         <p className="mt-4 text-slate-700 text-lg">
                           Un agent conversationnel multilingue pour vous aider et guider dans votre apprentissage et dans le début de votre carrière. Il n'est pas très bon en rédaction, mais il excelle dans les Q/R et dans l'explication de haut niveau de concepts et de théories, pour vous aider à mieux apprendre. Demandez-lui n'importe quoi !
                         </p>
+                      </div>
+
+                      <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-6">
+                        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                          <div>
+                            <h2 className="text-2xl font-black text-slate-900">Prompt suggéré</h2>
+                            <p className="mt-2 text-slate-600">
+                              Copiez ce texte dans l'assistant pour obtenir une réponse plus structurée et utile.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => void copyAssistantPrompt()}
+                            className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3 font-bold text-white transition-colors hover:bg-slate-700"
+                          >
+                            <i className={assistantPromptCopied ? 'fas fa-check' : 'fas fa-copy'}></i>
+                            {assistantPromptCopied ? 'Prompt copié' : 'Copier le prompt'}
+                          </button>
+                        </div>
+                        <pre className="mt-5 whitespace-pre-wrap rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm leading-7 text-slate-800">
+                          {assistantSuggestedPrompt}
+                        </pre>
                       </div>
 
                       <a
