@@ -6131,35 +6131,36 @@ const App: React.FC = () => {
                             Clique l'onglet Copier. Ouvrir ensuite chatGPT en cliquant sur l'onglet Ouvrir l'assistant IA.
                           </p>
                         </div>
-                        <div className="flex flex-wrap gap-3">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              void navigator.clipboard?.writeText(
-                                "Agis comme un professeur de communication stratégique et de relations publiques. Résume cet article scientifique en langage clair pour un(e) étudiant(e). Présente : 1) la question de recherche, 2) les concepts clés, 3) la méthode utilisée, 4) les principaux résultats, 5) les limites de l’étude, 6) les liens avec la communication stratégique ou les relations publiques, et 7) une courte synthèse à retenir pour le cours."
-                              );
-                            }}
-                            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-slate-700 font-bold hover:bg-slate-100 transition-colors"
-                          >
-                            <i className="fas fa-copy"></i>
-                            Copier
-                          </button>
-                          <a
-                            href={assistantUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-white font-bold hover:bg-indigo-700 transition-colors"
-                          >
-                            <i className="fas fa-robot"></i>
-                            Ouvrir l'Assistant IA
-                          </a>
-                        </div>
                       </div>
 
                       <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
                         <p className="whitespace-pre-line text-slate-800 leading-7">
-                          Agis comme un professeur de communication stratégique et de relations publiques. Résume cet article scientifique en langage clair pour un(e) étudiant(e). Présente : 1) la question de recherche, 2) les concepts clés, 3) la méthode utilisée, 4) les principaux résultats, 5) les limites de l’étude, 6) les liens avec la communication stratégique ou les relations publiques, et 7) une courte synthèse à retenir pour le cours.
+                          Le prompt complet sera copié automatiquement avec l'onglet Copier.
                         </p>
+                      </div>
+
+                      <div className="mt-5 flex flex-wrap gap-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void navigator.clipboard?.writeText(
+                              "Agis comme un professeur de communication stratégique et de relations publiques. Résume cet article scientifique en langage clair pour un(e) étudiant(e). Présente : 1) la question de recherche, 2) les concepts clés, 3) la méthode utilisée, 4) les principaux résultats, 5) les limites de l’étude, 6) les liens avec la communication stratégique ou les relations publiques, et 7) une courte synthèse à retenir pour le cours."
+                            );
+                          }}
+                          className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-slate-700 font-bold hover:bg-slate-100 transition-colors"
+                        >
+                          <i className="fas fa-copy"></i>
+                          Copier
+                        </button>
+                        <a
+                          href={assistantUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-white font-bold hover:bg-indigo-700 transition-colors"
+                        >
+                          <i className="fas fa-robot"></i>
+                          Ouvrir l'Assistant IA
+                        </a>
                       </div>
                     </div>
                   </div>
