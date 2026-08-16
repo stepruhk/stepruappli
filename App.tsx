@@ -6129,9 +6129,13 @@ const App: React.FC = () => {
                       <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-6">
                         <h2 className="text-2xl font-black text-slate-900 mb-3">Prompt suggéré pour résumer des articles scientifiques</h2>
                         <p className="text-slate-700 text-lg">
-                          Cliquer l'onglet Copier. Ouvrir ensuite chatGPT en cliquant sur l'onglet Ouvrir l'assistant IA. Coller le prompt dans chatGPT.
+                          Cliquer l'onglet Copier.
                           <br />
-                          IMPORTANT : Ne pas oublier d'y ajouter l'article scientifique à résumer en format PDF.
+                          Ouvrir ensuite notre assistant GPT en cliquant sur l'onglet Ouvrir l'assistant IA.
+                          <br />
+                          Coller le prompt dans le GPT.
+                          <br />
+                          Ne pas oublier d'y ajouter l'article scientifique à résumer en format PDF.
                         </p>
                       </div>
 
