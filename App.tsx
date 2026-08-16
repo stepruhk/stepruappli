@@ -559,6 +559,7 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState<string | null>(null);
   const [showFlashcards, setShowFlashcards] = useState(false);
   const [flashcardModalCards, setFlashcardModalCards] = useState<Flashcard[]>([]);
+  const [scientificPromptCopied, setScientificPromptCopied] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userRole, setUserRole] = useState<UserRole>('student');
   const [authChecked, setAuthChecked] = useState(false);
@@ -6371,6 +6372,8 @@ const App: React.FC = () => {
                           type="button"
                           onClick={() => {
                             void navigator.clipboard?.writeText(SCIENTIFIC_ARTICLE_SUMMARY_PROMPT);
+                            setScientificPromptCopied(true);
+                            window.setTimeout(() => setScientificPromptCopied(false), 3000);
                           }}
                           className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-slate-700 font-bold hover:bg-slate-100 transition-colors"
                         >
@@ -6387,6 +6390,11 @@ const App: React.FC = () => {
                           Ouvrir l'Assistant IA
                         </a>
                       </div>
+                      {scientificPromptCopied && (
+                        <p className="mt-3 text-sm font-bold text-emerald-700">
+                          Prompt copié
+                        </p>
+                      )}
                     </div>
                   </div>
                 )}
