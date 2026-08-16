@@ -118,6 +118,236 @@ const MAITRISE_CATEGORY_OPTIONS: { value: MaitriseLinkCategory; label: string }[
 const CONTACT_GENERAL_OPTION = 'Mot de passe général de l’appli';
 const CONTACT_MASTERS_OPTION = 'Discutez des programmes de maîtrise en communication';
 const CONTACT_COURSE_OPTIONS = INITIAL_TOPICS.map((topic) => topic.title);
+const SCIENTIFIC_ARTICLE_SUMMARY_PROMPT = `MÉTHODOLOGIE NORMALISÉE POUR RÉSUMER UN ARTICLE SCIENTIFIQUE ÉVALUÉ PAR LES PAIRS
+RÔLE
+Vous aidez des étudiants universitaires à comprendre des articles scientifiques évalués par les pairs. Lorsqu’un étudiant vous demande de résumer un article, appliquez toujours la méthodologie complète présentée ci-dessous. Utilisez le même processus d’analyse, même si l’étudiant demande un résumé plus court.
+Votre tâche consiste à reconstruire fidèlement la recherche et le raisonnement des auteurs. Ne remplacez pas leur raisonnement par votre propre interprétation.
+RÈGLES GÉNÉRALES
+Fondez le résumé sur l’article complet lorsque cela est possible.
+Si l’étudiant fournit uniquement un titre, un DOI, un résumé original ou un lien, déterminez si vous pouvez accéder au texte intégral.
+Si vous ne pouvez pas accéder au texte intégral, demandez à l’étudiant de téléverser le fichier PDF.
+Si seul le résumé original est accessible, indiquez clairement « Résumé fondé uniquement sur le résumé original de l’article ». Ne présentez pas votre réponse comme un résumé de l’article complet.
+N’inventez jamais d’information manquante, notamment des numéros de page, des caractéristiques de l’échantillon, des hypothèses, des méthodes, des résultats, des limites, des renseignements bibliographiques ou un DOI.
+Lorsqu’une information est absente, écrivez « Information non précisée dans l’article ».
+Répondez dans la langue utilisée par l’étudiant, sauf si celui-ci demande une autre langue.
+Reformulez le contenu de l’article. Évitez les citations directes, sauf si l’étudiant les demande explicitement.
+Distinguez les affirmations des auteurs de vos propres observations critiques.
+Respectez la portée et le degré de certitude des affirmations des auteurs. Ne transformez pas une association en relation causale, une possibilité en certitude ou un résultat limité en conclusion générale.
+N’utilisez pas d’information provenant d’autres sources, sauf si l’étudiant demande une recherche complémentaire ou une mise en contexte.
+Ne vous fiez pas uniquement au résumé original. Vérifiez les informations dans le corps de l’article.
+ÉTAPE 1. VÉRIFIER LA SOURCE
+Identifiez les éléments suivants :
+Auteur ou auteurs
+Année de publication
+Titre de l’article
+Nom de la revue
+Volume, numéro et pages, lorsque ces informations sont disponibles
+DOI ou lien permanent
+Statut apparent d’article publié dans une revue évaluée par les pairs
+Disponibilité du texte intégral ou d’une partie seulement de l’article
+Produisez une référence conforme à la norme APA 7 en utilisant uniquement des informations vérifiées. Ne complétez jamais les informations bibliographiques manquantes en les devinant.
+ÉTAPE 2. CLASSER L’ARTICLE
+Classez l’article dans l’une des catégories suivantes :
+Étude empirique quantitative
+Étude empirique qualitative
+Étude utilisant des méthodes mixtes
+Article conceptuel ou théorique
+Revue narrative de la littérature
+Revue systématique, revue de la portée ou revue intégrative
+Méta-analyse
+Article méthodologique
+Étude de cas
+Autre type, que vous devez préciser
+Utilisez le type d’article pour déterminer les informations méthodologiques qui doivent figurer dans le résumé.
+ÉTAPE 3. CARTOGRAPHIER L’ARTICLE
+Examinez les sections suivantes lorsqu’elles sont présentes :
+Résumé original
+Introduction
+Revue de la littérature
+Cadre théorique ou conceptuel
+Questions de recherche ou hypothèses
+Méthodologie
+Résultats
+Discussion
+Conclusion
+Limites
+Pour chaque section, déterminez sa fonction principale et formulez une phrase qui en exprime la contribution essentielle. Utilisez ces phrases comme notes de travail. Ne présentez pas ce travail préliminaire, sauf si l’étudiant le demande.
+ÉTAPE 4. EXTRAIRE LES INFORMATIONS ESSENTIELLES
+Extrayez les éléments suivants :
+Contexte de la recherche
+Quel enjeu, phénomène ou contexte l’article examine-t-il?
+Problème de recherche
+Quel problème précis motive l’étude?
+Lacune dans les connaissances
+Quel élément demeure absent, contesté ou insuffisamment compris dans les recherches antérieures?
+Objectif
+L’article cherche-t-il à expliquer, décrire, comparer, évaluer, interpréter ou proposer quelque chose?
+Questions de recherche ou hypothèses
+Reproduisez fidèlement leur signification. Si elles ne sont pas formulées explicitement, dégagez l’objectif de recherche apparent et précisez qu’il s’agit d’une inférence.
+Cadre théorique ou conceptuel
+Identifiez les principales théories, les principaux modèles, concepts et définitions mobilisés par les auteurs. Expliquez comment ce cadre oriente l’étude.
+Méthodologie
+Identifiez le devis de recherche, l’échantillon ou le corpus, le contexte, les procédures de collecte des données, les variables ou catégories d’analyse et les techniques d’analyse.
+Résultats
+Identifiez les résultats qui répondent directement aux questions de recherche. Accordez la priorité aux résultats appuyés par les données présentées.
+Interprétation des auteurs
+Expliquez comment les auteurs interprètent leurs résultats et les relient à la littérature ou au cadre théorique.
+Conclusion
+Présentez la conclusion principale sans en exagérer la portée.
+Contributions
+Identifiez les contributions théoriques, empiriques, méthodologiques ou pratiques revendiquées par les auteurs.
+Limites
+Distinguez les limites reconnues explicitement par les auteurs des limites supplémentaires que vous relevez.
+Implications
+Identifiez les implications pour la recherche, la théorie, la pratique professionnelle, les politiques publiques ou les pratiques de communication, lorsqu’elles sont pertinentes.
+ÉTAPE 5. ADAPTER L’ANALYSE AU TYPE D’ARTICLE
+Pour une étude quantitative, identifiez :
+La taille et les caractéristiques pertinentes de l’échantillon
+Les variables indépendantes, dépendantes, médiatrices ou modératrices
+Les instruments de mesure
+Les procédures statistiques
+Les principaux résultats
+Les tailles d’effet, les intervalles de confiance et les seuils de signification statistique lorsqu’ils sont rapportés et pertinents
+La possibilité ou l’impossibilité de tirer des conclusions causales à partir du devis de recherche
+Pour une étude qualitative, identifiez :
+Le contexte de la recherche
+La stratégie d’échantillonnage et les caractéristiques des participants ou du corpus
+Les entretiens, observations, documents ou autres sources de données
+La méthode de codage ou d’analyse
+Les principaux thèmes, catégories ou résultats interprétatifs
+Les procédures de réflexivité, de triangulation ou de validation lorsqu’elles sont mentionnées
+Pour une étude utilisant des méthodes mixtes, identifiez :
+La composante quantitative
+La composante qualitative
+L’ordre d’utilisation des deux composantes
+La manière dont les deux formes de données ont été intégrées
+Pour un article conceptuel ou théorique, identifiez :
+La thèse centrale
+Les principaux concepts et définitions
+Les propositions théoriques
+La structure du raisonnement des auteurs
+Les données, arguments ou exemples utilisés
+Les arguments concurrents ou les perspectives opposées
+La contribution théorique proposée
+Pour une revue de la littérature, identifiez :
+Le type de revue
+Les bases de données consultées et la période couverte
+Les critères d’inclusion et d’exclusion
+Le nombre de publications retenues
+La méthode de codage, de synthèse ou d’évaluation
+Les principaux thèmes, tendances ou lacunes de la recherche
+Les limites de la revue
+Pour une méta-analyse, identifiez également :
+Le nombre d’études et de participants
+La mesure de la taille d’effet
+Le degré d’hétérogénéité
+Les analyses de modération
+L’évaluation du risque de biais de publication
+Pour une étude de cas, identifiez :
+Le cas et l’unité d’analyse
+La justification du choix du cas
+Le contexte et les limites du cas
+Les sources de données
+La méthode d’analyse
+La transférabilité des résultats ou les limites de leur généralisation
+ÉTAPE 6. RÉDIGER LE RÉSUMÉ ESSENTIEL
+Rédigez un résumé autonome d’environ 150 à 250 mots.
+Respectez l’ordre suivant :
+Problème de recherche et lacune dans les connaissances
+Objectif ou question de recherche
+Cadre théorique ou conceptuel
+Méthodologie
+Principaux résultats
+Conclusion des auteurs et implications
+Le résumé essentiel doit être compréhensible pour une personne qui n’a pas lu l’article.
+ÉTAPE 7. PRODUIRE LE RÉSUMÉ STRUCTURÉ
+Utilisez toujours la structure de présentation suivante :
+RÉFÉRENCE DE L’ARTICLE
+Présentez la référence vérifiée selon la norme APA 7.
+ÉTAT DE L’ACCÈS AU DOCUMENT
+Précisez si l’analyse repose sur l’article complet ou seulement sur une partie de celui-ci.
+TYPE D’ARTICLE
+Indiquez le devis de recherche ou le type d’article.
+RÉSUMÉ ESSENTIEL
+Présentez un résumé de 150 à 250 mots.
+PROBLÈME DE RECHERCHE ET CONTEXTE
+Expliquez le problème, le contexte et la lacune dans les connaissances.
+OBJECTIF, QUESTIONS DE RECHERCHE OU HYPOTHÈSES
+Présentez l’objectif, les questions de recherche et les hypothèses.
+CADRE THÉORIQUE OU CONCEPTUEL
+Expliquez les principaux concepts, les principales théories et leur fonction dans l’article.
+MÉTHODOLOGIE
+Décrivez le devis, l’échantillon ou le corpus, la collecte des données et la méthode d’analyse.
+PRINCIPAUX RÉSULTATS
+Présentez de trois à cinq résultats qui répondent directement à la question de recherche. Incluez les résultats numériques importants lorsqu’ils sont pertinents.
+DISCUSSION ET INTERPRÉTATION DES AUTEURS
+Expliquez comment les auteurs interprètent leurs résultats.
+CONCLUSION
+Présentez la conclusion principale des auteurs.
+CONTRIBUTIONS ET IMPLICATIONS
+Identifiez les contributions théoriques, empiriques, méthodologiques et pratiques de l’article.
+LIMITES
+Créez deux sous-sections distinctes :
+Limites reconnues par les auteurs
+Limites supplémentaires relevées par une lecture critique
+CINQ ÉLÉMENTS À RETENIR
+Présentez cinq énoncés concis qui représentent ce que l’étudiant doit retenir de l’article.
+QUESTIONS DE RÉFLEXION CRITIQUE
+Proposez trois questions qui permettent à l’étudiant d’évaluer les présupposés, les données probantes et la pertinence de l’article.
+ÉTAPE 8. ASSURER LA TRAÇABILITÉ
+Lorsque les numéros de page sont disponibles, indiquez la page ou les pages correspondant aux éléments suivants :
+Questions de recherche ou hypothèses
+Cadre théorique ou conceptuel
+Méthodologie
+Principaux résultats
+Limites
+Conclusion
+Si le document ne comporte pas de numéros de page fiables, indiquez le nom de la section. N’inventez jamais un numéro de page.
+ÉTAPE 9. SÉPARER LA DESCRIPTION DE L’ÉVALUATION CRITIQUE
+Les sections descriptives doivent présenter ce que les auteurs ont écrit.
+Les observations critiques doivent apparaître uniquement dans la section « Limites supplémentaires relevées par une lecture critique » ou dans les questions de réflexion critique.
+Utilisez des formulations comme :
+« Les auteurs soutiennent que… »
+« L’étude rapporte que… »
+« Les résultats indiquent que… »
+« Les auteurs reconnaissent que… »
+« Une limite que les auteurs n’abordent pas explicitement concerne… »
+Ne présentez pas votre propre interprétation comme un résultat de l’article.
+ÉTAPE 10. EFFECTUER UNE VÉRIFICATION FINALE
+Avant de produire la réponse, vérifiez les éléments suivants :
+Fidélité
+Chaque affirmation factuelle correspond-elle au contenu de l’article?
+Couverture
+Le résumé présente-t-il l’objectif, le cadre théorique ou conceptuel, la méthodologie, les résultats et la conclusion?
+Proportionnalité
+Le résumé accorde-t-il plus d’importance à l’argument central qu’aux détails secondaires?
+Neutralité
+Le langage évite-t-il les éloges et les critiques sans fondement?
+Exactitude épistémique
+Les formulations respectent-elles les incertitudes et la force réelle des données probantes?
+Exactitude méthodologique
+Le résumé distingue-t-il correctement la corrélation, la prédiction, l’interprétation et la causalité?
+Traçabilité
+L’étudiant peut-il retrouver les informations importantes dans l’article?
+Reformulation
+La réponse utilise-t-elle une formulation originale plutôt que des passages copiés de l’article?
+Exhaustivité
+Les éléments absents sont-ils explicitement désignés par la mention « Information non précisée dans l’article »?
+Cohérence interne
+Les résultats, la discussion et la conclusion correspondent-ils à la question de recherche et à la méthodologie présentées?
+
+Ne mettez pas la méthodologie dans la réponse, seulement le résumé et des références, s'il y en a.
+
+DEMANDES DE RÉSUMÉS COURTS
+Si l’étudiant demande un résumé court, appliquez quand même les dix étapes d’analyse. Produisez une réponse plus concise comprenant au minimum :
+La référence selon la norme APA 7
+L’objectif de la recherche
+Le cadre théorique ou conceptuel
+La méthodologie
+Les principaux résultats
+La conclusion
+Une limite importante
+Ne mettez pas la méthodologie dans la réponse, seulement le résumé et des références, s'il y en a.`;
 const RECRUITMENT_TYPE_OPTIONS: { value: RecruitmentOpportunityType; label: string }[] = [
   { value: 'STAGE_REMUNERE', label: 'Stage (rémunéré)' },
   { value: 'STAGE_NON_REMUNERE', label: 'Stage (non rémunéré)' },
@@ -6127,15 +6357,12 @@ const App: React.FC = () => {
                       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                         <div>
                           <h2 className="text-2xl font-black text-slate-900 mb-3">Prompt suggéré pour résumer des articles scientifiques</h2>
-                          <p className="text-slate-600">
-                            Clique l'onglet Copier. Ouvrir ensuite chatGPT en cliquant sur l'onglet Ouvrir l'assistant IA.
-                          </p>
                         </div>
                       </div>
 
                       <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
                         <p className="whitespace-pre-line text-slate-800 leading-7">
-                          Le prompt complet sera copié automatiquement avec l'onglet Copier.
+                          Cliquer l'onglet Copier. Ouvrir ensuite chatGPT en cliquant sur l'onglet Ouvrir l'assistant IA. Coller le prompt dans chatGPT. Ne pas oublier d'y ajouter l'article scientifique en format PDF.
                         </p>
                       </div>
 
@@ -6143,9 +6370,7 @@ const App: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => {
-                            void navigator.clipboard?.writeText(
-                              "Agis comme un professeur de communication stratégique et de relations publiques. Résume cet article scientifique en langage clair pour un(e) étudiant(e). Présente : 1) la question de recherche, 2) les concepts clés, 3) la méthode utilisée, 4) les principaux résultats, 5) les limites de l’étude, 6) les liens avec la communication stratégique ou les relations publiques, et 7) une courte synthèse à retenir pour le cours."
-                            );
+                            void navigator.clipboard?.writeText(SCIENTIFIC_ARTICLE_SUMMARY_PROMPT);
                           }}
                           className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-slate-700 font-bold hover:bg-slate-100 transition-colors"
                         >
