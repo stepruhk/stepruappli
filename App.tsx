@@ -6122,6 +6122,35 @@ const App: React.FC = () => {
                         Ouvrir l'Assistant IA
                       </a>
                     </div>
+
+                    <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                        <div>
+                          <h2 className="text-2xl font-black text-slate-900 mb-3">Prompt suggéré</h2>
+                          <p className="text-slate-600">
+                            À utiliser dans le GPT suggéré pour obtenir une réponse claire, structurée et reliée au cours.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void navigator.clipboard?.writeText(
+                              "Agis comme un professeur de communication stratégique et de relations publiques. Explique-moi ce concept en langage clair, avec les notions importantes, un exemple concret, les erreurs fréquentes à éviter et une courte synthèse que je peux retenir pour mon cours."
+                            );
+                          }}
+                          className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-slate-700 font-bold hover:bg-slate-100 transition-colors"
+                        >
+                          <i className="fas fa-copy"></i>
+                          Copier
+                        </button>
+                      </div>
+
+                      <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                        <p className="whitespace-pre-line text-slate-800 leading-7">
+                          Agis comme un professeur de communication stratégique et de relations publiques. Explique-moi ce concept en langage clair, avec les notions importantes, un exemple concret, les erreurs fréquentes à éviter et une courte synthèse que je peux retenir pour mon cours.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 )}
 
