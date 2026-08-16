@@ -6355,19 +6355,14 @@ const App: React.FC = () => {
                     </div>
 
                     <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-                      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                        <div>
-                          <h2 className="text-2xl font-black text-slate-900 mb-3">Prompt suggéré pour résumer des articles scientifiques</h2>
-                        </div>
-                      </div>
-
-                      <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                        <p className="whitespace-pre-line text-slate-800 leading-7">
+                      <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-6">
+                        <h2 className="text-2xl font-black text-slate-900 mb-3">Prompt suggéré pour résumer des articles scientifiques</h2>
+                        <p className="text-slate-700 text-lg">
                           Cliquer l'onglet Copier. Ouvrir ensuite chatGPT en cliquant sur l'onglet Ouvrir l'assistant IA. Coller le prompt dans chatGPT. Ne pas oublier d'y ajouter l'article scientifique en format PDF.
                         </p>
                       </div>
 
-                      <div className="mt-5 flex flex-wrap gap-3">
+                      <div className="mt-6 flex flex-wrap gap-3">
                         <button
                           type="button"
                           onClick={() => {
