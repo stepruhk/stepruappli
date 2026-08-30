@@ -3969,6 +3969,10 @@ const App: React.FC = () => {
                         <p className="text-lg leading-8 text-slate-700">
                           Ce cours d'intro vous initie aux fondements théoriques, aux cadres conceptuels et pratiques qui structurent la communication d'entreprise. Vous découvrirez comment les organisations bâtissent des relations avec leurs publics, gèrent leur image, développent la confiance et la crédibilité et utilisent la communication comme levier stratégique. Le cours combine théories, études de cas et applications concrètes du monde des relations publiques.
                         </p>
+                      ) : selectedTopic.id === '9' ? (
+                        <p className="text-lg leading-8 text-slate-700">
+                          Aperçu des fondements philosophiques, théoriques et méthodologiques de théories cognitives et affectives en psychologie et de leurs influences sur les sciences de la communication.
+                        </p>
                       ) : (
                         <div className="h-24 flex items-center justify-center bg-slate-50 rounded-xl text-slate-500">
                           Contenu à venir pour ce cours.
