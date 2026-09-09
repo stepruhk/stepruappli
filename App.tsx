@@ -6476,7 +6476,7 @@ const App: React.FC = () => {
                                         </p>
                                         <div className="flex flex-wrap items-center gap-2 md:justify-end">
                                           <a
-                                            href={`mailto:${encodeURIComponent(request.email)}?subject=${encodeURIComponent('Réponse à votre demande EduBoost')}&body=${encodeURIComponent(`Bonjour ${request.name},\n\n`)}`}
+                                            href={`mailto:${encodeURIComponent(request.email)}?subject=${encodeURIComponent('Réponse à votre demande de mots de passe')}&body=${encodeURIComponent(`Bonjour ${request.name},\n\nVous avez demandé des mots de passe.\nLes voici :\n\nBonne journée,\nsp.`)}`}
                                             className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-sm font-bold text-white hover:bg-indigo-700 transition-colors"
                                           >
                                             <i className="fas fa-reply"></i>
