@@ -57,7 +57,7 @@ export type ContactRequest = {
   name: string;
   email: string;
   university: string;
-  courseGroup?: string;
+  courseGroup: string;
   message?: string;
   selections: string[];
   createdAt: string;
@@ -446,7 +446,7 @@ export async function submitContactRequest(payload: {
   name: string;
   email: string;
   university: string;
-  courseGroup?: string;
+  courseGroup: string;
   message?: string;
   selections?: string[];
 }): Promise<void> {

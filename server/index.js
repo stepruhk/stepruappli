@@ -1808,7 +1808,7 @@ app.post("/api/contact-requests", async (req, res) => {
     const name = readRequiredTextField(req.body, "name", 160);
     const email = readRequiredTextField(req.body, "email", 220);
     const university = readRequiredTextField(req.body, "university", 220);
-    const courseGroup = readOptionalTextField(req.body, "courseGroup", 220);
+    const courseGroup = readRequiredTextField(req.body, "courseGroup", 220);
     const message = readOptionalTextField(req.body, "message", 4000);
     const selections = readOptionalStringArrayField(req.body, "selections");
 

@@ -1219,7 +1219,7 @@ const App: React.FC = () => {
     <form onSubmit={handleSubmitContactRequest} className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <label className="block">
-          <span className="text-sm font-semibold text-slate-700">Nom</span>
+          <span className="text-sm font-semibold text-slate-700">Nom <span className="text-rose-600" aria-hidden="true">*</span></span>
           <input
             type="text"
             value={contactName}
@@ -1230,7 +1230,7 @@ const App: React.FC = () => {
         </label>
 
         <label className="block">
-          <span className="text-sm font-semibold text-slate-700">Adresse courriel</span>
+          <span className="text-sm font-semibold text-slate-700">Adresse courriel <span className="text-rose-600" aria-hidden="true">*</span></span>
           <input
             type="email"
             value={contactEmail}
@@ -1241,7 +1241,7 @@ const App: React.FC = () => {
         </label>
 
         <label className="block">
-          <span className="text-sm font-semibold text-slate-700">Université</span>
+          <span className="text-sm font-semibold text-slate-700">Université <span className="text-rose-600" aria-hidden="true">*</span></span>
           <input
             type="text"
             value={contactUniversity}
@@ -1252,13 +1252,14 @@ const App: React.FC = () => {
         </label>
 
         <label className="block">
-          <span className="text-sm font-semibold text-slate-700">Cours et groupe</span>
+          <span className="text-sm font-semibold text-slate-700">Cours et groupe <span className="text-rose-600" aria-hidden="true">*</span></span>
           <input
             type="text"
             value={contactCourseGroup}
             onChange={(event) => setContactCourseGroup(event.target.value)}
             className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             placeholder="Ex.: Influence, groupe 02"
+            required
           />
         </label>
       </div>
@@ -6473,15 +6474,24 @@ const App: React.FC = () => {
                                         <p className="text-sm text-slate-500">
                                           {new Date(request.createdAt).toLocaleString('fr-FR')}
                                         </p>
-                                        <button
-                                          type="button"
-                                          onClick={() => { void handleDeleteContactRequest(request.id); }}
-                                          disabled={contactDeletingId === request.id}
-                                          className="inline-flex items-center gap-2 rounded-xl border border-rose-200 px-3 py-2 text-sm font-bold text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-60"
-                                        >
-                                          <i className="fas fa-trash"></i>
-                                          {contactDeletingId === request.id ? 'Suppression...' : 'Supprimer'}
-                                        </button>
+                                        <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                                          <a
+                                            href={`mailto:${encodeURIComponent(request.email)}?subject=${encodeURIComponent('Réponse à votre demande EduBoost')}&body=${encodeURIComponent(`Bonjour ${request.name},\n\n`)}`}
+                                            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-sm font-bold text-white hover:bg-indigo-700 transition-colors"
+                                          >
+                                            <i className="fas fa-reply"></i>
+                                            Répondre dans Apple Mail
+                                          </a>
+                                          <button
+                                            type="button"
+                                            onClick={() => { void handleDeleteContactRequest(request.id); }}
+                                            disabled={contactDeletingId === request.id}
+                                            className="inline-flex items-center gap-2 rounded-xl border border-rose-200 px-3 py-2 text-sm font-bold text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-60"
+                                          >
+                                            <i className="fas fa-trash"></i>
+                                            {contactDeletingId === request.id ? 'Suppression...' : 'Supprimer'}
+                                          </button>
+                                        </div>
                                       </div>
                                     </div>
 
