@@ -400,7 +400,7 @@ const App: React.FC = () => {
   const landingImageUrl = landingImageCandidates[Math.min(landingImageIndex, landingImageCandidates.length - 1)];
   const spotifyShowUrl = 'https://open.spotify.com/show/4C0DeBIvVZjRbM6MUOylOT?si=VZGKDnooR52E7qbZZ2aweA';
   const blogUrl = 'https://stepru.wordpress.com';
-  const assistantUrl = 'https://chatgpt.com/g/g-ZltU00p7B-stepru-the-comms-professor';
+  const assistantUrl = 'https://chatgpt.com/g/g-ZltU00p7B-stepru-le-prof-de-comm';
   const zoomSchedulerUrl = 'https://scheduler.zoom.us/stephane-prudhomme';
   const [podcastEpisodes, setPodcastEpisodes] = useState<PodcastEpisode[]>([]);
   const [podcastLoading, setPodcastLoading] = useState(false);
@@ -6163,7 +6163,7 @@ const App: React.FC = () => {
                           Copier
                         </button>
                         <a
-                          href={assistantUrl}
+                          href="https://chatgpt.com"
                           target="_blank"
                           rel="noreferrer"
                           className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-white font-bold hover:bg-indigo-700 transition-colors"
@@ -6209,7 +6209,7 @@ const App: React.FC = () => {
                           Copier
                         </button>
                         <a
-                          href={assistantUrl}
+                          href="https://chatgpt.com"
                           target="_blank"
                           rel="noreferrer"
                           className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-white font-bold hover:bg-indigo-700 transition-colors"
@@ -6257,7 +6257,7 @@ const App: React.FC = () => {
                           Copier
                         </button>
                         <a
-                          href={assistantUrl}
+                          href="https://chatgpt.com"
                           target="_blank"
                           rel="noreferrer"
                           className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-white font-bold hover:bg-indigo-700 transition-colors"
