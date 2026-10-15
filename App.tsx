@@ -6122,6 +6122,9 @@ const App: React.FC = () => {
                         <p className="mt-4 text-slate-700 text-lg">
                           Un agent conversationnel multilingue pour vous aider et guider dans votre apprentissage et dans le début de votre carrière. Il n'est pas très bon en rédaction, mais il excelle dans les Q/R et dans l'explication de haut niveau de concepts et de théories, pour vous aider à mieux apprendre. Demandez-lui n'importe quoi !
                         </p>
+                        <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900 text-lg">
+                          <strong>Attention :</strong> ChatGPT mettra à la retraite les agents conversationnels, les GPT, pour les remplacer par des plugins. Ça ne fait pas mon affaire, mais je n'ai pas aucun contrôle. Jusqu'au 11 décembre, continuez à utiliser le GPT.
+                        </p>
                       </div>
 
                       <a
@@ -6146,6 +6149,9 @@ const App: React.FC = () => {
                           Coller le prompt dans le GPT.
                           <br />
                           Ne pas oublier d'y ajouter l'article scientifique à résumer en format PDF.
+                        </p>
+                        <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900 text-lg">
+                          <strong>Attention :</strong> ChatGPT mettra à la retraite les agents conversationnels, les GPT, pour les remplacer par des plugins. Ça ne fait pas mon affaire, mais je n'ai pas aucun contrôle. Jusqu'au 11 décembre, continuez à utiliser le GPT.
                         </p>
                       </div>
 
@@ -6190,6 +6196,9 @@ const App: React.FC = () => {
                           Coller le prompt dans le GPT et cliquer sur la flèche / Send prompt.
                           <br />
                           Répondre aux questions pour débuter la recherche.
+                        </p>
+                        <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900 text-lg">
+                          <strong>Attention :</strong> ChatGPT mettra à la retraite les agents conversationnels, les GPT, pour les remplacer par des plugins. Ça ne fait pas mon affaire, mais je n'ai pas aucun contrôle. Jusqu'au 11 décembre, continuez à utiliser le GPT.
                         </p>
                       </div>
 
@@ -6236,6 +6245,9 @@ const App: React.FC = () => {
                           Coller le prompt dans le GPT et cliquer sur le cercle bleu avec une flèche blanche.
                           <br />
                           Répondre aux questions pour débuter l&apos;aide.
+                        </p>
+                        <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900 text-lg">
+                          <strong>Attention :</strong> ChatGPT mettra à la retraite les agents conversationnels, les GPT, pour les remplacer par des plugins. Ça ne fait pas mon affaire, mais je n'ai pas aucun contrôle. Jusqu'au 11 décembre, continuez à utiliser le GPT.
                         </p>
                       </div>
 
