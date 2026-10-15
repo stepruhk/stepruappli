@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Topic, AppView, StudySession, Flashcard, FlashcardCommonMistake } from './types.ts';
 import { INITIAL_TOPICS } from './constants.ts';
 import ciLogo from './assets/ci-logo.png';
+import SMART_OBJECTIVE_PROMPT from './prompts/objectif-smart.txt?raw';
 import {
   checkAuthStatus,
   createRecruitmentOffer,
@@ -334,6 +335,7 @@ const App: React.FC = () => {
   const [flashcardModalCards, setFlashcardModalCards] = useState<Flashcard[]>([]);
   const [scientificPromptCopied, setScientificPromptCopied] = useState(false);
   const [literaturePromptCopied, setLiteraturePromptCopied] = useState(false);
+  const [smartPromptCopyStatus, setSmartPromptCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userRole, setUserRole] = useState<UserRole>('student');
   const [authChecked, setAuthChecked] = useState(false);
@@ -6221,6 +6223,59 @@ const App: React.FC = () => {
                           Prompt copié
                         </p>
                       )}
+                    </div>
+
+                    <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                      <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-6">
+                        <h2 className="text-2xl font-black text-slate-900 mb-3">Prompt suggéré pour écrire un objectif SMART</h2>
+                        <p className="text-slate-700 text-lg">
+                          Cliquer l&apos;onglet Copier.
+                          <br />
+                          Ouvrir ensuite notre assistant GPT en cliquant sur l&apos;onglet Ouvrir l&apos;assistant IA.
+                          <br />
+                          Coller le prompt dans le GPT et cliquer sur le cercle bleu avec une flèche blanche.
+                          <br />
+                          Répondre aux questions pour débuter l&apos;aide.
+                        </p>
+                      </div>
+
+                      <div className="mt-6 flex flex-wrap gap-3">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(SMART_OBJECTIVE_PROMPT);
+                              setSmartPromptCopyStatus('copied');
+                              window.setTimeout(() => setSmartPromptCopyStatus('idle'), 3000);
+                            } catch {
+                              setSmartPromptCopyStatus('error');
+                            }
+                          }}
+                          className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-slate-700 font-bold hover:bg-slate-100 transition-colors"
+                        >
+                          <i className="fas fa-copy"></i>
+                          Copier
+                        </button>
+                        <a
+                          href={assistantUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-white font-bold hover:bg-indigo-700 transition-colors"
+                        >
+                          <i className="fas fa-robot"></i>
+                          Ouvrir l&apos;Assistant IA
+                        </a>
+                      </div>
+                      <div aria-live="polite">
+                        {smartPromptCopyStatus === 'copied' && (
+                          <p className="mt-3 text-sm font-bold text-emerald-700">Prompt copié</p>
+                        )}
+                        {smartPromptCopyStatus === 'error' && (
+                          <p className="mt-3 text-sm font-bold text-red-700">
+                            La copie a échoué. Autorisez l&apos;accès au presse-papiers dans votre navigateur, puis réessayez.
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
