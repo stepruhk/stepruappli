@@ -6106,7 +6106,7 @@ const App: React.FC = () => {
                 {menuSection === 'ASSISTANT' && (
                   <div className="space-y-8">
                     <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-                      <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">Assistant IA</h1>
+                      <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">Assistant IA avec stépru le prof de comm</h1>
                     </div>
 
                     <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
