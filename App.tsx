@@ -6125,7 +6125,7 @@ const App: React.FC = () => {
                       <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-6">
                         <h2 className="text-2xl font-black text-slate-900 mb-3">Prompt suggéré pour résumer des articles scientifiques</h2>
                         <p className="text-slate-700 text-lg">
-                          Cliquer l'onglet Copier.
+                          Cliquer l'onglet Copier le prompt.
                           <br />
                           Ouvrir ensuite un assistant IA en cliquant sur Ouvrir ChatGPT ou Ouvrir Copilot.
                           <br />
@@ -6146,7 +6146,7 @@ const App: React.FC = () => {
                           className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-slate-700 font-bold hover:bg-slate-100 transition-colors"
                         >
                           <i className="fas fa-copy"></i>
-                          Copier
+                          Copier le prompt
                         </button>
                         <a
                           href="https://chatgpt.com"
@@ -6178,7 +6178,7 @@ const App: React.FC = () => {
                       <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-6">
                         <h2 className="text-2xl font-black text-slate-900 mb-3">Prompt suggéré pour débuter une recherche documentaire</h2>
                         <p className="text-slate-700 text-lg">
-                          Cliquer l&apos;onglet Copier.
+                          Cliquer l&apos;onglet Copier le prompt.
                           <br />
                           Ouvrir ensuite un assistant IA en cliquant sur Ouvrir ChatGPT ou Ouvrir Copilot.
                           <br />
@@ -6201,7 +6201,7 @@ const App: React.FC = () => {
                           className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-slate-700 font-bold hover:bg-slate-100 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           <i className="fas fa-copy"></i>
-                          Copier
+                          Copier le prompt
                         </button>
                         <a
                           href="https://chatgpt.com"
@@ -6233,7 +6233,7 @@ const App: React.FC = () => {
                       <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-6">
                         <h2 className="text-2xl font-black text-slate-900 mb-3">Prompt suggéré pour écrire un objectif SMART</h2>
                         <p className="text-slate-700 text-lg">
-                          Cliquer l&apos;onglet Copier.
+                          Cliquer l&apos;onglet Copier le prompt.
                           <br />
                           Ouvrir ensuite un assistant IA en cliquant sur Ouvrir ChatGPT ou Ouvrir Copilot.
                           <br />
@@ -6258,7 +6258,7 @@ const App: React.FC = () => {
                           className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-slate-700 font-bold hover:bg-slate-100 transition-colors"
                         >
                           <i className="fas fa-copy"></i>
-                          Copier
+                          Copier le prompt
                         </button>
                         <a
                           href="https://chatgpt.com"
