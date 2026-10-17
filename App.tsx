@@ -6121,6 +6121,9 @@ const App: React.FC = () => {
                         <p className="mt-4 text-slate-700 text-lg">
                           Un prompt, appelé requête en français, est le message que vous adressez à un assistant IA pour lui demander de réaliser une tâche. Il précise ce que vous attendez, le contexte et les consignes à suivre. Une requête claire et précise aide l&apos;assistant IA à produire une réponse adaptée à vos besoins.
                         </p>
+                        <p className="mt-4 text-slate-700 text-lg">
+                          Vous n&apos;avez qu&apos;à copier le prompt et ouvrir l&apos;assistant IA.
+                        </p>
                       </div>
                     </div>
 
