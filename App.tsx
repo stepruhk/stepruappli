@@ -6116,7 +6116,7 @@ const App: React.FC = () => {
                           En raison des changements imposés par OpenAI à ses GPT personnalisés et de son refus de rendre mon plugin public, l&apos;agent conversationnel Stépru le prof de comm ne sera plus proposé sous sa forme actuelle.
                         </p>
                         <p className="mt-4 text-slate-700 text-lg">
-                          Pour continuer à vous accompagner, je mets à votre disposition des prompts conçus pour soutenir vos apprentissages en communication et en relations publiques. Vous pouvez les copier et les utiliser dans l&apos;assistant IA de votre choix, notamment ChatGPT ou Microsoft Copilot.
+                          Pour continuer à vous accompagner, je mets à votre disposition des prompts conçus pour soutenir vos apprentissages en communication et en relations publiques. Vous pouvez les copier et les utiliser dans l&apos;assistant IA de votre choix, ChatGPT ou Microsoft Copilot.
                         </p>
                       </div>
                     </div>
