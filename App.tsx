@@ -6163,7 +6163,7 @@ const App: React.FC = () => {
                           rel="noreferrer"
                           className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-white font-bold hover:bg-indigo-700 transition-colors"
                         >
-                          <i className="fas fa-arrow-up-right-from-square"></i>
+                          <i className="fas fa-robot"></i>
                           Ouvrir Copilot
                         </a>
                       </div>
@@ -6218,7 +6218,7 @@ const App: React.FC = () => {
                           rel="noreferrer"
                           className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-white font-bold hover:bg-indigo-700 transition-colors"
                         >
-                          <i className="fas fa-arrow-up-right-from-square"></i>
+                          <i className="fas fa-robot"></i>
                           Ouvrir Copilot
                         </a>
                       </div>
@@ -6275,7 +6275,7 @@ const App: React.FC = () => {
                           rel="noreferrer"
                           className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-white font-bold hover:bg-indigo-700 transition-colors"
                         >
-                          <i className="fas fa-arrow-up-right-from-square"></i>
+                          <i className="fas fa-robot"></i>
                           Ouvrir Copilot
                         </a>
                       </div>
