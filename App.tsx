@@ -400,7 +400,6 @@ const App: React.FC = () => {
   const landingImageUrl = landingImageCandidates[Math.min(landingImageIndex, landingImageCandidates.length - 1)];
   const spotifyShowUrl = 'https://open.spotify.com/show/4C0DeBIvVZjRbM6MUOylOT?si=VZGKDnooR52E7qbZZ2aweA';
   const blogUrl = 'https://stepru.wordpress.com';
-  const assistantUrl = 'https://chatgpt.com/g/g-ZltU00p7B-stepru-le-prof-de-comm';
   const zoomSchedulerUrl = 'https://scheduler.zoom.us/stephane-prudhomme';
   const [podcastEpisodes, setPodcastEpisodes] = useState<PodcastEpisode[]>([]);
   const [podcastLoading, setPodcastLoading] = useState(false);
@@ -6107,35 +6106,19 @@ const App: React.FC = () => {
                 {menuSection === 'ASSISTANT' && (
                   <div className="space-y-8">
                     <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-                      <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">Stépru le prof de comm</h1>
-                      <p className="text-slate-600 text-lg">
-                        Accès direct à notre agent conversationnel.
-                      </p>
+                      <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">Assistant IA</h1>
                     </div>
 
                     <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
                       <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-6">
-                        <h2 className="text-2xl font-black text-slate-900 mb-3">Disponible gratuitement pour les étudiant(e)s</h2>
+                        <h2 className="text-2xl font-black text-slate-900 mb-3">Des prompts pour vous accompagner</h2>
                         <p className="text-slate-700 text-lg">
-                          Cliquez sur le bouton ci-dessous pour ouvrir l'assistant chatGPT entraîné pour les étudiant(e)s en comms et RP et posez vos questions reliées au cours, à la communication et aux relations publiques.
+                          En raison des changements imposés par OpenAI à ses GPT personnalisés, l&apos;agent conversationnel Stépru le prof de comm ne sera plus proposé sous sa forme actuelle.
                         </p>
                         <p className="mt-4 text-slate-700 text-lg">
-                          Un agent conversationnel multilingue pour vous aider et guider dans votre apprentissage et dans le début de votre carrière. Il n'est pas très bon en rédaction, mais il excelle dans les Q/R et dans l'explication de haut niveau de concepts et de théories, pour vous aider à mieux apprendre. Demandez-lui n'importe quoi !
-                        </p>
-                        <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900 text-lg">
-                          <strong>Attention :</strong> ChatGPT mettra à la retraite les agents conversationnels, les GPT, pour les remplacer par des plugins. Ça ne fait pas mon affaire, mais je n'ai pas aucun contrôle. Jusqu'au 11 décembre, continuez à utiliser le GPT.
+                          Pour continuer à vous accompagner, je mets à votre disposition des prompts conçus pour soutenir vos apprentissages en communication et en relations publiques. Vous pouvez les copier et les utiliser dans l&apos;assistant IA de votre choix, notamment ChatGPT ou Microsoft Copilot.
                         </p>
                       </div>
-
-                      <a
-                        href={assistantUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-6 inline-flex items-center gap-3 rounded-xl bg-indigo-600 px-6 py-3 text-white font-bold hover:bg-indigo-700 transition-colors"
-                      >
-                        <i className="fas fa-robot"></i>
-                        Ouvrir l'Assistant IA
-                      </a>
                     </div>
 
                     <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
@@ -6144,14 +6127,11 @@ const App: React.FC = () => {
                         <p className="text-slate-700 text-lg">
                           Cliquer l'onglet Copier.
                           <br />
-                          Ouvrir ensuite notre assistant GPT en cliquant sur l'onglet Ouvrir l'assistant IA.
+                          Ouvrir ensuite un assistant IA en cliquant sur Ouvrir ChatGPT ou Ouvrir Copilot.
                           <br />
-                          Coller le prompt dans le GPT.
+                          Coller le prompt dans l&apos;assistant IA et envoyer le message.
                           <br />
-                          Ne pas oublier d'y ajouter l'article scientifique à résumer en format PDF.
-                        </p>
-                        <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900 text-lg">
-                          <strong>Attention :</strong> ChatGPT mettra à la retraite les agents conversationnels, les GPT, pour les remplacer par des plugins. Ça ne fait pas mon affaire, mais je n'ai pas aucun contrôle. Jusqu'au 11 décembre, continuez à utiliser le GPT.
+                          Joindre ensuite l&apos;article scientifique à résumer en format PDF lorsque l&apos;assistant IA le demande.
                         </p>
                       </div>
 
@@ -6175,7 +6155,16 @@ const App: React.FC = () => {
                           className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-white font-bold hover:bg-indigo-700 transition-colors"
                         >
                           <i className="fas fa-robot"></i>
-                          Ouvrir l'Assistant IA
+                          Ouvrir ChatGPT
+                        </a>
+                        <a
+                          href="https://copilot.cloud.microsoft"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-white font-bold hover:bg-indigo-700 transition-colors"
+                        >
+                          <i className="fas fa-arrow-up-right-from-square"></i>
+                          Ouvrir Copilot
                         </a>
                       </div>
                       {scientificPromptCopied && (
@@ -6191,14 +6180,11 @@ const App: React.FC = () => {
                         <p className="text-slate-700 text-lg">
                           Cliquer l&apos;onglet Copier.
                           <br />
-                          Ouvrir ensuite notre assistant GPT en cliquant sur l&apos;onglet Ouvrir l&apos;assistant IA.
+                          Ouvrir ensuite un assistant IA en cliquant sur Ouvrir ChatGPT ou Ouvrir Copilot.
                           <br />
-                          Coller le prompt dans le GPT et cliquer sur la flèche / Send prompt.
+                          Coller le prompt dans l&apos;assistant IA et envoyer le message.
                           <br />
                           Répondre aux questions pour débuter la recherche.
-                        </p>
-                        <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900 text-lg">
-                          <strong>Attention :</strong> ChatGPT mettra à la retraite les agents conversationnels, les GPT, pour les remplacer par des plugins. Ça ne fait pas mon affaire, mais je n'ai pas aucun contrôle. Jusqu'au 11 décembre, continuez à utiliser le GPT.
                         </p>
                       </div>
 
@@ -6224,7 +6210,16 @@ const App: React.FC = () => {
                           className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-white font-bold hover:bg-indigo-700 transition-colors"
                         >
                           <i className="fas fa-robot"></i>
-                          Ouvrir l&apos;Assistant IA
+                          Ouvrir ChatGPT
+                        </a>
+                        <a
+                          href="https://copilot.cloud.microsoft"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-white font-bold hover:bg-indigo-700 transition-colors"
+                        >
+                          <i className="fas fa-arrow-up-right-from-square"></i>
+                          Ouvrir Copilot
                         </a>
                       </div>
                       {literaturePromptCopied && (
@@ -6240,14 +6235,11 @@ const App: React.FC = () => {
                         <p className="text-slate-700 text-lg">
                           Cliquer l&apos;onglet Copier.
                           <br />
-                          Ouvrir ensuite notre assistant GPT en cliquant sur l&apos;onglet Ouvrir l&apos;assistant IA.
+                          Ouvrir ensuite un assistant IA en cliquant sur Ouvrir ChatGPT ou Ouvrir Copilot.
                           <br />
-                          Coller le prompt dans le GPT et cliquer sur le cercle bleu avec une flèche blanche.
+                          Coller le prompt dans l&apos;assistant IA et envoyer le message.
                           <br />
                           Répondre aux questions pour débuter l&apos;aide.
-                        </p>
-                        <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900 text-lg">
-                          <strong>Attention :</strong> ChatGPT mettra à la retraite les agents conversationnels, les GPT, pour les remplacer par des plugins. Ça ne fait pas mon affaire, mais je n'ai pas aucun contrôle. Jusqu'au 11 décembre, continuez à utiliser le GPT.
                         </p>
                       </div>
 
@@ -6275,7 +6267,16 @@ const App: React.FC = () => {
                           className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-white font-bold hover:bg-indigo-700 transition-colors"
                         >
                           <i className="fas fa-robot"></i>
-                          Ouvrir l&apos;Assistant IA
+                          Ouvrir ChatGPT
+                        </a>
+                        <a
+                          href="https://copilot.cloud.microsoft"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-white font-bold hover:bg-indigo-700 transition-colors"
+                        >
+                          <i className="fas fa-arrow-up-right-from-square"></i>
+                          Ouvrir Copilot
                         </a>
                       </div>
                       <div aria-live="polite">
