@@ -4,6 +4,7 @@ import { Topic, AppView, StudySession, Flashcard, FlashcardCommonMistake } from 
 import { INITIAL_TOPICS } from './constants.ts';
 import ciLogo from './assets/ci-logo.png';
 import SMART_OBJECTIVE_PROMPT from './prompts/objectif-smart.txt?raw';
+import FFOM_ANALYSIS_PROMPT from './prompts/analyse-ffom.txt?raw';
 import {
   checkAuthStatus,
   createRecruitmentOffer,
@@ -336,6 +337,7 @@ const App: React.FC = () => {
   const [scientificPromptCopied, setScientificPromptCopied] = useState(false);
   const [literaturePromptCopied, setLiteraturePromptCopied] = useState(false);
   const [smartPromptCopyStatus, setSmartPromptCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle');
+  const [ffomPromptCopyStatus, setFfomPromptCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userRole, setUserRole] = useState<UserRole>('student');
   const [authChecked, setAuthChecked] = useState(false);
@@ -6287,6 +6289,71 @@ const App: React.FC = () => {
                           <p className="mt-3 text-sm font-bold text-emerald-700">Prompt copié</p>
                         )}
                         {smartPromptCopyStatus === 'error' && (
+                          <p className="mt-3 text-sm font-bold text-red-700">
+                            La copie a échoué. Autorisez l&apos;accès au presse-papiers dans votre navigateur, puis réessayez.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                      <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-6">
+                        <h2 className="text-2xl font-black text-slate-900 mb-3">Faire une analyse FFOM</h2>
+                        <p className="text-slate-700 text-lg">
+                          Un accompagnement pas à pas pour identifier les forces, les faiblesses, les opportunités et les menaces d&apos;une organisation en communication et relations publiques, puis construire une proposition de matrice FFOM à partir de vos réponses.
+                        </p>
+                        <p className="mt-4 text-slate-700 text-lg">
+                          Cliquer l&apos;onglet Copier le prompt.
+                          <br />
+                          Ouvrir ensuite un assistant IA en cliquant sur Ouvrir ChatGPT ou Ouvrir Copilot.
+                          <br />
+                          Coller le prompt dans l&apos;assistant IA et envoyer le message.
+                          <br />
+                          Répondre aux questions pour construire votre analyse FFOM.
+                        </p>
+                      </div>
+
+                      <div className="mt-6 flex flex-wrap gap-3">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(FFOM_ANALYSIS_PROMPT);
+                              setFfomPromptCopyStatus('copied');
+                              window.setTimeout(() => setFfomPromptCopyStatus('idle'), 3000);
+                            } catch {
+                              setFfomPromptCopyStatus('error');
+                            }
+                          }}
+                          className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-slate-700 font-bold hover:bg-slate-100 transition-colors"
+                        >
+                          <i className="fas fa-copy"></i>
+                          Copier le prompt
+                        </button>
+                        <a
+                          href="https://chatgpt.com"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-white font-bold hover:bg-indigo-700 transition-colors"
+                        >
+                          <i className="fas fa-robot"></i>
+                          Ouvrir ChatGPT
+                        </a>
+                        <a
+                          href="https://copilot.cloud.microsoft"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-white font-bold hover:bg-indigo-700 transition-colors"
+                        >
+                          <i className="fas fa-robot"></i>
+                          Ouvrir Copilot
+                        </a>
+                      </div>
+                      <div aria-live="polite">
+                        {ffomPromptCopyStatus === 'copied' && (
+                          <p className="mt-3 text-sm font-bold text-emerald-700">Prompt copié</p>
+                        )}
+                        {ffomPromptCopyStatus === 'error' && (
                           <p className="mt-3 text-sm font-bold text-red-700">
                             La copie a échoué. Autorisez l&apos;accès au presse-papiers dans votre navigateur, puis réessayez.
                           </p>
