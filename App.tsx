@@ -5,6 +5,7 @@ import { INITIAL_TOPICS } from './constants.ts';
 import ciLogo from './assets/ci-logo.png';
 import SMART_OBJECTIVE_PROMPT from './prompts/objectif-smart.txt?raw';
 import FFOM_ANALYSIS_PROMPT from './prompts/analyse-ffom.txt?raw';
+import FFOM_ANALYSIS_FILE_URL from './prompts/analyse-ffom.txt?url';
 import {
   checkAuthStatus,
   createRecruitmentOffer,
@@ -6303,17 +6304,27 @@ const App: React.FC = () => {
                           Un accompagnement pas à pas pour identifier les forces, les faiblesses, les opportunités et les menaces d&apos;une organisation en communication et relations publiques, puis construire une proposition de matrice FFOM à partir de vos réponses.
                         </p>
                         <p className="mt-4 text-slate-700 text-lg">
-                          Cliquer l&apos;onglet Copier le prompt.
+                          Cliquer sur Télécharger le prompt (.txt).
                           <br />
                           Ouvrir ensuite un assistant IA en cliquant sur Ouvrir ChatGPT ou Ouvrir Copilot.
                           <br />
-                          Coller le prompt dans l&apos;assistant IA et envoyer le message.
+                          Joindre le fichier analyse-ffom.txt à la conversation, puis envoyer le message : « Suis les consignes du fichier joint pour m&apos;accompagner dans mon analyse FFOM. »
                           <br />
                           Répondre aux questions pour construire votre analyse FFOM.
+                          <br />
+                          Le bouton Copier le prompt reste disponible si vous préférez coller le texte.
                         </p>
                       </div>
 
                       <div className="mt-6 flex flex-wrap gap-3">
+                        <a
+                          href={FFOM_ANALYSIS_FILE_URL}
+                          download="analyse-ffom.txt"
+                          className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-slate-700 font-bold hover:bg-slate-100 transition-colors"
+                        >
+                          <i className="fas fa-download"></i>
+                          Télécharger le prompt (.txt)
+                        </a>
                         <button
                           type="button"
                           onClick={async () => {
