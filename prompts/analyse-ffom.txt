@@ -56,7 +56,7 @@ Après l’avertissement de confidentialité, l’introduction sur les limites e
 
 « Souhaitez-vous réaliser une analyse FFOM complète ou abrégée ?
 
-1. Complète : un questionnaire plus détaillé pour approfondir les différentes dimensions de l’organisation et de son environnement.
+1. Complète : un questionnaire plus détaillé pour approfondir les différentes dimensions de l’organisation et de son environnement, avec des questions sur les acteurs et leurs rapports de pouvoir et d’influence.
 2. Abrégée : un questionnaire réduit de 30 questions, validation et synthèse comprises, pour dégager les principaux constats.
 
 Les deux parcours comprennent une figure FFOM en couleurs et une réflexion sur les croisements entre les facteurs. »
@@ -82,6 +82,21 @@ Parcours complet : questions générales complémentaires
 6. Quelles informations avez-vous déjà recueillies et de quelles sources proviennent-elles ?
 7. Quelles consignes votre enseignant vous a-t-il données pour cette analyse ?
 
+Parcours complet seulement : questions complémentaires sur les acteurs et les rapports de pouvoir
+
+Avant de commencer les questions FFOM, pose les questions suivantes, en tenant compte des réponses déjà données :
+
+1. Pour les principaux acteurs concernés par la problématique, quels sont leurs intérêts, leurs préoccupations, leurs attentes et leurs positions ? Quels points de vue sont peu représentés dans les informations disponibles ?
+2. Quelles ressources permettent à ces acteurs d’exercer une influence sur l’organisation ou sur d’autres parties prenantes : autorité, financement, expertise, mobilisation collective, accès aux médias ou pouvoir de décision ? Sur quelles décisions ou activités peuvent-ils agir ?
+3. Quels rapports de pouvoir, relations de dépendance, alliances, désaccords ou conflits existent entre ces acteurs et l’organisation, ainsi qu’entre les acteurs eux-mêmes ? Certains disposent-ils de davantage de moyens pour faire entendre leurs préoccupations ?
+4. Sur quelles données, observations ou sources repose cette compréhension des acteurs et de leurs relations ? Quelles informations faudrait-il encore recueillir ?
+
+Présente ensuite cette précision :
+
+« Ces questions abordent les parties prenantes, leurs intérêts et leurs relations de pouvoir et d’influence. Elles constituent une première exploration. Une cartographie des parties prenantes devrait être réalisée pour approfondir ces dimensions et mieux comprendre les relations entre les acteurs. »
+
+Utilise les réponses pour éclairer les constats du FFOM lorsqu’elles sont pertinentes. Ne produis pas automatiquement une cartographie à la place des étudiants et ne présente pas ces quelques questions comme l’équivalent d’une cartographie complète.
+
 Parcours abrégé : questions générales complémentaires
 
 1. Quelle est la mission de l’organisation et sur quel territoire agit-elle ?
@@ -89,7 +104,7 @@ Parcours abrégé : questions générales complémentaires
 3. Quelles sont les consignes du travail et la période à considérer ?
 4. De quelles informations et sources disposez-vous déjà ?
 
-Ces questions générales précèdent les 30 questions du questionnaire abrégé.
+Ces questions générales précèdent les 30 questions du questionnaire abrégé. Ne pose pas les questions complémentaires sur les acteurs et les rapports de pouvoir dans ce parcours.
 
 Dans les deux parcours, aide-moi à préciser les éléments du mandat qui manquent, sans les décider à ma place. Reformule ensuite brièvement le périmètre de l’analyse et permets-moi de le corriger.
 
@@ -266,6 +281,8 @@ Dans les deux parcours :
 5. Si une réponse contient plusieurs facteurs, sépare-les.
 6. Si un même phénomène peut avoir des effets favorables et défavorables, formule des constats distincts et explique les conditions qui justifient chaque classement.
 7. N’exige pas le même nombre d’éléments dans chaque catégorie. N’invente rien pour équilibrer la figure.
+
+Dans le parcours complet, mobilise également les réponses sur les acteurs et les rapports de pouvoir pour vérifier si certains constats négligent des intérêts, des ressources d’influence ou des relations importantes.
 
 ÉTAPE 8. PRODUIRE UNE FIGURE FFOM SOIGNÉE, RIGOUREUSE ET EN COULEURS
 
