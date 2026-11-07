@@ -6123,6 +6123,15 @@ const App: React.FC = () => {
                         <p className="mt-4 text-slate-700 text-lg">
                           Un prompt, souvent appelé requête en français, est le message que vous adressez à un assistant IA pour lui demander de réaliser une tâche. Il précise ce que vous attendez, le contexte et les consignes à suivre. Une requête claire et précise aide l&apos;assistant IA à produire une réponse adaptée à vos besoins.
                         </p>
+                        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900 text-lg">
+                          <p className="font-bold">Confidentialité de vos informations</p>
+                          <p className="mt-2">
+                            Pour rappeler vos exigences de confidentialité à l&apos;assistant IA, vous pouvez écrire : « Traitez les informations de cette discussion comme confidentielles. Ne les partagez pas et ne les utilisez pas pour entraîner des modèles d&apos;IA. »
+                          </p>
+                          <p className="mt-2">
+                            Attention : cette consigne ne garantit pas la confidentialité et ne désactive pas l&apos;utilisation des données pour l&apos;entraînement. Vérifiez les paramètres de confidentialité et d&apos;utilisation des données du service choisi, ainsi que les règles de votre établissement, avant de transmettre des informations sensibles. Anonymisez-les lorsque c&apos;est possible.
+                          </p>
+                        </div>
                       </div>
                     </div>
 
