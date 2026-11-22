@@ -77,7 +77,7 @@ export default function TutorPreview() {
   const upload = useRef<HTMLInputElement>(null);
   const transcript = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (transcript.current) transcript.current.scrollTop = transcript.current.scrollHeight;
+    if (transcript.current) transcript.current.scrollTop = turns.length || pending ? transcript.current.scrollHeight : 0;
   }, [turns, pending, opening]);
   function reset() {
     setActivity(null); setOpening([]); setTurns([]); setDraft(''); setFile(null); setError(''); setSidebarOpen(false);
@@ -261,6 +261,7 @@ const styles = `
 .st-radio legend{font-size:13px;font-weight:600;color:#314b38;margin-bottom:10px}.st-radio label{display:flex;align-items:center;gap:9px;font-size:12px;padding:5px 0;color:#526a55}.st-radio input{accent-color:#216b62}
 .st-menu,.st-backdrop{display:none}.st-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 @keyframes st-breathe{50%{opacity:.3}}
+@media(max-height:800px){.st-welcome{margin:10px auto 15px}.st-welcome-mark{display:none}.st-cards{margin-top:20px}.st-cards button{padding:12px}.st-cards span{font-size:11px}}
 @media(prefers-reduced-motion:reduce){.st-pulse{animation:none}.st-transcript{scroll-behavior:auto}}
 @media(max-width:1100px){.st-shell{grid-template-columns:170px minmax(0,1fr)}.st-sidebar{padding-left:8px;padding-right:8px}.st-new{font-size:10px!important}.st-nav-item{font-size:11px!important}.st-header{padding:16px}.st-preview{font-size:9px;padding:4px 6px}}
 @media(max-width:800px){.st-shell{display:block;min-height:600px;border-radius:18px;height:calc(100dvh - 110px)}.st-workspace{height:100%}.st-sidebar{display:none}.st-sidebar-open{display:flex;position:absolute;left:0;top:0;bottom:0;width:225px;z-index:3;box-shadow:6px 0 24px #213e3a18}.st-backdrop{display:block;position:absolute;inset:0;border:0;background:#23372f44;z-index:2}.st-menu{display:block;border:0;background:transparent;color:#547564;padding:6px}.st-header h1{font-size:14px}.st-preview{margin-left:auto;font-size:9px}.st-welcome{margin-top:20px}.st-welcome h2{font-size:27px}.st-transcript{padding:18px}.st-footer{padding:8px 14px 12px}.st-message{font-size:14px}.st-avatar{display:none}.st-cards{gap:8px;margin-top:22px}.st-cards button{padding:13px}.st-cards span{font-size:11px}}
