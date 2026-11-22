@@ -521,3 +521,26 @@ export async function saveCourseOrder(
     orderedIds,
   });
 }
+
+export type TutorActivity = 'article' | 'recherche' | 'smart' | 'ffom' | 'libre';
+export type TutorMessage = {
+  role: 'user' | 'assistant';
+  content: string;
+  pdf?: { name: string; data: string };
+};
+export type TutorBlock = {
+  text: string;
+  citations: { start: number; end: number; url: string; title: string }[];
+};
+
+export function askTutor(activity: TutorActivity, messages: TutorMessage[]) {
+  return postJson<{ blocks: TutorBlock[] }>('/api/tutor', { activity, messages });
+}
+
+export type TutorMaterialsStatus = { documents: number; pages: number };
+export function tutorMaterialsStatus() {
+  return getJson<TutorMaterialsStatus>('/api/tutor/materials');
+}
+export function importTutorMaterials(data: string) {
+  return postJson<TutorMaterialsStatus>('/api/tutor/materials', { data });
+}

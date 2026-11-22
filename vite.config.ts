@@ -5,6 +5,7 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   server: {
     port: 3001,
+    fs: { deny: ['.env', '.env.*', 'env.local', '*.{crt,pem}', '**/.git/**', '**/server/private/**', '**/server/tutor-instructions.txt'] },
     host: '127.0.0.1',
     proxy: {
       '/api': {

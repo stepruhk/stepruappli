@@ -1,5 +1,7 @@
 import crypto from "node:crypto";
 import dotenv from "dotenv";
+import { getMaterials, saveMaterials } from "./tutor-materials.js";
+import { answerTutor, validActivity } from "./tutor.js";
 import express from "express";
 import fs from "node:fs/promises";
 import path from "path";
@@ -2898,6 +2900,55 @@ app.put("/api/order", async (req, res) => {
 
     await upsertStoredOrder(entityTypeRaw, courseId, orderedIds);
     res.json({ ok: true });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.get("/api/tutor/materials", async (req, res) => {
+  try {
+    requireProfessor(req);
+    const pack = await getMaterials();
+    res.set("Cache-Control", "no-store").json({
+      documents: pack ? new Set(pack.pages.map(page => page.document)).size : 0,
+      pages: pack?.pages.length || 0,
+    });
+  } catch (error) { sendError(res, error); }
+});
+
+app.post("/api/tutor/materials", async (req, res) => {
+  try {
+    requireProfessor(req);
+    const data = readRequiredTextField(req.body, "data", 16 * 1024 * 1024);
+    res.set("Cache-Control", "no-store").json(await saveMaterials(Buffer.from(data, "base64")));
+  } catch (error) { sendError(res, error); }
+});
+
+app.post("/api/tutor", async (req, res) => {
+  try {
+    requireProfessor(req);
+    const { activity, messages } = req.body || {};
+    if (!validActivity(activity) || !Array.isArray(messages) || messages.length > 401 ||
+        (messages.length > 0 && messages.length % 2 === 0)) {
+      throw new ApiError(400, "INVALID_INPUT", "L’activité ou la conversation est invalide.");
+    }
+    let transcriptSize = 0;
+    const input = messages.map((message, index) => {
+      const role = index % 2 === 0 ? "user" : "assistant";
+      if (message?.role !== role) throw new ApiError(400, "INVALID_INPUT", "Message invalide.");
+      const content = readRequiredTextField(message, "content", role === "user" ? 16000 : 64000);
+      transcriptSize += content.length;
+      if (transcriptSize > 450000) throw new ApiError(400, "INPUT_TOO_LARGE", "La conversation est trop longue.");
+      if (!message.pdf) return { role, content };
+      const { data, name } = message.pdf;
+      if (role !== "user" || typeof name !== "string" || name.length > 240 || typeof data !== "string" ||
+          data.length > 11200000 || !data.startsWith("data:application/pdf;base64,JVBERi0")) {
+        throw new ApiError(400, "INVALID_PDF", "Joignez un document PDF de 8 Mo maximum.");
+      }
+      return { role, content: [{type: "input_text", text: content}, {type: "input_file", filename: name, file_data: data}] };
+    });
+    res.set("Cache-Control", "no-store");
+    res.json(await answerTutor(activity, input, openaiJson));
   } catch (error) {
     sendError(res, error);
   }
