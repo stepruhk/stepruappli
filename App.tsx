@@ -3006,7 +3006,6 @@ const App: React.FC = () => {
                       'radial-gradient(circle at 85% 0%, rgba(59,130,246,0.20) 0%, rgba(2,6,23,0) 34%), radial-gradient(circle at 0% 100%, rgba(56,189,248,0.10) 0%, rgba(2,6,23,0) 48%)',
                   }}
                 >
-                  <p className="text-[11px] tracking-[0.22em] font-extrabold uppercase text-slate-500 mb-3">Menu principal</p>
 
                   <nav className="space-y-1.5 flex-1 min-h-0 overflow-y-auto pr-1">
                     {mainMenuItems.map((item) => {
