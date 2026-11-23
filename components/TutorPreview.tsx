@@ -132,7 +132,7 @@ export default function TutorPreview() {
       });
     }} />
   </label>;
-  return <section className="st-shell" aria-label="stépru, le prof de comm">
+  return <section className={`st-shell ${activity || pending ? 'st-chat' : 'st-home'}`} aria-label="stépru, le prof de comm">
     <style>{styles}</style>
     <div className="st-workspace">
       <header className="st-header">
@@ -257,6 +257,7 @@ const styles = `
 .st-error{max-width:860px;margin:0 auto 10px;font-size:15px;color:#a73838}
 .st-radio legend{font-size:16px;font-weight:600;color:#3f4d68;margin-bottom:10px}.st-radio label{display:flex;align-items:center;gap:9px;font-size:15px;padding:5px 0;color:#5b6475}.st-radio input{accent-color:#40588e}
 .st-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.st-shell.st-home{height:auto;min-height:calc(100dvh - 100px)}.st-home .st-workspace{height:auto;min-height:calc(100dvh - 100px);grid-template-rows:auto auto auto}.st-home .st-transcript{overflow:visible}.st-home .st-description{max-width:680px}
 @keyframes st-breathe{50%{opacity:.3}}
 @media(prefers-reduced-motion:reduce){.st-pulse{animation:none}.st-transcript{scroll-behavior:auto}}
 @media(max-height:800px){.st-shell{min-height:610px}.st-header{min-height:44px;padding-top:8px;padding-bottom:8px}.st-robot{height:46px;width:46px;font-size:39px;margin-bottom:10px}.st-welcome{margin-top:0}.st-welcome h1{font-size:31px}.st-author{margin:8px 0 15px;font-size:14px}.st-description{font-size:18px;line-height:1.55;margin-bottom:19px;max-width:500px}.st-starters{gap:7px}.st-starters button{font-size:15px!important;padding:6px 15px}.st-composer textarea{min-height:48px}.st-footer{padding-top:7px;padding-bottom:10px}}
