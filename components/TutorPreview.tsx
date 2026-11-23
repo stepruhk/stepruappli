@@ -155,7 +155,7 @@ export default function TutorPreview() {
           <span className="st-robot" role="img" aria-label="Robot stépru">🤖</span>
           <h1>stépru, le prof de comm</h1>
           <p className="st-author">Par STÉPHANE PRUD’HOMME</p>
-          <p className="st-description">Bonjour, je suis stépru, ton compagnon d'apprentissage de la comm strat et des RP. Je ne suis pas bon en rédaction (ce n'est pas pour cela que tu es ici 😉), mais j'excelle dans les Q/R, dans la recherche formative, dans l'explication de concepts et de théories. Demande-moi n'importe quoi!</p>
+          <p className="st-description">Bonjour, je suis stépru, ton compagnon d'apprentissage de la comm strat et des RP. Je ne suis pas bon en rédaction (ce n'est pas pour cela que tu es ici 😉), mais j'excelle dans les Q/R, dans la recherche formative, dans l'explication de concepts et de théories. Demande-moi n'importe quoi! Je peux t'accompagner et te guider dans n'importe quelle tâche en communication et relations publiques.</p>
           <div className="st-starters">
             {activities.slice(0, 4).map(a => <button key={a.id} disabled={busy} onClick={() => start(a.id)}>{a.title}</button>)}
           </div>
