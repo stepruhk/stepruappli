@@ -47,7 +47,7 @@ import {
 import TutorPreview from './components/TutorPreview.tsx';
 import FlashcardDeck from './components/FlashcardDeck.tsx';
 
-type MenuSection = 'ACCUEIL' | 'COURS' | 'ANNONCES' | 'MEMO' | 'BALADO' | 'BLOG' | 'ASSISTANT' | 'TUTEUR' | 'OUTILS' | 'RECRUTEMENT' | 'MAITRISE' | 'MEDIAS' | 'CONTACT';
+type MenuSection = 'ACCUEIL' | 'COURS' | 'ANNONCES' | 'MEMO' | 'BALADO' | 'BLOG' | 'ASSISTANT' | 'TUTEUR' | 'RECRUTEMENT' | 'MAITRISE' | 'MEDIAS' | 'CONTACT';
 type PodcastEpisode = {
   title: string;
   link?: string;
@@ -1445,7 +1445,6 @@ const App: React.FC = () => {
     { label: 'Cours', icon: 'fa-graduation-cap', key: 'COURS' as const },
     { label: 'Assistant IA', icon: 'fa-robot', key: 'ASSISTANT' as const },
     ...(canEditResources ? [{ label: 'stépru, le prof de comm', icon: 'fa-comments', key: 'TUTEUR' as const }] : []),
-    { label: 'Outils', icon: 'fa-toolbox', key: 'OUTILS' as const },
     { label: 'Recrutement', icon: 'fa-briefcase', key: 'RECRUTEMENT' as const },
     { label: 'Maîtrise', icon: 'fa-user-graduate', key: 'MAITRISE' as const },
     { label: 'Cartes mémo', icon: 'fa-bolt', key: 'MEMO' as const },
@@ -6372,17 +6371,6 @@ const App: React.FC = () => {
                           </p>
                         )}
                       </div>
-                    </div>
-                  </div>
-                )}
-
-                {menuSection === 'OUTILS' && (
-                  <div className="space-y-8">
-                    <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-                      <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">Outils</h1>
-                      <p className="text-slate-600 text-lg">
-                        Des outils pratiques et interactifs seront ajoutés ici progressivement pour soutenir l’analyse et la planification.
-                      </p>
                     </div>
 
                     <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
