@@ -200,7 +200,7 @@ export default function TutorPreview() {
         </form>
         <div className="st-footnote">
           <span>Vérifiez les informations et les sources avant de les utiliser dans votre travail.</span>
-          {resources && (resources.documents > 0 ? <span>{resources.documents} lectures de cours disponibles</span> : resourceUpload)}
+          {resources && resources.documents === 0 && resourceUpload}
         </div>
       </footer>
     </div>
