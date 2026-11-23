@@ -199,7 +199,7 @@ export default function TutorPreview() {
           </div>
         </form>
         <div className="st-footnote">
-          <span>Vérifiez les informations et les sources avant de les utiliser dans votre travail.</span>
+          <span>Vérifiez les informations et les sources avant de les utiliser dans votre travail. Pour toutes interrogations ou doutes, demandez à votre enseignant.</span>
           {resources && resources.documents === 0 && resourceUpload}
         </div>
       </footer>
