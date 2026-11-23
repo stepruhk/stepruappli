@@ -2924,9 +2924,35 @@ app.post("/api/tutor/materials", async (req, res) => {
   } catch (error) { sendError(res, error); }
 });
 
+const tutorPassword = process.env.TUTOR_PASSWORD || "";
+const tutorPasswordDigest = crypto.createHash("sha256").update(tutorPassword).digest();
+const canUseTutor = (session) => Boolean(
+  session && (session.role === "professor" || (tutorPassword && session.tutorUnlocked))
+);
+
+app.get("/api/tutor/access", (req, res) => {
+  res.json({ unlocked: canUseTutor(getValidSession(getBearerToken(req))) });
+});
+
+app.post("/api/tutor/access", (req, res) => {
+  const session = getValidSession(getBearerToken(req));
+  if (!session) return sendError(res, new ApiError(401, "UNAUTHORIZED", "Reconnectez-vous à EduBoost."));
+  if (canUseTutor(session)) return res.json({ unlocked: true });
+  if (!tutorPassword) return sendError(res, new ApiError(503, "TUTOR_DISABLED", "L’accès à stépru est temporairement indisponible."));
+  const password = req.body?.password;
+  if (typeof password !== "string" || !password || password.length > MAX_PASSWORD_LENGTH ||
+      !crypto.timingSafeEqual(crypto.createHash("sha256").update(password).digest(), tutorPasswordDigest)) {
+    return sendError(res, new ApiError(403, "INVALID_CREDENTIALS", "Mot de passe de stépru incorrect."));
+  }
+  session.tutorUnlocked = true;
+  res.json({ unlocked: true });
+});
+
 app.post("/api/tutor", async (req, res) => {
   try {
-    requireProfessor(req);
+    if (!canUseTutor(getValidSession(getBearerToken(req)))) {
+      throw new ApiError(403, "TUTOR_LOCKED", "Déverrouillez stépru avec son mot de passe.");
+    }
     const { activity, messages } = req.body || {};
     if (!validActivity(activity) || !Array.isArray(messages) || messages.length > 401 ||
         (messages.length > 0 && messages.length % 2 === 0)) {

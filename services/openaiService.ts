@@ -544,3 +544,12 @@ export function tutorMaterialsStatus() {
 export function importTutorMaterials(data: string) {
   return postJson<TutorMaterialsStatus>('/api/tutor/materials', { data });
 }
+
+
+export function getTutorAccess() {
+  return getJson<{ unlocked: boolean }>('/api/tutor/access');
+}
+
+export function unlockTutor(password: string) {
+  return postJson<{ unlocked: boolean }>('/api/tutor/access', { password });
+}

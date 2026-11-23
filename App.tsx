@@ -1430,7 +1430,7 @@ const App: React.FC = () => {
     { label: 'Annonces', icon: 'fa-bullhorn', key: 'ANNONCES' as const },
     { label: 'Cours', icon: 'fa-graduation-cap', key: 'COURS' as const },
     { label: 'Assistant IA', icon: 'fa-robot', key: 'ASSISTANT' as const },
-    ...(canEditResources ? [{ label: 'stépru, le prof de comm', icon: 'fa-comments', key: 'TUTEUR' as const }] : []),
+    { label: 'stépru, le prof de comm', icon: 'fa-comments', key: 'TUTEUR' as const },
     { label: 'Recrutement', icon: 'fa-briefcase', key: 'RECRUTEMENT' as const },
     { label: 'Maîtrise', icon: 'fa-user-graduate', key: 'MAITRISE' as const },
     { label: 'Cartes mémo', icon: 'fa-bolt', key: 'MEMO' as const },
@@ -6075,7 +6075,7 @@ const App: React.FC = () => {
                   </div>
                 )}
 
-                {canEditResources && menuSection === 'TUTEUR' && <TutorPreview />}
+                {menuSection === 'TUTEUR' && <TutorPreview key={effectiveUserRole} professor={canEditResources} />}
 
                 {menuSection === 'ASSISTANT' && (
                   <div className="space-y-8">

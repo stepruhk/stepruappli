@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { askTutor, tutorMaterialsStatus, importTutorMaterials, type TutorMaterialsStatus, type TutorActivity, type TutorBlock, type TutorMessage } from '../services/openaiService.ts';
+import { getTutorAccess, unlockTutor, askTutor, tutorMaterialsStatus, importTutorMaterials, type TutorMaterialsStatus, type TutorActivity, type TutorBlock, type TutorMessage } from '../services/openaiService.ts';
 
 const activities = [
   { id: 'article', title: 'Résumer un article scientifique', short: 'Résumé d’article', description: 'Comprendre un article à partir de son PDF.', icon: 'fa-file-lines' },
@@ -56,7 +56,53 @@ async function attachPdf(file: File) {
   return { name: file.name, data };
 }
 
-export default function TutorPreview() {
+export default function TutorPreview({ professor }: { professor: boolean }) {
+  const [unlocked, setUnlocked] = useState(professor);
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (professor) return;
+    let active = true;
+    getTutorAccess().then(result => {
+      if (active) setUnlocked(result.unlocked);
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [professor]);
+
+  if (unlocked) return <TutorChat professor={professor} />;
+
+  return <section className="rounded-3xl border border-slate-200 bg-white p-8">
+    <h1 className="mb-4 text-2xl font-bold">stépru, le prof de comm</h1>
+    <form className="max-w-md space-y-4" onSubmit={async event => {
+      event.preventDefault();
+      if (busy) return;
+      setBusy(true);
+      setError('');
+      try {
+        const result = await unlockTutor(password);
+        setUnlocked(result.unlocked);
+        setPassword('');
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : 'Connexion indisponible.');
+      } finally {
+        setBusy(false);
+      }
+    }}>
+      <label className="block font-semibold">
+        Mot de passe de stépru
+        <input type="password" required autoComplete="current-password" maxLength={256}
+          value={password} onChange={event => setPassword(event.target.value)}
+          className="mt-2 block w-full rounded-xl border border-slate-300 px-4 py-3" />
+      </label>
+      {error && <p role="alert" className="text-red-700">{error}</p>}
+      <button disabled={busy} className="rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white">Accéder à stépru</button>
+    </form>
+  </section>;
+}
+
+function TutorChat({ professor }: { professor: boolean }) {
   const [activity, setActivity] = useState<TutorActivity | null>(null);
   const [opening, setOpening] = useState<TutorBlock[]>([]);
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -68,11 +114,12 @@ export default function TutorPreview() {
   const [error, setError] = useState('');
   const [resources, setResources] = useState<TutorMaterialsStatus | null>(null);
   useEffect(() => {
+    if (!professor) return;
     let active = true;
     tutorMaterialsStatus().then(status => { if (active) setResources(status); })
       .catch(() => { if (active) setError('Impossible de vérifier le stockage des lectures.'); });
     return () => { active = false; };
-  }, []);
+  }, [professor]);
   const gate = useRef(false);
   const upload = useRef<HTMLInputElement>(null);
   const transcript = useRef<HTMLDivElement>(null);
@@ -136,7 +183,7 @@ export default function TutorPreview() {
     <style>{styles}</style>
     <div className="st-workspace">
       <header className="st-header">
-        <span className="st-preview"><i className="fas fa-lock" aria-hidden="true" />Essai professeur</span>
+        {professor && <span className="st-preview"><i className="fas fa-lock" aria-hidden="true" />Vue professeur</span>}
         {selected && <span className="st-current">{selected.short}</span>}
         <div className="st-header-actions">
           <div className="st-activity-menu">
