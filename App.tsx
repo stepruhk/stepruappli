@@ -6075,7 +6075,7 @@ const App: React.FC = () => {
                   </div>
                 )}
 
-                {menuSection === 'TUTEUR' && <TutorPreview key={effectiveUserRole} professor={canEditResources} />}
+                {menuSection === 'TUTEUR' && <TutorPreview key={effectiveUserRole} professor={canEditResources} onCancel={() => navigateToMenuSection('ACCUEIL')} />}
 
                 {menuSection === 'ASSISTANT' && (
                   <div className="space-y-8">

@@ -56,11 +56,18 @@ async function attachPdf(file: File) {
   return { name: file.name, data };
 }
 
-export default function TutorPreview({ professor }: { professor: boolean }) {
+export default function TutorPreview({ professor, onCancel }: { professor: boolean; onCancel: () => void }) {
   const [unlocked, setUnlocked] = useState(professor);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!unlocked && dialog && !dialog.open) dialog.showModal();
+  }, [unlocked]);
 
   useEffect(() => {
     if (professor) return;
@@ -73,9 +80,15 @@ export default function TutorPreview({ professor }: { professor: boolean }) {
 
   if (unlocked) return <TutorChat professor={professor} />;
 
-  return <section className="rounded-3xl border border-slate-200 bg-white p-8">
-    <h1 className="mb-4 text-2xl font-bold">stépru, le prof de comm</h1>
-    <form className="max-w-md space-y-4" onSubmit={async event => {
+  return <dialog ref={dialogRef} aria-labelledby="tutor-access-title" aria-describedby="tutor-access-description"
+    className="fixed inset-0 m-auto max-h-[calc(100%-2rem)] w-[calc(100%-2rem)] max-w-md rounded-3xl border border-slate-200 bg-white p-8 text-slate-900 shadow-2xl backdrop:bg-slate-950/55"
+    onCancel={event => { event.preventDefault(); onCancel(); }}>
+    <div className="mb-6">
+      <p className="text-sm font-bold uppercase tracking-[0.2em] text-indigo-500">Accès protégé</p>
+      <h2 id="tutor-access-title" className="mt-2 text-3xl font-black">stépru, le prof de comm</h2>
+      <p id="tutor-access-description" className="mt-3 text-slate-600">Entrez le mot de passe fourni par votre enseignant pour accéder à stépru.</p>
+    </div>
+    <form className="space-y-4" onSubmit={async event => {
       event.preventDefault();
       if (busy) return;
       setBusy(true);
@@ -90,16 +103,23 @@ export default function TutorPreview({ professor }: { professor: boolean }) {
         setBusy(false);
       }
     }}>
-      <label className="block font-semibold">
-        Mot de passe de stépru
-        <input type="password" required autoComplete="current-password" maxLength={256}
-          value={password} onChange={event => setPassword(event.target.value)}
-          className="mt-2 block w-full rounded-xl border border-slate-300 px-4 py-3" />
+      <label className="block">
+        <span className="text-sm font-semibold text-slate-700">Mot de passe de stépru</span>
+        <input type="password" required autoFocus autoComplete="current-password" maxLength={256}
+          placeholder="Entrez le mot de passe" value={password} onChange={event => setPassword(event.target.value)}
+          className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
       </label>
-      {error && <p role="alert" className="text-red-700">{error}</p>}
-      <button disabled={busy} className="rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white">Accéder à stépru</button>
+      {error && <p role="alert" className="text-sm font-medium text-rose-600">{error}</p>}
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <button type="submit" disabled={busy} className="flex-1 rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white hover:bg-indigo-700 disabled:opacity-60">
+          {busy ? 'Vérification…' : 'Accéder à stépru'}
+        </button>
+        <button type="button" onClick={onCancel} className="flex-1 rounded-xl border border-slate-300 px-5 py-3 font-bold text-slate-700 hover:bg-slate-100">
+          Annuler
+        </button>
+      </div>
     </form>
-  </section>;
+  </dialog>;
 }
 
 function TutorChat({ professor }: { professor: boolean }) {
