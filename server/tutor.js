@@ -98,7 +98,7 @@ export async function answerTutor(activity, messages, callApi) {
   const input = [{role: 'user', content: 'Commencer cette activité.'}, {role: 'assistant', content: first}, ...messages];
   for (let round = 0; round <= 2; round++) {
     const response = await callApi('/responses', {
-      model: process.env.TUTOR_MODEL || 'gpt-5.4-mini', store: false, instructions, input,
+      model: process.env.TUTOR_MODEL || 'gpt-6-sol', store: false, instructions, input,
       tools: round === 2 ? webTools : tools, max_output_tokens: 9000,
     });
     if (response.status !== 'completed') throw new Error('Réponse du tuteur incomplète.');
