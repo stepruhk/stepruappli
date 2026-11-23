@@ -157,10 +157,7 @@ export default function TutorPreview() {
           <p className="st-author">Par STÉPHANE PRUD’HOMME</p>
           <p className="st-description">Bonjour, je suis stépru, ton compagnon d'apprentissage de la comm strat et des RP. Je ne suis pas bon en rédaction (ce n'est pas pour cela que tu es ici 😉), mais j'excelle dans les Q/R, dans la recherche formative, dans l'explication de concepts et de théories. Demande-moi n'importe quoi!</p>
           <div className="st-starters">
-            <button disabled={busy} onClick={() => start('smart')}>Objectifs SMART, comment peux-tu m'aider?</button>
-            <button disabled={busy} onClick={() => send('Aide-moi à faire une analyse FFOM ou PESTEL.')}>Aide-moi à faire une analyse FFOM ou PESTEL?</button>
-            <button disabled={busy} onClick={() => send("Explique-moi ce qu'est la crédibilité et pourquoi c'est important en communication.")}>Explique-moi ce qu'est la crédibilité et pourquoi c'est important en communication</button>
-            <button disabled={busy} onClick={() => send('Comment faire une cartographie des parties prenantes?')}>Comment faire une cartographie des parties prenantes?</button>
+            {activities.slice(0, 4).map(a => <button key={a.id} disabled={busy} onClick={() => start(a.id)}>{a.title}</button>)}
           </div>
         </div>}
         {activity && <div className="st-message st-assistant"><span className="st-avatar" aria-hidden="true">🤖</span>
