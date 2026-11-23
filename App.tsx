@@ -1506,6 +1506,8 @@ const App: React.FC = () => {
     analyticsSummary?.pageViews.find((entry) => entry.section === 'MAITRISE')?.count || 0;
   const monthlyMastersPageViews =
     analyticsSummary?.monthly.pageViews.find((entry) => entry.section === 'MAITRISE')?.count || 0;
+  const tutorPageViews = analyticsSummary?.pageViews.find((entry) => entry.section === 'TUTEUR')?.count ?? 0;
+  const monthlyTutorPageViews = analyticsSummary?.monthly.pageViews.find((entry) => entry.section === 'TUTEUR')?.count ?? 0;
   const filteredAnnouncements = parsedAnnouncements.filter((announcement) => {
     if (effectiveUserRole === 'student' && announcement.expiresAt && new Date(announcement.expiresAt).getTime() < Date.now()) {
       return false;
@@ -6527,7 +6529,7 @@ const App: React.FC = () => {
                                   <div className="space-y-3">
                                     {analyticsSummary.pageViews.length > 0 ? analyticsSummary.pageViews.slice(0, 5).map((entry) => (
                                       <div key={`page-view-${entry.section}`} className="flex items-center justify-between gap-4">
-                                        <span className="text-slate-700">{entry.section}</span>
+                                        <span className="text-slate-700">{entry.section === 'TUTEUR' ? 'stépru, le prof de comm' : entry.section}</span>
                                         <span className="font-black text-slate-900">{entry.count}</span>
                                       </div>
                                     )) : (
@@ -6575,6 +6577,14 @@ const App: React.FC = () => {
                                 </div>
 
                                 <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
+                                  <h4 className="font-black text-slate-900 mb-4">stépru, le prof de comm</h4>
+                                  <div className="flex items-center justify-between gap-4">
+                                    <span className="text-slate-700">Ouvertures de la page</span>
+                                    <span className="font-black text-slate-900">{tutorPageViews}</span>
+                                  </div>
+                                </div>
+
+                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
                                   <h4 className="font-black text-slate-900 mb-4">Clics externes</h4>
                                   <div className="space-y-3">
                                     <div className="flex items-center justify-between gap-4">
@@ -6616,7 +6626,7 @@ const App: React.FC = () => {
                                   <div className="space-y-3">
                                     {analyticsSummary.monthly.pageViews.length > 0 ? analyticsSummary.monthly.pageViews.slice(0, 5).map((entry) => (
                                       <div key={`monthly-page-view-${entry.section}`} className="flex items-center justify-between gap-4">
-                                        <span className="text-slate-700">{entry.section}</span>
+                                        <span className="text-slate-700">{entry.section === 'TUTEUR' ? 'stépru, le prof de comm' : entry.section}</span>
                                         <span className="font-black text-slate-900">{entry.count}</span>
                                       </div>
                                     )) : (
@@ -6660,6 +6670,14 @@ const App: React.FC = () => {
                                   <div className="flex items-center justify-between gap-4">
                                     <span className="text-slate-700">Ouvertures de la page</span>
                                     <span className="font-black text-slate-900">{monthlyMastersPageViews}</span>
+                                  </div>
+                                </div>
+
+                                <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
+                                  <h4 className="font-black text-slate-900 mb-4">stépru, le prof de comm</h4>
+                                  <div className="flex items-center justify-between gap-4">
+                                    <span className="text-slate-700">Ouvertures de la page</span>
+                                    <span className="font-black text-slate-900">{monthlyTutorPageViews}</span>
                                   </div>
                                 </div>
 
