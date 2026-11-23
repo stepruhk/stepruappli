@@ -47,7 +47,7 @@ import {
 import TutorPreview from './components/TutorPreview.tsx';
 import FlashcardDeck from './components/FlashcardDeck.tsx';
 
-type MenuSection = 'ACCUEIL' | 'COURS' | 'ANNONCES' | 'MEMO' | 'BALADO' | 'BLOG' | 'ASSISTANT' | 'TUTEUR' | 'RECRUTEMENT' | 'MAITRISE' | 'MEDIAS' | 'CONTACT';
+type MenuSection = 'ACCUEIL' | 'COURS' | 'ANNONCES' | 'MEMO' | 'BALADO' | 'BLOG' | 'ASSISTANT' | 'TUTEUR' | 'RECRUTEMENT' | 'MAITRISE' | 'CONTACT';
 type PodcastEpisode = {
   title: string;
   link?: string;
@@ -111,7 +111,6 @@ const CONTENT_LAST_SEEN_STORAGE_KEY = 'eduboost_content_last_seen_v1';
 const RECRUITMENT_LAST_SEEN_STORAGE_KEY = 'eduboost_recruitment_last_seen_v1';
 const PODCAST_LAST_SEEN_STORAGE_KEY = 'eduboost_podcast_last_seen_v1';
 const BLOG_LAST_SEEN_STORAGE_KEY = 'eduboost_blog_last_seen_v1';
-const MEDIA_LAST_SEEN_STORAGE_KEY = 'eduboost_media_last_seen_v1';
 const NEW_ITEM_WINDOW_DAYS = 7;
 const MAITRISE_CATEGORY_PREFIX = '[[MAITRISE_CATEGORY:';
 const MAITRISE_DEFAULT_CATEGORY: MaitriseLinkCategory = 'PROGRAMMES_MAITRISES';
@@ -444,9 +443,6 @@ const App: React.FC = () => {
   );
   const [blogLastSeenAt, setBlogLastSeenAt] = useState<string>(
     () => readLocalObject<string>(BLOG_LAST_SEEN_STORAGE_KEY, ''),
-  );
-  const [mediaLastSeenAt, setMediaLastSeenAt] = useState<string>(
-    () => readLocalObject<string>(MEDIA_LAST_SEEN_STORAGE_KEY, ''),
   );
   const [recruitmentOffers, setRecruitmentOffers] = useState<RecruitmentOffer[]>([]);
   const [recruitmentLoading, setRecruitmentLoading] = useState(false);
@@ -878,16 +874,6 @@ const App: React.FC = () => {
     writeLocalObject(BLOG_LAST_SEEN_STORAGE_KEY, latestSeen);
     setBlogLastSeenAt(latestSeen);
   }, [isAuthenticated, effectiveUserRole, menuSection, blogPosts, blogLastSeenAt]);
-
-  useEffect(() => {
-    if (!isAuthenticated || effectiveUserRole !== 'student' || menuSection !== 'MEDIAS') return;
-    const latestMediaNote = [...(evernoteNotesByCourse[MEDIA_COURSE_ID] || [])]
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-    const latestSeen = latestMediaNote?.createdAt || '';
-    if (!latestSeen || latestSeen === mediaLastSeenAt) return;
-    writeLocalObject(MEDIA_LAST_SEEN_STORAGE_KEY, latestSeen);
-    setMediaLastSeenAt(latestSeen);
-  }, [isAuthenticated, effectiveUserRole, menuSection, evernoteNotesByCourse, mediaLastSeenAt]);
 
   useEffect(() => {
     if (!authChecked || !isAuthenticated) return;
@@ -1450,7 +1436,6 @@ const App: React.FC = () => {
     { label: 'Cartes mémo', icon: 'fa-bolt', key: 'MEMO' as const },
     { label: 'Balado', icon: 'fa-podcast', key: 'BALADO' as const },
     { label: 'Blog', icon: 'fa-newspaper', key: 'BLOG' as const },
-    { label: 'Dans les médias', icon: 'fa-newspaper', key: 'MEDIAS' as const },
     { label: 'Contact', icon: 'fa-envelope', key: 'CONTACT' as const },
   ];
   const unreadContactRequestsCount = isProfessor
@@ -1492,13 +1477,6 @@ const App: React.FC = () => {
         return new Date(post.pubDate).getTime() > new Date(blogLastSeenAt).getTime();
       }).length
     : 0;
-  const unseenMediaCount = effectiveUserRole === 'student'
-    ? [...(evernoteNotesByCourse[MEDIA_COURSE_ID] || [])].filter((note) => {
-        if (!note.createdAt) return false;
-        if (!mediaLastSeenAt) return true;
-        return new Date(note.createdAt).getTime() > new Date(mediaLastSeenAt).getTime();
-      }).length
-    : 0;
   const getMenuBadgeCount = (key: typeof mainMenuItems[number]['key']) => {
     if (key === 'ANNONCES') return unseenAnnouncementCount;
     if (key === 'MAITRISE') return unseenGeneralContentCount;
@@ -1512,7 +1490,6 @@ const App: React.FC = () => {
     }
     if (key === 'BALADO') return unseenPodcastCount;
     if (key === 'BLOG') return unseenBlogCount;
-    if (key === 'MEDIAS') return unseenMediaCount;
     if (key === 'CONTACT') return unreadContactRequestsCount;
     return 0;
   };
@@ -2874,13 +2851,6 @@ const App: React.FC = () => {
       setView(AppView.DASHBOARD);
       setSelectedTopic(null);
       setResourceCourseId(GENERAL_COURSE_ID);
-      setMenuSection(section);
-      return;
-    }
-    if (section === 'MEDIAS') {
-      setView(AppView.DASHBOARD);
-      setSelectedTopic(null);
-      setResourceCourseId(MEDIA_COURSE_ID);
       setMenuSection(section);
       return;
     }
@@ -6394,180 +6364,6 @@ const App: React.FC = () => {
                             <span className="text-lg font-semibold text-slate-900">Modèle de plan de rayonnement</span>
                           </div>
                         </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {menuSection === 'MEDIAS' && (
-                  <div className="space-y-8">
-                    <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-                      <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">Dans les médias</h1>
-                      <p className="text-slate-600 text-lg">
-                        Nouvelles médiatiques, courts résumés et liens web utiles partagés avec les étudiant(e)s.
-                      </p>
-                    </div>
-
-                    {canEditResources && (
-                      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-                        <h2 className="text-2xl font-black text-slate-900 mb-2">Publier une nouvelle médiatique</h2>
-                        <p className="text-slate-600 mb-6">
-                          Ajoute un titre, un court résumé et le lien web vers la nouvelle.
-                        </p>
-
-                        <form onSubmit={addEvernoteNote} className="space-y-4">
-                          <input
-                            type="text"
-                            value={noteTitle}
-                            onChange={(event) => setNoteTitle(event.target.value)}
-                            placeholder="Titre de la nouvelle"
-                            className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            required
-                          />
-                          <textarea
-                            value={noteContent}
-                            onChange={(event) => setNoteContent(event.target.value)}
-                            placeholder="Court résumé"
-                            className="w-full min-h-32 rounded-2xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            required
-                          />
-                          <input
-                            type="url"
-                            value={noteLink}
-                            onChange={(event) => setNoteLink(event.target.value)}
-                            placeholder="https://..."
-                            className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            required
-                          />
-                          <button
-                            type="submit"
-                            className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-5 py-3 text-white font-bold hover:bg-indigo-700 transition-colors"
-                          >
-                            <i className="fas fa-plus"></i>
-                            Publier la nouvelle
-                          </button>
-                        </form>
-                      </div>
-                    )}
-
-                    <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-                      <h2 className="text-2xl font-black text-slate-900 mb-6">Nouvelles médiatiques ({filteredEvernoteNotes.length})</h2>
-
-                      <div className="space-y-4">
-                        {filteredEvernoteNotes.length === 0 && (
-                          <div className="rounded-2xl border border-slate-200 p-5 text-slate-500">
-                            Aucune nouvelle médiatique pour le moment.
-                          </div>
-                        )}
-
-                        {filteredEvernoteNotes.map((note, index) => (
-                          <article key={note.id} className="rounded-2xl border border-slate-200 p-5">
-                            {canEditResources && editingNoteId === note.id ? (
-                              <form
-                                onSubmit={(event) => {
-                                  event.preventDefault();
-                                  void saveEditNote(note);
-                                }}
-                                className="space-y-3"
-                              >
-                                <input
-                                  type="text"
-                                  value={editNoteTitle}
-                                  onChange={(event) => setEditNoteTitle(event.target.value)}
-                                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                  required
-                                />
-                                <textarea
-                                  value={editNoteContent}
-                                  onChange={(event) => setEditNoteContent(event.target.value)}
-                                  className="w-full min-h-28 rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                  placeholder="Court résumé"
-                                  required
-                                />
-                                <input
-                                  type="url"
-                                  value={editNoteLink}
-                                  onChange={(event) => setEditNoteLink(event.target.value)}
-                                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                  placeholder="https://..."
-                                  required
-                                />
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    type="submit"
-                                    className="rounded-xl bg-indigo-600 px-4 py-2 text-white text-sm font-bold hover:bg-indigo-700"
-                                  >
-                                    Enregistrer
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={cancelEditNote}
-                                    className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100"
-                                  >
-                                    Annuler
-                                  </button>
-                                </div>
-                              </form>
-                            ) : (
-                              <div className="flex items-start justify-between gap-4">
-                                <div className="space-y-3">
-                                  <h3 className="text-xl font-black text-slate-900">{note.title}</h3>
-                                  {note.content ? (
-                                    <p className="text-slate-600 leading-relaxed whitespace-pre-line max-w-4xl">
-                                      {note.content}
-                                    </p>
-                                  ) : null}
-                                  {note.link ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => openNoteLink(note)}
-                                      className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
-                                    >
-                                      <i className="fas fa-up-right-from-square"></i>
-                                      Lire la nouvelle
-                                    </button>
-                                  ) : null}
-                                </div>
-                                {canEditResources ? (
-                                  <div className="flex items-center gap-3">
-                                    <button
-                                      type="button"
-                                      onClick={() => { void moveNoteItem(note.courseId, note.id, 'up'); }}
-                                      disabled={index === 0}
-                                      className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
-                                      title="Monter"
-                                    >
-                                      <i className="fas fa-arrow-up"></i>
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => { void moveNoteItem(note.courseId, note.id, 'down'); }}
-                                      disabled={index === filteredEvernoteNotes.length - 1}
-                                      className="text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
-                                      title="Descendre"
-                                    >
-                                      <i className="fas fa-arrow-down"></i>
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => startEditNote(note)}
-                                      className="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
-                                    >
-                                      Modifier
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => deleteEvernoteNote(note.id)}
-                                      className="text-sm font-semibold text-rose-600 hover:text-rose-700"
-                                    >
-                                      Supprimer
-                                    </button>
-                                  </div>
-                                ) : null}
-                              </div>
-                            )}
-                          </article>
-                        ))}
                       </div>
                     </div>
                   </div>
