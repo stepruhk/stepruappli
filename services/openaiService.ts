@@ -267,6 +267,8 @@ export async function createCourseFlashcard(payload: {
   difficulty?: number;
   justification?: string;
   commonMistakes?: { answer: string; explanation: string }[];
+  questionType?: 'qcm';
+  generalFeedback?: string;
 }): Promise<Flashcard> {
   const response = await postJson<{ flashcard?: Flashcard }>("/api/flashcards", payload);
   if (!response.flashcard) throw new Error("Impossible de créer la carte.");
@@ -281,6 +283,8 @@ export async function updateCourseFlashcard(
     difficulty?: number;
     justification?: string;
     commonMistakes?: { answer: string; explanation: string }[];
+    questionType?: 'qcm';
+    generalFeedback?: string;
   },
 ): Promise<Flashcard> {
   const response = await putJson<{ flashcard?: Flashcard }>(`/api/flashcards/${encodeURIComponent(id)}`, payload);
@@ -552,4 +556,10 @@ export function getTutorAccess() {
 
 export function unlockTutor(password: string) {
   return postJson<{ unlocked: boolean }>('/api/tutor/access', { password });
+}
+
+export async function importGiftFlashcards(courseId: string, text: string, importId: string): Promise<Flashcard[]> {
+  const response = await postJson<{ flashcards: Flashcard[] }>("/api/flashcards/import-gift", { courseId, text, importId });
+  if (!Array.isArray(response.flashcards)) throw new Error("Réponse d’importation invalide.");
+  return response.flashcards;
 }

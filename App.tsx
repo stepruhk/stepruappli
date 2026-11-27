@@ -46,6 +46,7 @@ import {
 } from './services/openaiService.ts';
 import TutorPreview from './components/TutorPreview.tsx';
 import FlashcardDeck from './components/FlashcardDeck.tsx';
+import GiftImporter from './components/GiftImporter.tsx';
 
 type MenuSection = 'ACCUEIL' | 'COURS' | 'ANNONCES' | 'MEMO' | 'BALADO' | 'BLOG' | 'ASSISTANT' | 'TUTEUR' | 'RECRUTEMENT' | 'MAITRISE' | 'CONTACT';
 type PodcastEpisode = {
@@ -2231,6 +2232,9 @@ const App: React.FC = () => {
           answer: item.answer,
           justification: item.justification || undefined,
           commonMistakes: item.commonMistakes || [],
+          difficulty: item.difficulty,
+          questionType: item.questionType,
+          generalFeedback: item.generalFeedback,
         });
         setFlashcardsByCourse((prev) => ({
           ...prev,
@@ -2503,6 +2507,8 @@ const App: React.FC = () => {
         difficulty,
         justification: justification || undefined,
         commonMistakes,
+        questionType: card.questionType,
+        generalFeedback: card.generalFeedback,
       });
       setFlashcardsByCourse((prev) => ({
         ...prev,
@@ -5668,6 +5674,26 @@ const App: React.FC = () => {
                     </div>
 
                     {canEditResources && (
+                      <GiftImporter
+                        key={resourceCourseId}
+                        courseId={resourceCourseId}
+                        courseTitle={resourceCourse?.title || 'Cours'}
+                        onError={handleAuthError}
+                        onImported={(cards) => {
+                          const importedIds = new Set(cards.map((card) => card.id));
+                          setFlashcardsByCourse((prev) => ({
+                            ...prev,
+                            [resourceCourseId]: [...cards, ...(prev[resourceCourseId] || []).filter((card) => !importedIds.has(card.id))],
+                          }));
+                          setSessionData((prev) => prev[resourceCourseId] ? ({
+                            ...prev,
+                            [resourceCourseId]: { ...prev[resourceCourseId], flashcards: [...cards, ...prev[resourceCourseId].flashcards.filter((card) => !importedIds.has(card.id))] },
+                          }) : prev);
+                        }}
+                      />
+                    )}
+
+                    {canEditResources && (
                       <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
                         <h2 className="text-2xl font-black text-slate-900 mb-2">Ajouter une carte mémo</h2>
                         <p className="text-slate-600 mb-6">
@@ -5843,6 +5869,7 @@ const App: React.FC = () => {
                               ></div>
                             </div>
                           </div>
+                          {card.questionType === 'qcm' && <p className="mb-3 text-sm font-bold text-indigo-700">QCM à une seule bonne réponse</p>}
                           {editingFlashcardId === card.id ? (
                             <div className="space-y-4">
                               <label className="block">

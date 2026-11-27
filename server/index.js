@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { registerGiftImport, readQuizMetadata } from "./gift-import.js";
 import dotenv from "dotenv";
 import { getMaterials, saveMaterials } from "./tutor-materials.js";
 import { answerTutor, validActivity } from "./tutor.js";
@@ -328,16 +329,19 @@ function toFlashcardPayload(rawNote) {
     difficulty: normalizeFlashcardDifficulty(parsedContent.difficulty),
     justification: typeof parsedContent.justification === "string" ? parsedContent.justification : "",
     commonMistakes: normalizeFlashcardCommonMistakes(parsedContent.commonMistakes),
+    ...(parsedContent.questionType === "qcm" ? { questionType: "qcm" } : {}),
+    generalFeedback: typeof parsedContent.generalFeedback === "string" ? parsedContent.generalFeedback : "",
     createdAt: rawNote.createdAt,
   };
 }
 
-function serializeFlashcardContent(answer, difficulty, justification, commonMistakes = []) {
+function serializeFlashcardContent(answer, difficulty, justification, commonMistakes = [], quiz = {}) {
   return JSON.stringify({
     answer: String(answer || "").trim(),
     difficulty: normalizeFlashcardDifficulty(difficulty),
     justification: String(justification || "").trim(),
     commonMistakes: normalizeFlashcardCommonMistakes(commonMistakes),
+    ...quiz,
   });
 }
 
@@ -2512,6 +2516,11 @@ app.get("/api/flashcards", async (req, res) => {
   }
 });
 
+registerGiftImport(app, {
+  requireProfessor, readRequiredTextField, ApiError, sendError, getFlashcardStorageCourseId,
+  hasSupabaseStorage, supabaseRequest, ensureStoreLoaded, saveStore, readStoredOrder, upsertStoredOrder, toFlashcardPayload,
+});
+
 app.post("/api/flashcards", async (req, res) => {
   try {
     requireProfessor(req);
@@ -2521,6 +2530,7 @@ app.post("/api/flashcards", async (req, res) => {
     const difficulty = readFlashcardDifficulty(req.body);
     const justification = readOptionalTextField(req.body, "justification", MAX_CONTENT_LENGTH);
     const commonMistakes = readOptionalFlashcardCommonMistakes(req.body);
+    const quiz = readQuizMetadata({ ...req.body, answer, commonMistakes }, ApiError);
     const storageCourseId = getFlashcardStorageCourseId(courseId);
     const createdAt = new Date().toISOString();
     const id = crypto.randomUUID();
@@ -2533,7 +2543,7 @@ app.post("/api/flashcards", async (req, res) => {
           id,
           course_id: storageCourseId,
           title: question,
-          content: serializeFlashcardContent(answer, difficulty, justification, commonMistakes),
+          content: serializeFlashcardContent(answer, difficulty, justification, commonMistakes, quiz),
           link: null,
           created_at: createdAt,
         }),
@@ -2560,7 +2570,7 @@ app.post("/api/flashcards", async (req, res) => {
       id,
       courseId: storageCourseId,
       title: question,
-      content: serializeFlashcardContent(answer, difficulty, justification, commonMistakes),
+      content: serializeFlashcardContent(answer, difficulty, justification, commonMistakes, quiz),
       createdAt,
     };
     store.notes.unshift(storedFlashcard);
@@ -2584,6 +2594,7 @@ app.put("/api/flashcards/:id", async (req, res) => {
     const difficulty = readFlashcardDifficulty(req.body);
     const justification = readOptionalTextField(req.body, "justification", MAX_CONTENT_LENGTH);
     const commonMistakes = readOptionalFlashcardCommonMistakes(req.body);
+    const quiz = readQuizMetadata({ ...req.body, answer, commonMistakes }, ApiError);
 
     if (hasSupabaseStorage) {
       const rows = await supabaseRequest(`notes?id=eq.${encodeURIComponent(id)}`, {
@@ -2591,7 +2602,7 @@ app.put("/api/flashcards/:id", async (req, res) => {
         headers: { Prefer: "return=representation" },
         body: JSON.stringify({
           title: question,
-          content: serializeFlashcardContent(answer, difficulty, justification, commonMistakes),
+          content: serializeFlashcardContent(answer, difficulty, justification, commonMistakes, quiz),
         }),
       });
       const updated = Array.isArray(rows) ? rows[0] : null;
@@ -2616,7 +2627,7 @@ app.put("/api/flashcards/:id", async (req, res) => {
       throw new ApiError(404, "NOT_FOUND", "Flashcard not found.");
     }
     note.title = question;
-    note.content = serializeFlashcardContent(answer, difficulty, justification, commonMistakes);
+    note.content = serializeFlashcardContent(answer, difficulty, justification, commonMistakes, quiz);
     await saveStore();
     res.json({ flashcard: toFlashcardPayload(note) });
   } catch (error) {

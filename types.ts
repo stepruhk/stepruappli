@@ -12,6 +12,8 @@ export interface Flashcard {
   difficulty?: number;
   justification?: string;
   commonMistakes?: FlashcardCommonMistake[];
+  questionType?: 'qcm';
+  generalFeedback?: string;
   createdAt?: string;
 }
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Flashcard } from '../types.ts';
+import QcmQuestion from './QcmQuestion.tsx';
 
 interface FlashcardDeckProps {
   cards: Flashcard[];
@@ -10,12 +11,11 @@ interface FlashcardDeckProps {
 const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ cards, onClose, preventCopy = false }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
+  const [reviewStep, setReviewStep] = useState(0);
   const modalRef = useRef<HTMLDivElement | null>(null);
 
-  if (cards.length === 0) return <div>Pas de cartes disponibles.</div>;
-
   const currentCard = cards[currentIndex];
-  const difficultyLevel = Math.max(1, Math.min(5, Math.round(Number(currentCard.difficulty ?? 3))));
+  const difficultyLevel = Math.max(1, Math.min(5, Math.round(Number(currentCard?.difficulty ?? 3))));
   const difficultyPercentage = ((difficultyLevel - 1) / 4) * 100;
   const protectedInteractionProps = preventCopy
     ? {
@@ -59,8 +59,11 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ cards, onClose, preventCo
     };
   }, [preventCopy]);
 
+  if (cards.length === 0) return <div>Pas de cartes disponibles.</div>;
+
   const handleNext = () => {
     setIsFlipped(false);
+    setReviewStep((step) => step + 1);
     setTimeout(() => {
       setCurrentIndex((prev) => (prev + 1) % cards.length);
     }, 150);
@@ -68,6 +71,7 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ cards, onClose, preventCo
 
   const handlePrev = () => {
     setIsFlipped(false);
+    setReviewStep((step) => step + 1);
     setTimeout(() => {
       setCurrentIndex((prev) => (prev - 1 + cards.length) % cards.length);
     }, 150);
@@ -160,13 +164,15 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ cards, onClose, preventCo
       >
         <div className="flex justify-between items-center mb-6 text-white">
           <h2 className="text-xl font-bold">Révision par Flashcards</h2>
-          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+          <button aria-label="Fermer la révision" onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
             <i className="fas fa-times text-xl"></i>
           </button>
         </div>
 
         <div className="relative h-[min(70vh,34rem)] w-full overflow-hidden rounded-2xl bg-white shadow-2xl">
-          {isFlipped ? renderAnswerFace() : renderQuestionFace()}
+          {currentCard.questionType === 'qcm'
+            ? <QcmQuestion key={`${currentCard.id}-${currentIndex}-${reviewStep}`} card={currentCard} />
+            : isFlipped ? renderAnswerFace() : renderQuestionFace()}
         </div>
 
         <div className="flex justify-between items-center mt-8 px-4">
