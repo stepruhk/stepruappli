@@ -1469,15 +1469,16 @@ async function readAppAnalyticsSummary() {
 
   if (hasSupabaseStorage) {
     try {
-      const rows = await supabaseRequest(
-        `notes?course_id=eq.${encodeURIComponent(APP_ANALYTICS_COURSE_ID)}&select=title,content,created_at&order=created_at.desc`,
-        { method: "GET" },
-      );
-      rawEvents = (Array.isArray(rows) ? rows : []).map((row) => ({
-        title: row.title,
-        content: row.content,
-        created_at: row.created_at,
-      }));
+      const endpoint = `notes?course_id=eq.${encodeURIComponent(APP_ANALYTICS_COURSE_ID)}&select=title,content,created_at&order=created_at.desc,id.desc`;
+      const batchSize = 500;
+      const rows = [];
+      while (true) {
+        const batch = await supabaseRequest(`${endpoint}&limit=${batchSize}&offset=${rows.length}`, { method: "GET" });
+        if (!Array.isArray(batch) || !batch.length) break;
+        rows.push(...batch);
+        if (batch.length < batchSize) break;
+      }
+      rawEvents = rows;
     } catch (error) {
       console.warn("Could not read app analytics from Supabase, fallback to local storage.", error);
     }
@@ -1512,6 +1513,7 @@ async function readAppAnalyticsSummary() {
     zoom: 0,
   };
   let podcastOpens = 0;
+  let flashcardReviewOpens = 0;
   const monthlyPageViews = new Map();
   const monthlyCourseViews = new Map();
   const monthlyExternalClicks = {
@@ -1520,6 +1522,7 @@ async function readAppAnalyticsSummary() {
     zoom: 0,
   };
   let monthlyPodcastOpens = 0;
+  let monthlyFlashcardReviewOpens = 0;
 
   for (const event of events) {
     const payload = event.payload && typeof event.payload === "object" ? event.payload : {};
@@ -1552,6 +1555,13 @@ async function readAppAnalyticsSummary() {
       }
     }
 
+    if (event.type === "flashcard_review_open") {
+      flashcardReviewOpens += 1;
+      if (isMonthly) {
+        monthlyFlashcardReviewOpens += 1;
+      }
+    }
+
     if (event.type === "external_click") {
       const target = typeof payload.target === "string" ? payload.target.trim().toLowerCase() : "";
       if (target === "blog" || target === "contact" || target === "zoom") {
@@ -1567,11 +1577,13 @@ async function readAppAnalyticsSummary() {
     pageViews: createSortedSummaryEntries(pageViews, "section"),
     courseViews: createSortedSummaryEntries(courseViews, "courseId"),
     podcastOpens,
+    flashcardReviewOpens,
     externalClicks,
     monthly: {
       pageViews: createSortedSummaryEntries(monthlyPageViews, "section"),
       courseViews: createSortedSummaryEntries(monthlyCourseViews, "courseId"),
       podcastOpens: monthlyPodcastOpens,
+      flashcardReviewOpens: monthlyFlashcardReviewOpens,
       externalClicks: monthlyExternalClicks,
     },
   };

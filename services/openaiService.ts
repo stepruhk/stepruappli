@@ -36,6 +36,7 @@ export type AnalyticsSummary = {
   pageViews: { section: string; count: number }[];
   courseViews: { courseId: string; count: number }[];
   podcastOpens: number;
+  flashcardReviewOpens: number;
   externalClicks: {
     blog: number;
     contact: number;
@@ -45,6 +46,7 @@ export type AnalyticsSummary = {
     pageViews: { section: string; count: number }[];
     courseViews: { courseId: string; count: number }[];
     podcastOpens: number;
+    flashcardReviewOpens: number;
     externalClicks: {
       blog: number;
       contact: number;
@@ -423,6 +425,7 @@ export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
     pageViews: Array.isArray(response.pageViews) ? response.pageViews : [],
     courseViews: Array.isArray(response.courseViews) ? response.courseViews : [],
     podcastOpens: Number(response.podcastOpens || 0),
+    flashcardReviewOpens: Number(response.flashcardReviewOpens || 0),
     externalClicks: {
       blog: Number(response.externalClicks?.blog || 0),
       contact: Number(response.externalClicks?.contact || 0),
@@ -432,6 +435,7 @@ export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
       pageViews: Array.isArray(response.monthly?.pageViews) ? response.monthly.pageViews : [],
       courseViews: Array.isArray(response.monthly?.courseViews) ? response.monthly.courseViews : [],
       podcastOpens: Number(response.monthly?.podcastOpens || 0),
+      flashcardReviewOpens: Number(response.monthly?.flashcardReviewOpens || 0),
       externalClicks: {
         blog: Number(response.monthly?.externalClicks?.blog || 0),
         contact: Number(response.monthly?.externalClicks?.contact || 0),

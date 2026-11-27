@@ -325,6 +325,26 @@ const shuffleFlashcards = (cards: Flashcard[]): Flashcard[] => {
   return next;
 };
 
+function FlashcardStatistics({ pageViews, flashcardReviewOpens }: Pick<AnalyticsSummary, 'pageViews' | 'flashcardReviewOpens'>) {
+  const memoPageViews = pageViews.find((entry) => entry.section === 'MEMO')?.count ?? 0;
+
+  return (
+    <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
+      <h4 className="font-black text-slate-900 mb-4">Cartes mémo</h4>
+      <dl className="space-y-3">
+        <div className="flex items-center justify-between gap-4">
+          <dt className="text-slate-700">Visites de la page</dt>
+          <dd className="font-black text-slate-900">{memoPageViews}</dd>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <dt className="text-slate-700">Séances de révision ouvertes</dt>
+          <dd className="font-black text-slate-900">{flashcardReviewOpens}</dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
 const App: React.FC = () => {
   const visibleTopics = INITIAL_TOPICS;
   const [view, setView] = useState<AppView>(AppView.DASHBOARD);
@@ -2818,6 +2838,7 @@ const App: React.FC = () => {
       const nextCards = userRole === 'student' ? shuffleFlashcards(cards) : cards;
       setFlashcardModalCards(nextCards);
       setShowFlashcards(true);
+      trackAppEvent({ type: 'flashcard_review_open', section: 'MEMO', courseId: resourceCourseId });
     };
     if (courseFlashcards.length) {
       recordFlashcardReview(resourceCourseId, courseFlashcards.length);
@@ -6611,6 +6632,8 @@ const App: React.FC = () => {
                                   </div>
                                 </div>
 
+                                <FlashcardStatistics pageViews={analyticsSummary.pageViews} flashcardReviewOpens={analyticsSummary.flashcardReviewOpens} />
+
                                 <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
                                   <h4 className="font-black text-slate-900 mb-4">Clics externes</h4>
                                   <div className="space-y-3">
@@ -6707,6 +6730,8 @@ const App: React.FC = () => {
                                     <span className="font-black text-slate-900">{monthlyTutorPageViews}</span>
                                   </div>
                                 </div>
+
+                                <FlashcardStatistics pageViews={analyticsSummary.monthly.pageViews} flashcardReviewOpens={analyticsSummary.monthly.flashcardReviewOpens} />
 
                                 <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
                                   <h4 className="font-black text-slate-900 mb-4">Clics externes</h4>
